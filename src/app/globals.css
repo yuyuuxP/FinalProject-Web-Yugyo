@@ -8,9 +8,7 @@
   --color-light-silver: #CEE5D6;
 }
 
-/* Pengaturan dasar body menggunakan tema Light Silver sebagai latar */
 body {
   background-color: var(--color-light-silver);
   color: var(--color-prussian);
-  font-family: 'Inter', sans-serif;
 }
