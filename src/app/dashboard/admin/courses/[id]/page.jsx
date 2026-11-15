@@ -85,7 +85,7 @@ export default async function AdminCourseDetailPage({ params, searchParams }) {
     <div className="relative min-h-screen bg-[var(--color-light-silver)] flex overflow-hidden select-none">
       
       {/* BACKGROUND: DAFTAR KURSUS UTAMA (TRANSPARAN) */}
-      <div className="flex-1 flex opacity-45 pointer-events-none select-none">
+      <div className="flex-1 flex opacity-70 pointer-events-none select-none">
         <aside className="w-64 bg-[var(--color-prussian)] text-white p-6 flex flex-col justify-between hidden md:flex shadow-xl">
           <div>
             <div className="flex items-center gap-3 mb-10 px-2">
