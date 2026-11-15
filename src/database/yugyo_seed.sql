@@ -301,3 +301,54 @@ WHERE category_id IN (SELECT id FROM categories WHERE name ILIKE '%Sosiologi%');
 
 UPDATE courses SET instructor_id = (SELECT id FROM users WHERE full_name = 'KING Tsaqif')
 WHERE category_id IN (SELECT id FROM categories WHERE name ILIKE '%Teknologi%');
+
+
+--Reset semua kursus menjadi Lifetime Access (NULL) terlebih dahulu
+UPDATE courses 
+SET start_date = NULL, end_date = NULL;
+
+--Masukkan rentang waktu pada beberapa kelas
+UPDATE courses
+SET start_date = '2026-11-20', end_date = '2026-12-20'
+WHERE id = (
+  SELECT c.id FROM courses c 
+  JOIN categories cat ON c.category_id = cat.id 
+  WHERE LOWER(cat.name) = 'teknologi' 
+  ORDER BY c.id DESC LIMIT 1 OFFSET 0
+);
+
+UPDATE courses
+SET start_date = '2026-12-01', end_date = '2027-01-15'
+WHERE id = (
+  SELECT c.id FROM courses c 
+  JOIN categories cat ON c.category_id = cat.id 
+  WHERE LOWER(cat.name) = 'teknologi' 
+  ORDER BY c.id DESC LIMIT 1 OFFSET 1
+);
+
+UPDATE courses
+SET start_date = '2026-12-10', end_date = '2027-02-10'
+WHERE id = (
+  SELECT c.id FROM courses c 
+  JOIN categories cat ON c.category_id = cat.id 
+  WHERE LOWER(cat.name) = 'teknologi' 
+  ORDER BY c.id DESC LIMIT 1 OFFSET 2
+);
+
+UPDATE courses
+SET start_date = '2026-11-25', end_date = '2026-12-30'
+WHERE id = (
+  SELECT c.id FROM courses c 
+  JOIN categories cat ON c.category_id = cat.id 
+  WHERE LOWER(cat.name) = 'ekonomi' 
+  ORDER BY c.id DESC LIMIT 1 OFFSET 0
+);
+
+UPDATE courses
+SET start_date = '2027-01-05', end_date = '2027-02-28'
+WHERE id = (
+  SELECT c.id FROM courses c 
+  JOIN categories cat ON c.category_id = cat.id 
+  WHERE LOWER(cat.name) = 'ekonomi' 
+  ORDER BY c.id DESC LIMIT 1 OFFSET 1
+);

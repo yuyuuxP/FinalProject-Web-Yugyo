@@ -45,3 +45,9 @@ CREATE TABLE enrollments (
     enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(student_id, course_id)
 );
+
+
+--6. Tabel Rentang Waktu
+ALTER TABLE courses 
+ADD COLUMN IF NOT EXISTS start_date DATE NULL,
+ADD COLUMN IF NOT EXISTS end_date DATE NULL;

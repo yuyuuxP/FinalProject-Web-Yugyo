@@ -129,10 +129,10 @@ export default async function AdminCoursesPage({ searchParams }) {
                 defaultValue={selectedCategory}
                 className="bg-[var(--color-light-silver)]/70 border border-[var(--color-pastel-blue)] text-[var(--color-prussian)] text-xs font-semibold rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-[var(--color-teal-blue)] transition cursor-pointer shadow-sm w-full md:w-64"
               >
-                <option value="all">📂 Semua Kategori (Tampilkan Semua)</option>
+                <option value="all">📂 Semua Kategori</option>
                 {categoriesList.map((cat, idx) => (
                   <option key={idx} value={cat.name}>
-                    📚 {cat.name}
+                    {cat.name}
                   </option>
                 ))}
               </select>
