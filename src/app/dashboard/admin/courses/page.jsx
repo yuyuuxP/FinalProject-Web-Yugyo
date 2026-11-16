@@ -113,7 +113,7 @@ export default async function AdminCoursesPage({ searchParams }) {
         </button>
       </div>
 
-      {/* 3. SEARCH & TAB FILTER PILLS (DENGAN DROPDOWN KATEGORI PADA TOMBOL SEMUA) */}
+      {/* 3. SEARCH & TAB FILTER PILLS */}
       <div className="space-y-3.5">
         <div className="relative">
           <span className="absolute inset-y-0 left-4 flex items-center text-[#341D17]/45 text-xs">
@@ -257,7 +257,7 @@ export default async function AdminCoursesPage({ searchParams }) {
         </section>
       )}
 
-      {/* 5. SECTION B: SEMUA KURIKULUM KURSUS */}
+      {/* 5. SECTION B: SEMUA KURIKULUM KURSUS (TANPA TOMBOL HAPUS) */}
       {(filterTab !== 'pending') && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -316,10 +316,11 @@ export default async function AdminCoursesPage({ searchParams }) {
                         >
                           Detail
                         </Link>
+                        
                         <Link
                           href={`/dashboard/admin/courses/${course.id}/edit`}
-                          aria-label="Edit"
-                          className="w-8 h-8 rounded-xl bg-[#F9DDBB]/30 hover:bg-[#F9DDBB]/70 flex items-center justify-center text-[#341D17] text-xs transition"
+                          aria-label="Edit Kursus"
+                          className="w-8 h-8 rounded-xl bg-[#F9DDBB]/30 hover:bg-[#F9DDBB]/70 flex items-center justify-center text-[#341D17] text-xs transition cursor-pointer"
                         >
                           ✏️
                         </Link>

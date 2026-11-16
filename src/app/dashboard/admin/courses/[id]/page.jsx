@@ -1,8 +1,7 @@
 import pool from '@/lib/db';
-import AdminCoursesPage from '../page';
 import AdminCourseDetailModal from '@/components/AdminCourseDetailModal';
 
-export default async function AdminCourseDetailPage({ params, searchParams }) {
+export default async function AdminCourseDetailPage({ params }) {
   const resolvedParams = await params;
   const courseId = resolvedParams.id;
 
@@ -35,19 +34,23 @@ export default async function AdminCourseDetailPage({ params, searchParams }) {
   }
 
   return (
-    <div className="relative min-h-screen">
-      
-      {/* 1. LATAR BELAKANG: HALAMAN COURSE MANAGEMENT (TRANSPARAN) */}
-      <div
-        aria-hidden="true"
-        className="opacity-40 pointer-events-none select-none max-h-screen overflow-hidden"
-      >
-        <AdminCoursesPage searchParams={searchParams} />
+    <div className="relative min-h-screen bg-[#F9DDBB]">
+      {/* Latar belakang halaman Course Management dengan efek blur agar fokus pada modal detail */}
+      <div className="p-4 sm:p-8 max-w-6xl w-full mx-auto opacity-35 pointer-events-none select-none">
+        <h1 className="font-editorial text-2xl font-bold text-[#341D17]">Course Management</h1>
+        <p className="text-xs text-[#341D17]/75">Memuat detail kurikulum atelier...</p>
       </div>
 
-      {/* 2. FOREGROUND: MODAL CARD DETAIL COURSE */}
-      <AdminCourseDetailModal course={course || { id: courseId, title: 'Teknik Sheeting Mentega Tourage 84%', description: 'Kurikulum masterclass atelier' }} />
-
+      {/* Modal Detail Course di Foreground */}
+      <AdminCourseDetailModal
+        course={
+          course || {
+            id: courseId,
+            title: 'Detail Kurikulum Atelier',
+            description: 'Kurikulum masterclass pastry profesional.',
+          }
+        }
+      />
     </div>
   );
 }
