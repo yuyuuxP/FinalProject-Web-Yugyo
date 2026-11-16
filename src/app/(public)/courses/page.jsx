@@ -106,7 +106,7 @@ export default async function GuestHomepageCatalog({ searchParams }) {
 
           <div className="flex items-center gap-2.5">
             <Link
-              href="/login"
+              href="/login?from=courses"
               aria-label="Notifikasi"
               className="w-9 h-9 rounded-full bg-[#FFFDF9] hover:bg-[#82882B] hover:text-white border border-[#341D17]/15 flex items-center justify-center text-[#341D17] transition"
             >
@@ -115,7 +115,7 @@ export default async function GuestHomepageCatalog({ searchParams }) {
               </svg>
             </Link>
             <Link
-              href="/login"
+              href="/login?from=courses"
               aria-label="Masuk Akun"
               className="w-9 h-9 rounded-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] flex items-center justify-center shadow-sm transition"
             >
@@ -368,13 +368,13 @@ export default async function GuestHomepageCatalog({ searchParams }) {
                       {/* Tombol Aksi Guest */}
                       <div className="flex items-center gap-2.5">
                         <Link
-                          href="/login"
+                          href="/login?from=courses"
                           className="flex-1 bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs py-3 px-4 rounded-xl text-center shadow-sm transition"
                         >
                           Daftar Kursus
                         </Link>
                         <Link
-                          href="/login"
+                          href="/login?from=courses"
                           aria-label="Simpan Kursus"
                           title="Masuk untuk menyimpan kursus"
                           className="w-11 h-11 rounded-xl bg-[#F9DDBB]/55 hover:bg-[#82882B] hover:text-white border border-[#341D17]/15 flex items-center justify-center text-[#341D17] transition shrink-0"
@@ -429,7 +429,7 @@ export default async function GuestHomepageCatalog({ searchParams }) {
           </p>
 
           <Link
-            href="/login"
+            href="/login?from=courses"
             className="w-full bg-[#F9DDBB]/55 hover:bg-[#341D17] hover:text-[#F9DDBB] border border-[#341D17]/15 text-[#341D17] font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 transition"
           >
             <span>📖</span>

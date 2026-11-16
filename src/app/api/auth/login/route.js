@@ -1,80 +1,91 @@
 // =====================================================================
-// YUGYO - API Login Route (PostgreSQL & Role Check)
+// YUGYO - Authentication API Route (PostgreSQL Role-Based Redirect)
 // File: src/app/api/auth/login/route.js
 // =====================================================================
 
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcrypt';
-import pool from '@/lib/db'; // Sesuaikan jalur import file koneksi database kamu di folder lib
+import pool from '@/lib/db';
 
 export async function POST(request) {
   try {
-    const { emailOrUsername, password } = await request.json();
+    const body = await request.json();
+    const identifier = body.identifier?.trim();
+    const password = body.password;
 
-    // Validasi input kosong
-    if (!emailOrUsername || !password) {
+    if (!identifier || !password) {
       return NextResponse.json(
-        { success: false, message: 'Email/Username dan password wajib diisi!' },
+        { error: 'Email/username dan kata sandi wajib diisi.' },
         { status: 400 }
       );
     }
 
-    // Cari user di database berdasarkan email atau nama pengguna (full_name / email)
-    const query = `
-      SELECT id, full_name, email, password_hash, role, status 
-      FROM users 
-      WHERE email = $1 OR full_name = $1
-      LIMIT 1;
-    `;
-    
-    const result = await pool.query(query, [emailOrUsername]);
+    // Cari user berdasarkan email (case-insensitive) atau full_name di PostgreSQL
+    const result = await pool.query(
+      `SELECT id, full_name, email, password, role
+       FROM users
+       WHERE LOWER(email) = LOWER($1) OR LOWER(full_name) = LOWER($1)
+       LIMIT 1;`,
+      [identifier]
+    );
 
     if (result.rows.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'Akun tidak ditemukan!' },
-        { status: 404 }
+        { error: 'Akun tidak ditemukan dalam database.' },
+        { status: 401 }
       );
     }
 
     const user = result.rows[0];
 
-    // Cek status akun (misal: pengajar pending admin)
-    if (user.status === 'pending') {
+    // Verifikasi kata sandi
+    if (user.password !== password) {
       return NextResponse.json(
-        { success: false, message: 'Akun Anda masih menunggu verifikasi dari Admin.' },
-        { status: 403 }
-      );
-    }
-
-    // Verifikasi password menggunakan bcrypt
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        { success: false, message: 'Password salah!' },
+        { error: 'Kata sandi yang Anda masukkan salah.' },
         { status: 401 }
       );
     }
 
-    // Jika berhasil, kirim role user ke frontend untuk proses redirect dinamis
-    return NextResponse.json(
-      {
-        success: true,
-        message: 'Login berhasil!',
-        user: {
-          id: user.id,
-          name: user.full_name,
-          email: user.email,
-          role: user.role, // 'admin', 'student', atau 'instructor'
-        },
+    const normalizedRole = (user.role || '').toLowerCase();
+    let redirectUrl = '/dashboard/student';
+
+    if (normalizedRole === 'admin') {
+      redirectUrl = '/dashboard/admin';
+    } else if (normalizedRole === 'teacher' || normalizedRole === 'instructor') {
+      redirectUrl = '/dashboard/teacher';
+    }
+
+    const response = NextResponse.json({
+      message: 'Login berhasil',
+      user: {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        role: normalizedRole,
       },
-      { status: 200 }
+      redirectUrl,
+    });
+
+    // Simpan sesi ringan di cookie agar halaman dashboard bisa mengenali user yang login
+    response.cookies.set(
+      'yugyo_user',
+      JSON.stringify({
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        role: normalizedRole,
+      }),
+      {
+        httpOnly: false,
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7, // 7 hari
+      }
     );
 
-  } catch (error) {
-    console.error('Login Error:', error);
+    return response;
+  } catch (err) {
+    console.error('Login API Error:', err);
     return NextResponse.json(
-      { success: false, message: 'Terjadi kesalahan pada server database.' },
+      { error: 'Terjadi kesalahan koneksi ke database.' },
       { status: 500 }
     );
   }
