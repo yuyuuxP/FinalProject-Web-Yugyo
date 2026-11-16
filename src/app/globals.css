@@ -1,23 +1,32 @@
 @import "tailwindcss";
 
 :root {
-  --color-burgundy: #4B1D3F;
-  --color-burgundy-hover: #38142E;
-  --color-nude: #E8D9C1;
-  --color-rose-smoke: #D8A7B1;
-  --color-off-black: #1B1B1B;
+  /* Palet Utama YUGYO Bakery */
+  --color-cream: #F9DDBB;
+  --color-cream-soft: #FCF0E1;
+  --color-cocoa-red: #802924;
+  --color-cocoa-red-hover: #661F1B;
+  --color-dark-choc: #341D17;
+  --color-pistachio: #82882B;
 
-  /* Alias kompatibilitas dashboard */
-  --color-light-silver: #E8D9C1;
-  --color-pastel-blue: #D8A7B1;
-  --color-teal-blue: #6E475B;
-  --color-prussian: #4B1D3F;
-  --color-mughal: #4B1D3F;
+  /* Pemetaan otomatis ke seluruh variabel yang sudah dipakai di semua halaman */
+  --color-nude: #F9DDBB;
+  --color-burgundy: #802924;
+  --color-burgundy-hover: #661F1B;
+  --color-rose-smoke: #D8B498;
+  --color-off-black: #341D17;
+
+  /* Pemetaan untuk Dashboard Admin & Teacher */
+  --color-light-silver: #F9DDBB;
+  --color-pastel-blue: #82882B;
+  --color-teal-blue: #6B4438;
+  --color-prussian: #341D17;
+  --color-mughal: #82882B;
 }
 
 body {
-  background-color: var(--color-nude);
-  color: var(--color-off-black);
+  background-color: var(--color-cream);
+  color: var(--color-dark-choc);
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 

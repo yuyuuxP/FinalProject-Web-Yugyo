@@ -1,7 +1,7 @@
 // =====================================================================
 // YUGYO - Artisanal Baking & Pâtisserie Atelier Landing Page
 // File: src/app/page.jsx
-// Palette: Burgundy (#4B1D3F), Nude (#E8D9C1), Rose Smoke (#D8A7B1), Off Black (#1B1B1B)
+// Palette: #F9DDBB (Cream), #802924 (Cocoa Red), #341D17 (Dark Choc), #82882B (Pistachio)
 // =====================================================================
 
 import Link from 'next/link';
@@ -55,11 +55,11 @@ export default function YugyoLandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--color-nude)] text-[var(--color-off-black)] selection:bg-[var(--color-burgundy)] selection:text-[var(--color-nude)]">
+    <div className="min-h-screen bg-[#F9DDBB] text-[#341D17] selection:bg-[#802924] selection:text-[#F9DDBB]">
       
       {/* ================= HERO BANNER DENGAN OVERLAY BADGES ================= */}
       <header className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
-        <div className="relative w-full h-[300px] sm:h-[380px] md:h-[430px] rounded-3xl overflow-hidden shadow-xl border border-[var(--color-rose-smoke)]/50 bg-[#d5c3aa]">
+        <div className="relative w-full h-[300px] sm:h-[380px] md:h-[430px] rounded-3xl overflow-hidden shadow-xl border border-[#341D17]/20 bg-[#341D17]">
           
           {/* Foto Utama Artisan Bakery */}
           <img
@@ -68,33 +68,33 @@ export default function YugyoLandingPage() {
             className="w-full h-full object-cover object-center"
           />
 
-          {/* Gradasi Lembut Bagian Bawah agar Transisi ke Background Nude Menyatu */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-off-black)]/15 via-transparent to-[var(--color-nude)]/95" />
+          {/* Gradasi Lembut agar Transisi ke Background #F9DDBB Menyatu */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#341D17]/20 via-transparent to-[#F9DDBB]/95" />
 
           {/* Baris Atas: Brand Pill Kiri & Accredited Pill Kanan */}
           <div className="absolute top-4 sm:top-6 inset-x-4 sm:inset-x-6 flex flex-wrap items-center justify-between gap-2">
             {/* Brand Badge: YUGYO ATELIER */}
             <Link
               href="/"
-              className="inline-flex items-center gap-2.5 bg-[var(--color-nude)]/95 backdrop-blur-md px-4 py-2 rounded-full shadow-md border border-[var(--color-rose-smoke)]/60 transition hover:scale-[1.02]"
+              className="inline-flex items-center gap-2.5 bg-[#FFFDF9]/95 backdrop-blur-md px-4 py-2 rounded-full shadow-md border border-[#341D17]/15 transition hover:scale-[1.02]"
             >
-              <span className="w-4 h-[1.5px] bg-[var(--color-burgundy)] inline-block" />
-              <span className="font-editorial font-bold text-xs sm:text-sm tracking-tight text-[var(--color-burgundy)]">
+              <span className="w-4 h-[1.5px] bg-[#802924] inline-block" />
+              <span className="font-editorial font-bold text-xs sm:text-sm tracking-tight text-[#341D17]">
                 YUGYO
               </span>
-              <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-[var(--color-off-black)]/70">
+              <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-[#802924]">
                 ATELIER
               </span>
             </Link>
 
-            {/* Right Badge: Accredited + Quick Login */}
+            {/* Right Badge: Accredited (Pistachio #82882B) + Quick Login (#802924) */}
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline-flex items-center gap-1.5 bg-[var(--color-burgundy)] text-[var(--color-nude)] px-3.5 py-2 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase shadow-md">
+              <span className="hidden sm:inline-flex items-center gap-1.5 bg-[#82882B] text-white px-3.5 py-2 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase shadow-md">
                 <span>🏅</span> ACCREDITED 2026
               </span>
               <Link
                 href="/login"
-                className="inline-flex items-center gap-1.5 bg-[var(--color-nude)]/95 hover:bg-white text-[var(--color-burgundy)] px-4 py-2 rounded-full text-xs font-bold shadow-md border border-[var(--color-rose-smoke)] transition"
+                className="inline-flex items-center gap-1.5 bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] px-4 py-2 rounded-full text-xs font-bold shadow-md transition"
               >
                 Masuk
               </Link>
@@ -103,19 +103,19 @@ export default function YugyoLandingPage() {
 
           {/* Baris Bawah Kiri: Floating Instructor Avatar Pill */}
           <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 right-4 sm:right-auto">
-            <div className="inline-flex items-center gap-3 bg-[var(--color-nude)]/95 backdrop-blur-md px-3.5 py-2 rounded-full shadow-lg border border-[var(--color-rose-smoke)]/60 max-w-full">
+            <div className="inline-flex items-center gap-3 bg-[#FFFDF9]/95 backdrop-blur-md px-3.5 py-2 rounded-full shadow-lg border border-[#341D17]/15 max-w-full">
               <div className="flex -space-x-1.5 shrink-0">
-                <span className="w-6 h-6 rounded-full bg-[var(--color-burgundy)] text-[var(--color-nude)] text-[9px] font-extrabold flex items-center justify-center ring-2 ring-[var(--color-nude)]">
+                <span className="w-6 h-6 rounded-full bg-[#341D17] text-[#F9DDBB] text-[9px] font-extrabold flex items-center justify-center ring-2 ring-[#FFFDF9]">
                   FR
                 </span>
-                <span className="w-6 h-6 rounded-full bg-[var(--color-rose-smoke)] text-[var(--color-off-black)] text-[9px] font-extrabold flex items-center justify-center ring-2 ring-[var(--color-nude)]">
+                <span className="w-6 h-6 rounded-full bg-[#802924] text-[#F9DDBB] text-[9px] font-extrabold flex items-center justify-center ring-2 ring-[#FFFDF9]">
                   CH
                 </span>
-                <span className="w-6 h-6 rounded-full bg-[var(--color-off-black)] text-[var(--color-nude)] text-[9px] font-extrabold flex items-center justify-center ring-2 ring-[var(--color-nude)]">
+                <span className="w-6 h-6 rounded-full bg-[#82882B] text-white text-[9px] font-extrabold flex items-center justify-center ring-2 ring-[#FFFDF9]">
                   ID
                 </span>
               </div>
-              <p className="text-[11px] sm:text-xs font-semibold text-[var(--color-off-black)] truncate">
+              <p className="text-[11px] sm:text-xs font-bold text-[#341D17] truncate">
                 12+ Master Bakers &amp; Pâtissier membimbing Anda
               </p>
             </div>
@@ -130,18 +130,18 @@ export default function YugyoLandingPage() {
         {/* SECTION HEADER (THE CULINARY ARTS OF BAKING) */}
         <section className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
           <div className="inline-flex items-center gap-3 mb-3">
-            <span className="w-6 sm:w-8 h-[1px] bg-[var(--color-burgundy)]/50" />
-            <span className="text-[10px] sm:text-[11px] font-bold tracking-[0.22em] uppercase text-[var(--color-burgundy)]">
+            <span className="w-6 sm:w-8 h-[1.5px] bg-[#802924]" />
+            <span className="text-[10px] sm:text-[11px] font-extrabold tracking-[0.22em] uppercase text-[#802924]">
               THE CULINARY ARTS OF BAKING
             </span>
-            <span className="w-6 sm:w-8 h-[1px] bg-[var(--color-burgundy)]/50" />
+            <span className="w-6 sm:w-8 h-[1.5px] bg-[#802924]" />
           </div>
 
-          <h1 className="font-editorial text-2xl sm:text-3xl md:text-4xl font-bold text-[var(--color-off-black)] tracking-tight leading-snug mb-3.5">
+          <h1 className="font-editorial text-2xl sm:text-3xl md:text-4xl font-bold text-[#341D17] tracking-tight leading-snug mb-3.5">
             Master the Art of French Pastry &amp; Artisanal Baking
           </h1>
 
-          <p className="text-xs sm:text-sm text-[var(--color-off-black)]/80 leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#341D17]/80 leading-relaxed">
             Pelajari teknik adonan autentik, fermentasi ragi liar, hingga kilau lamination langsung dari master baker YUGYO. Langkah demi langkah, dari dapur rumah menuju level pâtisserie profesional.
           </p>
         </section>
@@ -151,18 +151,18 @@ export default function YugyoLandingPage() {
           {curriculumCards.map((item, idx) => (
             <div
               key={idx}
-              className="group bg-[#F5ECE0] hover:bg-[#FAF4EC] rounded-2xl p-5 sm:p-6 border border-[var(--color-rose-smoke)]/55 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+              className="group bg-[#FFFDF9] hover:bg-white rounded-2xl p-5 sm:p-6 border border-[#341D17]/15 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
             >
               <div>
-                <div className="w-9 h-9 rounded-xl bg-[var(--color-rose-smoke)]/45 text-[var(--color-burgundy)] flex items-center justify-center mb-4 group-hover:bg-[var(--color-burgundy)] group-hover:text-[var(--color-nude)] transition-colors">
+                <div className="w-9 h-9 rounded-xl bg-[#F9DDBB] text-[#802924] flex items-center justify-center mb-4 group-hover:bg-[#802924] group-hover:text-[#F9DDBB] transition-colors">
                   {item.icon}
                 </div>
 
-                <h2 className="font-editorial text-base sm:text-lg font-bold text-[var(--color-off-black)] mb-1.5">
+                <h2 className="font-editorial text-base sm:text-lg font-bold text-[#341D17] mb-1.5">
                   {item.title}
                 </h2>
 
-                <p className="text-xs text-[var(--color-off-black)]/75 leading-relaxed mb-4">
+                <p className="text-xs text-[#341D17]/75 leading-relaxed mb-4">
                   {item.desc}
                 </p>
               </div>
@@ -170,7 +170,7 @@ export default function YugyoLandingPage() {
               <div>
                 <Link
                   href={item.href}
-                  className="inline-flex items-center text-[11px] sm:text-xs font-bold text-[var(--color-burgundy)] group-hover:translate-x-1 transition-transform"
+                  className="inline-flex items-center text-[11px] sm:text-xs font-extrabold text-[#82882B] group-hover:text-[#802924] group-hover:translate-x-1 transition-all"
                 >
                   {item.cta}
                 </Link>
@@ -180,50 +180,50 @@ export default function YugyoLandingPage() {
         </section>
 
         {/* BANNER HORIZONTAL: INTERACTIVE KITCHEN TIMERS */}
-        <section className="bg-[#F5ECE0] rounded-2xl p-4 sm:p-5 border border-[var(--color-rose-smoke)]/55 shadow-sm mb-5 flex items-center justify-between gap-4">
+        <section className="bg-[#FFFDF9] rounded-2xl p-4 sm:p-5 border border-[#341D17]/15 shadow-sm mb-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 sm:gap-4">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[var(--color-burgundy)] text-[var(--color-nude)] flex items-center justify-center shrink-0 shadow-sm">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#802924] text-[#F9DDBB] flex items-center justify-center shrink-0 shadow-sm">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <h3 className="text-xs sm:text-sm font-bold text-[var(--color-off-black)]">
+              <h3 className="text-xs sm:text-sm font-bold text-[#341D17]">
                 Interactive Kitchen Timers
               </h3>
-              <p className="text-[11px] sm:text-xs text-[var(--color-off-black)]/75 mt-0.5">
+              <p className="text-[11px] sm:text-xs text-[#341D17]/75 mt-0.5">
                 Sinkronisasi langkah fermentasi &amp; waktu pemanggangan real-time saat praktik.
               </p>
             </div>
           </div>
 
-          <div className="text-[var(--color-burgundy)] shrink-0">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <div className="text-[#82882B] shrink-0">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
         </section>
 
         {/* KARTU TESTIMONI ALUMNI */}
-        <section className="bg-[#F5ECE0] rounded-2xl p-5 sm:p-6 border border-[var(--color-rose-smoke)]/55 shadow-sm mb-7 relative">
+        <section className="bg-[#FFFDF9] rounded-2xl p-5 sm:p-6 border border-[#341D17]/15 shadow-sm mb-7 relative">
           <span
             aria-hidden="true"
-            className="font-editorial text-4xl text-[var(--color-rose-smoke)] absolute top-4 right-6 select-none leading-none"
+            className="font-editorial text-4xl text-[#82882B]/40 absolute top-4 right-6 select-none leading-none"
           >
             ”
           </span>
 
-          <blockquote className="font-editorial italic text-xs sm:text-sm text-[var(--color-off-black)]/90 leading-relaxed pr-8 mb-4">
+          <blockquote className="font-editorial italic text-xs sm:text-sm text-[#341D17]/90 leading-relaxed pr-8 mb-4">
             “YUGYO mengubah cara saya memahami reaksi Maillard dan hidrasi tepung. Sekarang baguette &amp; brioche buatan saya memiliki rongga layaknya boulangerie di Paris.”
           </blockquote>
 
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-[var(--color-burgundy)] text-[var(--color-nude)] font-bold text-xs flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-full bg-[#341D17] text-[#F9DDBB] font-bold text-xs flex items-center justify-center shrink-0">
               MR
             </div>
             <div>
-              <p className="text-xs font-bold text-[var(--color-off-black)]">Madeleine Renard</p>
-              <p className="text-[11px] text-[var(--color-off-black)]/65">
+              <p className="text-xs font-bold text-[#341D17]">Madeleine Renard</p>
+              <p className="text-[11px] text-[#341D17]/70">
                 Alumni Pâtisserie Artisan • Angkatan 2026
               </p>
             </div>
@@ -234,7 +234,7 @@ export default function YugyoLandingPage() {
         <section className="space-y-3">
           <Link
             href="/login"
-            className="w-full bg-[var(--color-burgundy)] hover:bg-[var(--color-burgundy-hover)] text-[var(--color-nude)] font-bold text-xs sm:text-sm py-3.5 sm:py-4 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+            className="w-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs sm:text-sm py-3.5 sm:py-4 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
           >
             <span>Mulai Belajar Sekarang</span>
             <span>→</span>
@@ -242,9 +242,9 @@ export default function YugyoLandingPage() {
 
           <Link
             href="/courses"
-            className="w-full bg-[var(--color-rose-smoke)]/40 hover:bg-[var(--color-rose-smoke)]/60 text-[var(--color-off-black)] font-bold text-xs sm:text-sm py-3.5 px-6 rounded-2xl border border-[var(--color-rose-smoke)] transition-all flex items-center justify-center gap-2"
+            className="w-full bg-[#341D17] hover:bg-[#24130F] text-[#F9DDBB] font-bold text-xs sm:text-sm py-3.5 px-6 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
           >
-            <svg className="w-4 h-4 text-[var(--color-burgundy)]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-[#82882B]" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
             </svg>
             <span>Jelajahi sebagai Tamu (Guest)</span>
@@ -255,7 +255,7 @@ export default function YugyoLandingPage() {
 
       {/* ================= FOOTER MINIMAL ================= */}
       <footer className="max-w-5xl mx-auto px-4 sm:px-6 pb-8 text-center">
-        <p className="text-[11px] text-[var(--color-off-black)]/60">
+        <p className="text-[11px] font-medium text-[#341D17]/70">
           Akses kurikulum gratis 7 hari tanpa komitmen kartu kredit • YUGYO Baking Atelier © 2026
         </p>
       </footer>

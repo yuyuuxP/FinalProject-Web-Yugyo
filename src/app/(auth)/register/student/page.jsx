@@ -1,127 +1,177 @@
+// =====================================================================
+// YUGYO - Student Registration Page (Strict 4-Color Bakery Palette)
+// File: src/app/(auth)/register/student/page.jsx
+// Palette: #F9DDBB (Cream), #802924 (Cocoa Red), #341D17 (Dark Choc), #82882B (Pistachio)
+// =====================================================================
+
 import Link from 'next/link';
+import pool from '@/lib/db';
+import { redirect } from 'next/navigation';
 
-export default function StudentRegisterPage() {
+async function registerStudentAction(formData) {
+  'use server';
+
+  const fullName = formData.get('full_name')?.toString().trim();
+  const email = formData.get('email')?.toString().trim().toLowerCase();
+  const password = formData.get('password')?.toString();
+
+  if (!fullName || !email || !password) return;
+
+  try {
+    await pool.query(
+      `INSERT INTO users (full_name, email, password, role)
+       VALUES ($1, $2, $3, 'student');`,
+      [fullName, email, password]
+    );
+  } catch (err) {
+    console.error('Error registering student:', err);
+    redirect('/register/student?error=email_exists');
+  }
+
+  redirect('/login?registered=true');
+}
+
+export default async function RegisterStudentPage({ searchParams }) {
+  const resolvedSearchParams = await searchParams;
+  const hasError = resolvedSearchParams?.error === 'email_exists';
+
   return (
-    <div className="min-h-screen bg-[var(--color-light-silver)] flex items-center justify-center px-4 py-12">
-      
-      {/* KARTU UTAMA (Split Layout) */}
-      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-12 border border-[var(--color-pastel-blue)]/40">
+    <div className="min-h-screen bg-[#F9DDBB] flex items-center justify-center p-4 md:p-6 text-[#341D17]">
+      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 border-2 border-[#341D17]/15">
         
-        {/* SISI KIRI: Ilustrasi & Branding */}
-        <div className="md:col-span-6 bg-gradient-to-br from-[var(--color-pastel-blue)]/30 to-[var(--color-light-silver)] p-8 md:p-12 flex flex-col justify-between relative overflow-hidden">
-          
-          <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-[var(--color-pastel-blue)]/40 rounded-full blur-2xl pointer-events-none"></div>
-
+        {/* ================= PANEL KIRI: COCOA RED (#802924) ================= */}
+        <div className="bg-[#802924] text-[#F9DDBB] p-8 md:p-10 flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 rounded-xl bg-[var(--color-prussian)] flex items-center justify-center text-white font-bold text-sm shadow">
-                Y
-              </div>
-              <span className="text-lg font-bold tracking-tight text-[var(--color-prussian)]">
-                YUGYO
-              </span>
+            <div className="mb-7 flex items-center gap-2">
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#F9DDBB] bg-[#341D17]/40 hover:bg-[#341D17]/70 px-4 py-2 rounded-full transition"
+              >
+                <span>←</span> Kembali ke Login
+              </Link>
             </div>
 
-            <h2 className="text-2xl md:text-3xl font-extrabold text-[var(--color-prussian)] leading-tight mb-2">
-              Join as a Student
-            </h2>
-            <p className="text-xs md:text-sm text-[var(--color-teal-blue)] font-medium">
-              Mulai perjalanan belajarmu bersama ribuan modul interaktif di Yugyo.
+            <div className="flex items-center gap-2.5 mb-5">
+              <div className="w-9 h-9 rounded-full bg-[#341D17] text-[#F9DDBB] flex items-center justify-center font-editorial font-extrabold text-sm shadow">
+                Y
+              </div>
+              <div>
+                <span className="font-editorial font-bold text-base tracking-wider block leading-none text-[#F9DDBB]">
+                  YUGYO
+                </span>
+                <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-[#F9DDBB]/75">
+                  BAKING ATELIER
+                </span>
+              </div>
+            </div>
+
+            <span className="inline-block bg-[#82882B] text-white text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-3">
+              STUDENT ACCOUNT
+            </span>
+
+            <h1 className="font-editorial text-2xl md:text-3xl font-bold mb-2.5 leading-snug text-[#F9DDBB]">
+              Mulai Perjalanan Baking Anda
+            </h1>
+            <p className="text-xs text-[#F9DDBB]/85 leading-relaxed">
+              Daftarkan akun siswa untuk menyimpan progres belajar, mengikuti kelas terjadwal maupun lifetime, dan meraih sertifikat atelier.
             </p>
           </div>
 
-          {/* Representasi Visual */}
-          <div className="my-8 flex flex-col items-center justify-center">
-            <div className="w-full max-w-[220px] h-36 bg-white/80 backdrop-blur rounded-2xl shadow-inner border border-[var(--color-pastel-blue)] flex flex-col items-center justify-center p-4">
-              <div className="w-12 h-16 bg-[var(--color-mughal)] rounded-md flex items-center justify-center text-white font-bold text-xs shadow mb-2 border-b-2 border-[var(--color-teal-blue)]">
-                STUDY
-              </div>
-              <div className="w-24 h-2 bg-[var(--color-prussian)] rounded-full mb-1"></div>
-              <div className="w-20 h-2 bg-[var(--color-teal-blue)] rounded-full"></div>
-            </div>
-          </div>
-
-          <div className="text-[11px] text-[var(--color-teal-blue)] font-medium">
-            Sudah mendaftar sebagai pengajar?{' '}
-            <Link href="/register/instructor" className="text-[var(--color-prussian)] font-bold hover:underline">
-              Daftar Instruktur
+          {/* Kartu Aksen Cream & Dark Choc */}
+          <div className="my-6 bg-[#F9DDBB] text-[#341D17] rounded-2xl p-4 shadow-md">
+            <p className="text-xs font-extrabold">Ingin mengajar sebagai Chef?</p>
+            <Link
+              href="/register/instructor"
+              className="inline-block mt-1 text-[11px] font-bold text-[#802924] hover:underline"
+            >
+              Pindah ke Pendaftaran Instructor →
             </Link>
           </div>
+
+          <p className="text-[11px] text-[#F9DDBB]/75">
+            YUGYO Baking Atelier • Kurikulum Sourdough, Viennoiserie &amp; Pâtisserie
+          </p>
         </div>
 
-        {/* SISI KANAN: Formulir Register Siswa */}
-        <div className="md:col-span-6 p-8 md:p-12 flex flex-col justify-center bg-white">
-          
-          <div className="text-center mb-8">
-            <h3 className="text-xl md:text-2xl font-bold tracking-wider text-[var(--color-prussian)] uppercase mb-1">
-              STUDENT REGISTER
-            </h3>
-            <p className="text-xs text-[var(--color-teal-blue)]">Buat akun siswa baru kamu</p>
+        {/* ================= PANEL KANAN: FORM REGISTER STUDENT ================= */}
+        <div className="p-8 md:p-10 flex flex-col justify-center bg-[#FFFDF9] text-[#341D17]">
+          <div className="text-center mb-6">
+            <span className="inline-block bg-[#341D17] text-[#F9DDBB] text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-2">
+              CREATE STUDENT ACCOUNT
+            </span>
+            <h2 className="font-editorial text-2xl font-bold text-[#341D17]">
+              Daftar Akun Siswa
+            </h2>
+            <p className="text-xs text-[#341D17]/70 mt-1">
+              Lengkapi data diri Anda di bawah ini
+            </p>
           </div>
 
-          <form className="space-y-4">
-            
-            {/* Input Nama Lengkap */}
+          {hasError && (
+            <div className="mb-4 p-3 rounded-xl bg-[#802924]/15 border border-[#802924] text-[#802924] text-xs font-semibold text-center">
+              Email sudah terdaftar. Silakan gunakan email lain atau langsung masuk.
+            </div>
+          )}
+
+          <form action={registerStudentAction} className="space-y-4 text-xs">
             <div>
-              <label className="block text-xs font-semibold text-[var(--color-prussian)] mb-1">
-                Full Name
-              </label>
-              <input 
-                type="text" 
-                placeholder="Nurhayu Fiantika" 
-                className="w-full bg-[var(--color-light-silver)]/50 border border-[var(--color-pastel-blue)] text-[var(--color-prussian)] text-sm rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-[var(--color-teal-blue)] transition"
+              <label className="block font-bold mb-1.5 text-[#341D17]">Nama Lengkap *</label>
+              <input
+                type="text"
+                name="full_name"
                 required
+                placeholder="Contoh: Nurhayu Fiantika Gafar"
+                className="w-full bg-[#F9DDBB]/45 border border-[#341D17]/20 rounded-xl px-4 py-3 text-[#341D17] placeholder:text-[#341D17]/45 focus:outline-none focus:ring-2 focus:ring-[#802924]"
               />
             </div>
 
-            {/* Input Email */}
             <div>
-              <label className="block text-xs font-semibold text-[var(--color-prussian)] mb-1">
-                Email Address
-              </label>
-              <input 
-                type="email" 
-                placeholder="yuyu@gmail.com" 
-                className="w-full bg-[var(--color-light-silver)]/50 border border-[var(--color-pastel-blue)] text-[var(--color-prussian)] text-sm rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-[var(--color-teal-blue)] transition"
+              <label className="block font-bold mb-1.5 text-[#341D17]">Email *</label>
+              <input
+                type="email"
+                name="email"
                 required
+                placeholder="nama@email.com"
+                className="w-full bg-[#F9DDBB]/45 border border-[#341D17]/20 rounded-xl px-4 py-3 text-[#341D17] placeholder:text-[#341D17]/45 focus:outline-none focus:ring-2 focus:ring-[#802924]"
               />
             </div>
 
-            {/* Input Password */}
             <div>
-              <label className="block text-xs font-semibold text-[var(--color-prussian)] mb-1">
-                Password
-              </label>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
-                className="w-full bg-[var(--color-light-silver)]/50 border border-[var(--color-pastel-blue)] text-[var(--color-prussian)] text-sm rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-[var(--color-teal-blue)] transition"
+              <label className="block font-bold mb-1.5 text-[#341D17]">Password *</label>
+              <input
+                type="password"
+                name="password"
                 required
+                placeholder="Buat password akun..."
+                className="w-full bg-[#F9DDBB]/45 border border-[#341D17]/20 rounded-xl px-4 py-3 text-[#341D17] placeholder:text-[#341D17]/45 focus:outline-none focus:ring-2 focus:ring-[#802924]"
               />
             </div>
 
-            {/* Tombol Register */}
-            <button 
+            <button
               type="submit"
-              className="w-full bg-[var(--color-mughal)] hover:bg-[#2b5421] text-white font-semibold text-sm py-3 rounded-xl shadow-md transition transform hover:-translate-y-0.5 flex items-center justify-center gap-2 mt-2"
+              className="w-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold py-3.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
             >
-              REGISTER STUDENT →
+              <span>DAFTAR SEBAGAI STUDENT</span>
+              <span>→</span>
             </button>
-
           </form>
 
-          {/* Opsi Kembali ke Login */}
-          <div className="mt-6 text-center text-xs text-[var(--color-teal-blue)]">
-            Sudah punya akun?{' '}
-            <Link href="/login" className="text-[var(--color-prussian)] font-bold hover:underline">
-              Login di sini
-            </Link>
+          <div className="mt-6 pt-5 border-t border-[#341D17]/15 text-center text-xs space-y-1.5">
+            <p className="text-[#341D17]/80">
+              Sudah memiliki akun?{' '}
+              <Link href="/login" className="font-bold text-[#802924] hover:underline">
+                Login di sini
+              </Link>
+            </p>
+            <p className="text-[11px] text-[#341D17]/70">
+              <Link href="/" className="font-semibold text-[#82882B] hover:underline">
+                ← Kembali ke Beranda Utama
+              </Link>
+            </p>
           </div>
-
         </div>
 
       </div>
-
     </div>
   );
 }
