@@ -1,8 +1,3 @@
-// =====================================================================
-// YUGYO - Centered Login Modal Card Component (Connected to PostgreSQL)
-// File: src/components/LoginModalContent.jsx
-// =====================================================================
-
 'use client';
 
 import { useState } from 'react';
@@ -75,14 +70,6 @@ export default function LoginModalContent({ backHref = '/' }) {
               </div>
             </div>
           </div>
-
-          <Link
-            href={backHref}
-            title="Tutup Modal Login"
-            className="w-8 h-8 rounded-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] flex items-center justify-center shadow-xs text-xs font-bold transition"
-          >
-            ✕
-          </Link>
         </div>
 
         {/* 2. BODY CONTENT DI DALAM CARD */}
