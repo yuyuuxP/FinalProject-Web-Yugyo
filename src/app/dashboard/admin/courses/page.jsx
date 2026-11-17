@@ -96,7 +96,7 @@ export default async function AdminCoursesPage({ searchParams }) {
       {/* 2. TOMBOL BUAT KURSUS BARU */}
       <div className="flex flex-wrap items-center gap-3">
         <Link
-          href="/dashboard/admin/courses/new"
+          href="/dashboard/admin/courses/create"
           className="flex-1 bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs sm:text-sm py-3.5 px-6 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
         >
           <span>⊕</span>
@@ -222,34 +222,13 @@ export default async function AdminCoursesPage({ searchParams }) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 bg-[#F9DDBB]/30 border border-[#341D17]/10 rounded-2xl p-3 text-center text-xs">
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-[#341D17]/50">Durasi</p>
-                    <p className="font-extrabold text-[#341D17] mt-0.5">3.5 Jam</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-[#341D17]/50">Level</p>
-                    <p className="font-extrabold text-[#341D17] mt-0.5">Lanjutan</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-[#341D17]/50">Harga Rencana</p>
-                    <p className="font-extrabold text-[#802924] mt-0.5">Rp 480rb</p>
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-2.5 pt-1">
-                  <button
-                    type="button"
-                    className="bg-[#354F33] hover:bg-[#2b4029] text-[#F9DDBB] font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                  <Link
+                    href={`/dashboard/admin/courses/${course.id}`}
+                    className="col-span-2 bg-[#F9DDBB]/50 hover:bg-[#F9DDBB] text-[#341D17] font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-2"
                   >
-                    <span>✓</span> Setujui
-                  </button>
-                  <button
-                    type="button"
-                    className="bg-[#F8D7DA] hover:bg-[#f5c6cb] text-[#802924] font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                  >
-                    <span>✕</span> Tolak
-                  </button>
+                    Review Detail & Kurasi
+                  </Link>
                 </div>
               </div>
             ))}
@@ -257,7 +236,7 @@ export default async function AdminCoursesPage({ searchParams }) {
         </section>
       )}
 
-      {/* 5. SECTION B: SEMUA KURIKULUM KURSUS (TANPA TOMBOL HAPUS) */}
+      {/* 5. SECTION B: SEMUA KURIKULUM KURSUS */}
       {(filterTab !== 'pending') && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -312,7 +291,7 @@ export default async function AdminCoursesPage({ searchParams }) {
                       <div className="flex items-center gap-1.5">
                         <Link
                           href={`/dashboard/admin/courses/${course.id}`}
-                          className="px-3 py-1.5 rounded-xl bg-[#F9DDBB]/50 hover:bg-[#F9DDBB] text-[#341D17] text-xs font-bold transition"
+                          className="px-3.5 py-1.5 rounded-xl bg-[#F9DDBB]/50 hover:bg-[#F9DDBB] text-[#341D17] text-xs font-bold transition"
                         >
                           Detail
                         </Link>

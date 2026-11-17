@@ -1,246 +1,172 @@
-// =====================================================================
-// YUGYO - Admin Create Course Modal with Transparent Main Page Background
-// File: src/app/dashboard/admin/courses/create/page.jsx
-// =====================================================================
-
 import Link from 'next/link';
 import pool from '@/lib/db';
-import { redirect } from 'next/navigation';
 
-async function createCourseAction(formData) {
-  'use server';
-
-  const title = formData.get('title')?.toString().trim();
-  const description = formData.get('description')?.toString().trim();
-  const categoryId = formData.get('category_id');
-  const instructorId = formData.get('instructor_id');
-  const startDate = formData.get('start_date') || null;
-  const endDate = formData.get('end_date') || null;
-
-  if (!title || !categoryId || !instructorId) return;
-
-  try {
-    await pool.query(
-      `INSERT INTO courses (title, description, category_id, instructor_id, start_date, end_date, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'active');`,
-      [title, description, categoryId, instructorId, startDate, endDate]
-    );
-  } catch (err) {
-    console.error('Error creating course:', err);
-  }
-
-  redirect('/dashboard/admin/courses');
-}
-
-export default async function AdminCreateCoursePage() {
+export default async function CreateCoursePage() {
   let categories = [];
-  let teachers = [];
-  let coursesList = [];
+  let instructors = [];
 
   try {
-    const catRes = await pool.query('SELECT id, name FROM categories ORDER BY name ASC;');
+    const [catRes, instRes] = await Promise.all([
+      pool.query('SELECT id, name FROM categories ORDER BY name ASC;'),
+      pool.query('SELECT id, full_name FROM users ORDER BY full_name ASC;'),
+    ]);
     categories = catRes.rows;
-
-    const teacherRes = await pool.query(
-      `SELECT id, full_name, email FROM users WHERE LOWER(role) IN ('teacher', 'instructor') ORDER BY full_name ASC;`
-    );
-    teachers = teacherRes.rows;
-
-    // Ambil daftar kursus utama untuk ditampilkan transparan di latar belakang
-    const listResult = await pool.query(
-      `SELECT c.id, c.title, c.status, cat.name AS category_name, u.full_name AS instructor_name 
-       FROM courses c
-       LEFT JOIN categories cat ON c.category_id = cat.id
-       LEFT JOIN users u ON c.instructor_id = u.id
-       ORDER BY c.id DESC LIMIT 8;`
-    );
-    coursesList = listResult.rows;
+    instructors = instRes.rows;
   } catch (err) {
-    console.error('Error loading form options:', err);
+    console.error('Error fetching form data:', err);
   }
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-light-silver)] flex overflow-hidden select-none">
-      
-      {/* ================= BACKGROUND: HALAMAN DAFTAR KURSUS UTAMA (TRANSPARAN) ================= */}
-      <div className="flex-1 flex opacity-70 pointer-events-none select-none">
-        <aside className="w-64 bg-[var(--color-prussian)] text-white p-6 flex flex-col justify-between hidden md:flex shadow-xl">
+    <div className="fixed inset-0 z-50 bg-[#341D17]/45 backdrop-blur-xs overflow-y-auto flex items-start justify-center px-4 py-6 sm:py-10">
+      <div className="w-full max-w-3xl bg-[#FFFDF9] rounded-3xl shadow-2xl border border-[#341D17]/20 overflow-hidden my-auto">
+        
+        {/* HEADER MODAL */}
+        <div className="px-6 py-4 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-3 mb-10 px-2">
-              <div className="w-9 h-9 rounded-2xl bg-[var(--color-mughal)] flex items-center justify-center text-white font-extrabold text-base">
-                Y
-              </div>
-              <div>
-                <h1 className="text-base font-bold tracking-wider">YUGYO</h1>
-                <p className="text-[10px] text-[var(--color-pastel-blue)] uppercase">E-Learning</p>
-              </div>
-            </div>
-            <nav className="space-y-1.5 text-xs font-semibold">
-              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl text-[var(--color-pastel-blue)]">
-                <span>🗂️</span> Dashboard
-              </div>
-              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[var(--color-teal-blue)]/30 text-white">
-                <span>📚</span> Courses
-              </div>
-              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl text-[var(--color-pastel-blue)]">
-                <span>👥</span> Students & Instructors
-              </div>
-            </nav>
+            <span className="text-[10px] font-extrabold tracking-[0.18em] uppercase text-[#802924]">
+              🥐 ATELIER OPERATIONS
+            </span>
+            <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
+              Buat Kursus Baru
+            </h2>
           </div>
-        </aside>
 
-        <main className="flex-1 p-6 md:p-8 overflow-hidden">
-          <header className="flex items-center justify-between mb-6 bg-white p-4 rounded-3xl shadow-sm border border-[var(--color-pastel-blue)]/30">
-            <div>
-              <h1 className="text-xl font-extrabold text-[var(--color-prussian)]">Moderasi Kursus Platform</h1>
-              <p className="text-xs text-[var(--color-teal-blue)]">Kelola daftar kelas, jadwal akses, dan moderasi materi PostgreSQL.</p>
-            </div>
-          </header>
+          <Link
+            href="/dashboard/admin/courses"
+            aria-label="Tutup"
+            className="w-8 h-8 rounded-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] flex items-center justify-center text-xs font-bold transition shadow-xs"
+          >
+            ✕
+          </Link>
+        </div>
 
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-[var(--color-pastel-blue)]/30">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-[var(--color-pastel-blue)]/30 text-[var(--color-teal-blue)]">
-                  <th className="pb-3 font-semibold">Judul Materi / Kursus</th>
-                  <th className="pb-3 font-semibold">Kategori</th>
-                  <th className="pb-3 font-semibold">Instruktur</th>
-                  <th className="pb-3 font-semibold">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--color-pastel-blue)]/20 text-[var(--color-prussian)]">
-                {coursesList.map((item) => (
-                  <tr key={item.id}>
-                    <td className="py-4 font-bold">{item.title}</td>
-                    <td className="py-4">{item.category_name || 'Umum'}</td>
-                    <td className="py-4">{item.instructor_name || 'Nurhayu'}</td>
-                    <td className="py-4">
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                        {item.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </main>
-      </div>
-
-      {/* ================= FOREGROUND: KARTU POPUP TAMBAH COURSE ================= */}
-      <div className="absolute inset-0 z-50 bg-[var(--color-prussian)]/20 backdrop-blur-[1px] flex items-center justify-center p-4 md:p-6 overflow-y-auto">
-        <div className="w-full max-w-2xl bg-[var(--color-light-silver)] rounded-3xl shadow-2xl p-6 md:p-8 border border-[var(--color-pastel-blue)] text-[var(--color-prussian)] relative select-auto">
+        {/* BODY FORM INPUT (SCROLLABLE) */}
+        <form 
+          action="/api/admin/courses/create" 
+          method="POST" 
+          className="p-6 sm:p-8 space-y-5 max-h-[78vh] overflow-y-auto bg-[#FFFDF9]"
+        >
           
-          <div className="mb-5 pb-4 border-b border-[var(--color-pastel-blue)]/40">
-            <Link href="/dashboard/admin/courses" className="text-xs font-bold text-[var(--color-teal-blue)] hover:underline">
-              ← Kembali ke Daftar Kursus
-            </Link>
-            <h1 className="text-xl md:text-2xl font-extrabold mt-2">Tambah Course Baru</h1>
-            <p className="text-xs text-[var(--color-teal-blue)]">
-              Lengkapi informasi kelas, pilih instruktur pengajar, dan atur jadwal akses.
-            </p>
+          {/* Judul Kursus */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-extrabold uppercase text-[#341D17]">
+              Judul Kursus / Modul
+            </label>
+            <input
+              type="text"
+              name="title"
+              required
+              placeholder="Contoh: Classic French Croissant & Lamination"
+              className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
+            />
           </div>
 
-          <form action={createCourseAction} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-bold mb-1.5">Nama Course *</label>
-              <input
-                type="text"
-                name="title"
+          {/* Kategori & Instruktur */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-extrabold uppercase text-[#341D17]">
+                Kategori Atelier
+              </label>
+              <select
+                name="category_id"
                 required
-                placeholder="Contoh: Pemrograman Web Modern dengan Next.js"
-                className="w-full bg-white border border-[var(--color-pastel-blue)] rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--color-teal-blue)]"
+                className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
+              >
+                <option value="">Pilih Kategori...</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-extrabold uppercase text-[#341D17]">
+                Master Chef / Instruktur
+              </label>
+              <select
+                name="instructor_id"
+                required
+                className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
+              >
+                <option value="">Pilih Instruktur...</option>
+                {instructors.map((inst) => (
+                  <option key={inst.id} value={inst.id}>
+                    {inst.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Tanggal Mulai & Selesai */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-extrabold uppercase text-[#341D17]">
+                Tanggal Mulai
+              </label>
+              <input
+                type="date"
+                name="start_date"
+                className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block font-bold mb-1.5">Kategori Mata Pelajaran *</label>
-                <select
-                  name="category_id"
-                  required
-                  className="w-full bg-white border border-[var(--color-pastel-blue)] rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--color-teal-blue)]"
-                >
-                  <option value="">-- Pilih Kategori --</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1.5">Nama Teacher / Instruktur *</label>
-                <select
-                  name="instructor_id"
-                  required
-                  className="w-full bg-white border border-[var(--color-pastel-blue)] rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--color-teal-blue)]"
-                >
-                  <option value="">-- Pilih Instruktur --</option>
-                  {teachers.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.full_name} ({t.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-extrabold uppercase text-[#341D17]">
+                Tanggal Selesai
+              </label>
+              <input
+                type="date"
+                name="end_date"
+                className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
+              />
             </div>
+          </div>
 
-            <div>
-              <label className="block font-bold mb-1.5">Deskripsi Course *</label>
-              <textarea
-                name="description"
-                rows="3"
-                required
-                placeholder="Tuliskan ringkasan materi dan tujuan pembelajaran kelas ini..."
-                className="w-full bg-white border border-[var(--color-pastel-blue)] rounded-2xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--color-teal-blue)]"
-              ></textarea>
-            </div>
+          {/* Status Kurasi */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-extrabold uppercase text-[#341D17]">
+              Status Kurasi
+            </label>
+            <select
+              name="status"
+              defaultValue="active"
+              className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
+            >
+              <option value="active">Aktif (Published)</option>
+              <option value="pending">Menunggu Approval</option>
+              <option value="draft">Draft</option>
+            </select>
+          </div>
 
-            <div className="bg-white/70 p-4 rounded-2xl border border-[var(--color-pastel-blue)]/40">
-              <p className="font-bold mb-1">Rentang Waktu Kelas (Opsional)</p>
-              <p className="text-[11px] text-[var(--color-teal-blue)] mb-3">
-                Kosongkan kedua tanggal di bawah ini jika kelas bersifat <strong>Lifetime Access</strong> (tanpa batas waktu).
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold mb-1">Tanggal Mulai</label>
-                  <input
-                    type="date"
-                    name="start_date"
-                    className="w-full bg-white border border-[var(--color-pastel-blue)] rounded-xl px-3.5 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold mb-1">Tanggal Selesai</label>
-                  <input
-                    type="date"
-                    name="end_date"
-                    className="w-full bg-white border border-[var(--color-pastel-blue)] rounded-xl px-3.5 py-2"
-                  />
-                </div>
-              </div>
-            </div>
+          {/* Deskripsi */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-extrabold uppercase text-[#341D17]">
+              Deskripsi & Silabus Modul
+            </label>
+            <textarea
+              name="description"
+              rows="3"
+              placeholder="Tuliskan ringkasan materi, teknik khusus, atau silabus kursus di sini..."
+              className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs resize-none"
+            ></textarea>
+          </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--color-pastel-blue)]/40">
-              <Link
-                href="/dashboard/admin/courses"
-                className="px-5 py-2.5 rounded-xl font-semibold bg-white border border-[var(--color-pastel-blue)] hover:bg-white/80 transition"
-              >
-                Batal
-              </Link>
-              <button
-                type="submit"
-                className="px-6 py-2.5 rounded-xl font-bold bg-[var(--color-mughal)] text-white hover:bg-[#2b5421] transition shadow-md"
-              >
-                ✓ Simpan Course
-              </button>
-            </div>
-          </form>
+          {/* Submit Button */}
+          <div className="pt-2">
+            <button
+              type="submit"
+              className="w-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-sm py-3.5 px-6 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>⊕</span>
+              <span>Simpan & Publikasikan Kursus</span>
+            </button>
+          </div>
 
-        </div>
+        </form>
       </div>
-
     </div>
   );
 }

@@ -23,13 +23,14 @@ export default function AdminCourseDetailModal({ course }) {
       ? 'bg-[#802924] text-[#F9DDBB]'
       : 'bg-[#341D17]/20 text-[#341D17]';
 
+  // Fungsi untuk menangani penghapusan kursus saat tombol Hapus ditekan di halaman detail
   const handleDelete = async () => {
     if (!window.confirm(`Apakah Anda yakin ingin menghapus kursus "${course.title}"?`)) {
       return;
     }
 
     try {
-      const res = await fetch(`/api/admin/courses?id=${course.id}`, {
+      const res = await fetch(`/api/admin/courses/${course.id}`, {
         method: 'DELETE',
       });
 
@@ -56,6 +57,7 @@ export default function AdminCourseDetailModal({ course }) {
           </span>
 
           <div className="flex items-center gap-2">
+            {/* Tombol Edit: Mengarahkan admin ke halaman edit course */}
             <Link
               href={`/dashboard/admin/courses/${course.id}/edit`}
               className="px-3 py-1.5 rounded-xl bg-[#F9DDBB]/50 hover:bg-[#F9DDBB] text-[#341D17] text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
@@ -63,6 +65,7 @@ export default function AdminCourseDetailModal({ course }) {
               <span>✏️</span> Edit
             </Link>
 
+            {/* Tombol Hapus: Mengeksekusi penghapusan dan kembali ke daftar course */}
             <button
               type="button"
               onClick={handleDelete}
@@ -71,6 +74,7 @@ export default function AdminCourseDetailModal({ course }) {
               <span>🗑️</span> Hapus
             </button>
 
+            {/* Tombol Tutup (X) */}
             <Link
               href="/dashboard/admin/courses"
               aria-label="Tutup"
@@ -83,12 +87,10 @@ export default function AdminCourseDetailModal({ course }) {
 
         {/* BODY KONTEN DETAIL KURSUS */}
         <div className="p-6 sm:p-8 space-y-6 max-h-[82vh] overflow-y-auto">
-          
-          {/* Top Meta & Title */}
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2 text-[10px] font-extrabold uppercase">
               <span className="bg-[#F9DDBB] text-[#802924] px-3 py-1 rounded-full">
-                {course.category_name || 'TRADITIONAL INDONESIAN CAKES'}
+                {course.category_name || 'MASTERCLASS ATELIER'}
               </span>
             </div>
 
@@ -97,7 +99,6 @@ export default function AdminCourseDetailModal({ course }) {
             </h1>
           </div>
 
-          {/* Profil Instruktur */}
           <div className="bg-[#F9DDBB]/35 border border-[#341D17]/10 rounded-2xl p-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-full bg-[#802924] text-[#F9DDBB] font-bold flex items-center justify-center shrink-0">
@@ -114,7 +115,6 @@ export default function AdminCourseDetailModal({ course }) {
             </div>
           </div>
 
-          {/* Status Kurasi Konten */}
           <div className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-2xl p-4 sm:p-5 flex items-center justify-between shadow-2xs">
             <span className="text-[10px] font-extrabold tracking-[0.18em] uppercase text-[#802924] flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#802924]" /> STATUS KURASI KONTEN
@@ -124,7 +124,6 @@ export default function AdminCourseDetailModal({ course }) {
             </span>
           </div>
 
-          {/* Video Pembelajaran HD (Dikembalikan) */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-editorial text-sm sm:text-base font-bold text-[#341D17] flex items-center gap-2">
@@ -147,11 +146,10 @@ export default function AdminCourseDetailModal({ course }) {
             </div>
           </div>
 
-          {/* Deskripsi Materi */}
           <div className="bg-[#F9DDBB]/25 border border-[#341D17]/10 rounded-2xl p-5 space-y-2">
             <h4 className="font-editorial text-sm font-bold text-[#341D17]">Tentang Modul Ini</h4>
             <p className="text-xs text-[#341D17]/80 leading-relaxed">
-              {course.description || 'Teknik membuat bolu kukus mekar sempurna menggunakan bantuan air soda atau teknik pengukusan suhu tinggi tanpa bahan pengembang buatan berlebih.'}
+              {course.description || 'Modul kurikulum masterclass pastry profesional dengan standar teknik atelier internasional.'}
             </p>
           </div>
 
