@@ -21,27 +21,41 @@ export default async function AdminUsersPage({ searchParams }) {
       ORDER BY id DESC;
     `);
 
-    const allUsers = usersRes.rows;
+    const allUsers = usersRes.rows.map(u => ({
+      ...u,
+      role: (u.role || 'student').toLowerCase(),
+      status: (u.status || 'active').toLowerCase(),
+    }));
 
     totalUsers = allUsers.length;
+    
+    // Guru yang benar-benar masih pending verifikasi
     pendingTeachers = allUsers.filter(u => u.role === 'teacher' && u.status === 'pending');
     pendingCount = pendingTeachers.length;
-    teacherCount = allUsers.filter(u => u.role === 'teacher').length;
-    studentCount = allUsers.filter(u => u.role === 'student' || !u.role).length;
+
+    // ATURAN TEPAT: Instruktur/Chef yang dihitung hanyalah yang rolenya 'teacher' DAN statusnya 'active'
+    teacherCount = allUsers.filter(u => u.role === 'teacher' && u.status === 'active').length;
+    
+    // Siswa mencakup role 'student' ATAU guru yang statusnya masih 'pending'
+    studentCount = allUsers.filter(u => u.role === 'student' || (u.role === 'teacher' && u.status === 'pending')).length;
+    
     adminCount = allUsers.filter(u => u.role === 'admin').length;
 
     users = allUsers.filter(u => {
-      const role = (u.role || 'student').toLowerCase();
-      if (filterTab === 'pending' && (role !== 'teacher' || u.status !== 'pending')) return false;
-      if (filterTab === 'teacher' && role !== 'teacher') return false;
-      if (filterTab === 'student' && role !== 'student' && role !== '') return false;
+      const role = u.role;
+      const status = u.status;
+
+      if (filterTab === 'pending' && (role !== 'teacher' || status !== 'pending')) return false;
+      // Tab teacher hanya menampilkan guru yang sudah aktif
+      if (filterTab === 'teacher' && (role !== 'teacher' || status !== 'active')) return false;
+      // Tab student menampilkan student dan juga guru yang masih pending
+      if (filterTab === 'student' && role !== 'student' && !(role === 'teacher' && status === 'pending')) return false;
       if (filterTab === 'admin' && role !== 'admin') return false;
 
       if (searchQuery) {
         const matchName = u.full_name?.toLowerCase().includes(searchQuery);
         const matchEmail = u.email?.toLowerCase().includes(searchQuery);
-        const matchSpec = u.specialty?.toLowerCase().includes(searchQuery);
-        if (!matchName && !matchEmail && !matchSpec) return false;
+        if (!matchName && !matchEmail) return false;
       }
 
       return true;
@@ -53,7 +67,7 @@ export default async function AdminUsersPage({ searchParams }) {
   return (
     <div className="space-y-7">
       
-      {/* 1. HEADER & BREADCRUMB */}
+      {/* HEADER & BREADCRUMB */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold tracking-[0.18em] uppercase text-[#802924]">
@@ -76,7 +90,7 @@ export default async function AdminUsersPage({ searchParams }) {
         </Link>
       </div>
 
-      {/* 2. STATISTIK KARTU */}
+      {/* STATISTIK KARTU */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 shadow-2xs">
         <div className="flex items-center justify-between p-2">
           <div className="flex items-center gap-3.5">
@@ -114,7 +128,7 @@ export default async function AdminUsersPage({ searchParams }) {
         </div>
       </div>
 
-      {/* 3. SEARCH & TAB FILTER PILLS */}
+      {/* SEARCH & TAB FILTER PILLS */}
       <div className="space-y-3.5">
         <div className="relative">
           <span className="absolute inset-y-0 left-4 flex items-center text-[#341D17]/45 text-xs">
@@ -125,7 +139,7 @@ export default async function AdminUsersPage({ searchParams }) {
               type="text"
               name="q"
               defaultValue={searchQuery}
-              placeholder="Cari nama, email, atau keahlian..."
+              placeholder="Cari nama atau email..."
               className="w-full bg-[#FFFDF9] border border-[#341D17]/15 rounded-2xl pl-11 pr-4 py-3 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
             />
             {filterTab !== 'semua' && <input type="hidden" name="tab" value={filterTab} />}
@@ -193,7 +207,7 @@ export default async function AdminUsersPage({ searchParams }) {
         </div>
       </div>
 
-      {/* 4. VERIFIKASI CALON PENGAJAR (PENDING TEACHERS) */}
+      {/* VERIFIKASI CALON PENGAJAR */}
       {pendingTeachers.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -221,7 +235,7 @@ export default async function AdminUsersPage({ searchParams }) {
                         </span>
                       </div>
                       <p className="text-xs text-[#341D17]/75">
-                        Spesialisasi: {teacher.specialty || 'Master Patisserie & Boulangerie'}
+                        Spesialisasi: {teacher.specialty || 'Master Patisserie'}
                       </p>
                       <p className="text-[11px] text-[#341D17]/60">{teacher.email}</p>
                     </div>
@@ -256,22 +270,22 @@ export default async function AdminUsersPage({ searchParams }) {
         </section>
       )}
 
-      {/* 5. DAFTAR SELURUH PENGGUNA */}
+      {/* DAFTAR SELURUH PENGGUNA */}
       <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-editorial text-base sm:text-lg font-bold text-[#341D17]">
-              Daftar Seluruh Pengguna
-            </h3>
-            <p className="text-xs text-[#341D17]/60">Sinkronisasi langsung dengan sistem otentikasi</p>
-          </div>
+        <div>
+          <h3 className="font-editorial text-base sm:text-lg font-bold text-[#341D17]">
+            Daftar Seluruh Pengguna
+          </h3>
+          <p className="text-xs text-[#341D17]/60">Sinkronisasi langsung dengan sistem otentikasi</p>
         </div>
 
         <div className="space-y-3">
           {users.map((u) => {
-            const role = (u.role || 'student').toLowerCase();
-            const isTeacher = role === 'teacher';
+            const role = u.role;
+            const status = u.status;
+            const isTeacher = role === 'teacher' && status === 'active';
             const isAdmin = role === 'admin';
+            const isPending = status === 'pending';
 
             return (
               <div key={u.id} className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -285,9 +299,9 @@ export default async function AdminUsersPage({ searchParams }) {
                     <div className="flex items-center gap-2">
                       <h4 className="font-editorial text-sm sm:text-base font-bold text-[#341D17]">{u.full_name}</h4>
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
-                        isAdmin ? 'bg-[#341D17] text-[#F9DDBB]' : isTeacher ? 'bg-[#82882B]/15 text-[#82882B]' : 'bg-[#F9DDBB]/50 text-[#802924]'
+                        isAdmin ? 'bg-[#341D17] text-[#F9DDBB]' : isTeacher ? 'bg-[#82882B]/15 text-[#82882B]' : isPending ? 'bg-[#802924] text-[#F9DDBB]' : 'bg-[#F9DDBB]/50 text-[#802924]'
                       }`}>
-                        {role}
+                        {isPending ? 'PENDING' : role}
                       </span>
                     </div>
                     <p className="text-xs text-[#341D17]/70">{u.email}</p>

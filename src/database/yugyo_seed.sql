@@ -130,3 +130,7 @@ INSERT INTO courses (title, description, category_id, instructor_id, status, vid
 ('Opera Cake Mewah Prancis', 'Kue espong almond berendam kopi dengan ganache cokelat.', 5, 6, 'active', 'https://youtube.com/watch?v=sample48'),
 ('Macaron Prancis Anti Gagal', 'Kunci kaki macaron (feet) mengembang dan kulit mulus.', 5, 6, 'pending', 'https://youtube.com/watch?v=sample49'),
 ('Madeleine Lemon Keik Cangkang', 'Kue spons kecil khas Prancis berbentuk kerang laut.', 5, 6, 'active', 'https://youtube.com/watch?v=sample50');
+
+
+
+

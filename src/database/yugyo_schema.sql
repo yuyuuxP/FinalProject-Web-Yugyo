@@ -33,3 +33,18 @@ CREATE TABLE courses (
     end_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Index untuk relasi Foreign Key (mempercepat proses JOIN tabel courses dengan categories & users)
+CREATE INDEX idx_courses_category_id ON courses(category_id);
+CREATE INDEX idx_courses_instructor_id ON courses(instructor_id);
+
+-- Index untuk pencarian & filter pada tabel courses (mempercepat pencarian berdasarkan status dan judul)
+CREATE INDEX idx_courses_status ON courses(status);
+CREATE INDEX idx_courses_title ON courses(title);
+
+-- Index untuk tabel users (mempercepat filtering berdasarkan role dan pencarian email/nama)
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_email ON users(email);
+
+-- Index untuk tabel categories (mempercepat pencarian nama kategori)
+CREATE INDEX idx_categories_name ON categories(name);
