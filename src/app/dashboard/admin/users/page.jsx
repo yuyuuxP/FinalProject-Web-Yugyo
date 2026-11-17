@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import pool from '@/lib/db';
+import DeleteUserButton from '@/components/DeleteUserButton';
 
 export default async function AdminUsersPage({ searchParams }) {
   const resolvedSearchParams = await searchParams;
@@ -33,7 +34,7 @@ export default async function AdminUsersPage({ searchParams }) {
     pendingTeachers = allUsers.filter(u => u.role === 'teacher' && u.status === 'pending');
     pendingCount = pendingTeachers.length;
 
-    // ATURAN TEPAT: Instruktur/Chef yang dihitung hanyalah yang rolenya 'teacher' DAN statusnya 'active'
+    // Instruktur/Chef yang dihitung hanyalah yang rolenya 'teacher' DAN statusnya 'active'
     teacherCount = allUsers.filter(u => u.role === 'teacher' && u.status === 'active').length;
     
     // Siswa mencakup role 'student' ATAU guru yang statusnya masih 'pending'
@@ -46,9 +47,7 @@ export default async function AdminUsersPage({ searchParams }) {
       const status = u.status;
 
       if (filterTab === 'pending' && (role !== 'teacher' || status !== 'pending')) return false;
-      // Tab teacher hanya menampilkan guru yang sudah aktif
       if (filterTab === 'teacher' && (role !== 'teacher' || status !== 'active')) return false;
-      // Tab student menampilkan student dan juga guru yang masih pending
       if (filterTab === 'student' && role !== 'student' && !(role === 'teacher' && status === 'pending')) return false;
       if (filterTab === 'admin' && role !== 'admin') return false;
 
@@ -318,6 +317,9 @@ export default async function AdminUsersPage({ searchParams }) {
                   >
                     <span>✏️</span> Ubah
                   </Link>
+
+                  {/* Tombol Hapus User */}
+                  <DeleteUserButton userId={u.id} userName={u.full_name} />
                 </div>
               </div>
             );
