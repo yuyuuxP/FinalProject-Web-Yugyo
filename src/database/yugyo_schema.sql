@@ -48,3 +48,7 @@ CREATE INDEX idx_users_email ON users(email);
 
 -- Index untuk tabel categories (mempercepat pencarian nama kategori)
 CREATE INDEX idx_categories_name ON categories(name);
+
+-- Menambah kolom untuk gambar yg diupload
+ALTER TABLE categories 
+ADD COLUMN IF NOT EXISTS image_url VARCHAR(255);

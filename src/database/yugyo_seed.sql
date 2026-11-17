@@ -132,5 +132,6 @@ INSERT INTO courses (title, description, category_id, instructor_id, status, vid
 ('Madeleine Lemon Keik Cangkang', 'Kue spons kecil khas Prancis berbentuk kerang laut.', 5, 6, 'active', 'https://youtube.com/watch?v=sample50');
 
 
-
-
+UPDATE users 
+SET password = 'admin123' 
+WHERE email = 'admin@yugyo.com';

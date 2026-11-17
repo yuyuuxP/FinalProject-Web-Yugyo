@@ -158,8 +158,8 @@ export default async function CreateSchedulePage() {
               />
             </div>
           </div>
-          <p className="text-[10px] text-[#341D17]/60 pl-1">
-            *Pilih salah satu: masukkan tautan YouTube atau unggah file video langsung (disimpan ke folder <code className="bg-[#F9DDBB]/50 px-1 py-0.5 rounded text-[#802924]">public/videos/</code>).
+          <p className="text-[11px] text-[#341D17]/60 pl-1">
+            <span className='text-red-600 text-[13px]'>*</span>Pilih salah satu: masukkan tautan YouTube atau unggah file video langsung.
           </p>
 
           {/* Deskripsi */}

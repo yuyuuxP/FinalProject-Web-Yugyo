@@ -1,91 +1,94 @@
-// =====================================================================
-// YUGYO - Authentication API Route (PostgreSQL Role-Based Redirect)
-// File: src/app/api/auth/login/route.js
-// =====================================================================
-
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const identifier = body.identifier?.trim();
-    const password = body.password;
+    let identifier = '';
+    let password = '';
+
+    const contentType = request.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+      const body = await request.json();
+      // Menangkap 'identifier' dari frontend (bisa berupa email atau username)
+      identifier = body.identifier || body.email || body.username || '';
+      password = body.password || '';
+    } else {
+      const formData = await request.formData();
+      identifier = formData.get('identifier') || formData.get('email') || formData.get('username') || '';
+      password = formData.get('password') || '';
+    }
 
     if (!identifier || !password) {
       return NextResponse.json(
-        { error: 'Email/username dan kata sandi wajib diisi.' },
+        { error: 'Email dan password wajib diisi' }, 
         { status: 400 }
       );
     }
 
-    // Cari user berdasarkan email (case-insensitive) atau full_name di PostgreSQL
-    const result = await pool.query(
-      `SELECT id, full_name, email, password, role
-       FROM users
-       WHERE LOWER(email) = LOWER($1) OR LOWER(full_name) = LOWER($1)
-       LIMIT 1;`,
+    // 1. Cocokkan identifier (bisa email atau username) langsung dari tabel users di database PostgreSQL
+    const userRes = await pool.query(
+      'SELECT * FROM users WHERE email = $1 OR full_name ILIKE $1;', 
       [identifier]
     );
-
-    if (result.rows.length === 0) {
+    
+    if (userRes.rows.length === 0) {
       return NextResponse.json(
-        { error: 'Akun tidak ditemukan dalam database.' },
+        { error: 'Akun tidak terdaftar di sistem Atelier' }, 
         { status: 401 }
       );
     }
 
-    const user = result.rows[0];
+    const user = userRes.rows[0];
 
-    // Verifikasi kata sandi
-    if (user.password !== password) {
+    // 2. Verifikasi kata sandi (mendukung teks biasa maupun hash pgcrypto)
+    let isPasswordValid = false;
+    if (user.password === password) {
+      isPasswordValid = true;
+    } else {
+      try {
+        const checkHash = await pool.query(
+          `SELECT (password = crypt($1, password)) AS match FROM users WHERE id = $2;`,
+          [password, user.id]
+        );
+        isPasswordValid = checkHash.rows[0]?.match;
+      } catch (e) {
+        isPasswordValid = false;
+      }
+    }
+
+    if (!isPasswordValid) {
       return NextResponse.json(
-        { error: 'Kata sandi yang Anda masukkan salah.' },
+        { error: 'Kata sandi yang Anda masukkan salah' }, 
         { status: 401 }
       );
     }
 
-    const normalizedRole = (user.role || '').toLowerCase();
+    // 3. Tentukan halaman tujuan redirect berdasarkan role pengguna di database
     let redirectUrl = '/dashboard/student';
-
-    if (normalizedRole === 'admin') {
+    if (user.role === 'admin') {
       redirectUrl = '/dashboard/admin';
-    } else if (normalizedRole === 'teacher' || normalizedRole === 'instructor') {
+    } else if (user.role === 'teacher') {
       redirectUrl = '/dashboard/teacher';
     }
 
-    const response = NextResponse.json({
+    // 4. Berikan respons sukses ke frontend
+    return NextResponse.json({ 
+      success: true, 
       message: 'Login berhasil',
-      user: {
-        id: user.id,
-        full_name: user.full_name,
-        email: user.email,
-        role: normalizedRole,
-      },
-      redirectUrl,
-    });
+      redirectUrl: redirectUrl,
+      user: { 
+        id: user.id, 
+        name: user.full_name, 
+        email: user.email, 
+        role: user.role 
+      } 
+    }, { status: 200 });
 
-    // Simpan sesi ringan di cookie agar halaman dashboard bisa mengenali user yang login
-    response.cookies.set(
-      'yugyo_user',
-      JSON.stringify({
-        id: user.id,
-        full_name: user.full_name,
-        email: user.email,
-        role: normalizedRole,
-      }),
-      {
-        httpOnly: false,
-        path: '/',
-        maxAge: 60 * 60 * 24 * 7, // 7 hari
-      }
-    );
-
-    return response;
   } catch (err) {
-    console.error('Login API Error:', err);
+    console.error('API Login Error:', err);
     return NextResponse.json(
-      { error: 'Terjadi kesalahan koneksi ke database.' },
+      { error: 'Terjadi kesalahan pada server database' }, 
       { status: 500 }
     );
   }
