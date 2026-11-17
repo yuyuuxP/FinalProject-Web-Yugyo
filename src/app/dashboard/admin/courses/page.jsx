@@ -316,14 +316,6 @@ export default async function AdminCoursesPage({ searchParams }) {
                         >
                           Detail
                         </Link>
-                        
-                        <Link
-                          href={`/dashboard/admin/courses/${course.id}/edit`}
-                          aria-label="Edit Kursus"
-                          className="w-8 h-8 rounded-xl bg-[#F9DDBB]/30 hover:bg-[#F9DDBB]/70 flex items-center justify-center text-[#341D17] text-xs transition cursor-pointer"
-                        >
-                          ✏️
-                        </Link>
                       </div>
                     </div>
                   </div>

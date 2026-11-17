@@ -1,8 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function AdminCourseDetailModal({ course }) {
+  const router = useRouter();
+
   if (!course) return null;
 
   const statusVal = (course.status || 'active').toLowerCase();
@@ -20,20 +23,58 @@ export default function AdminCourseDetailModal({ course }) {
       ? 'bg-[#802924] text-[#F9DDBB]'
       : 'bg-[#341D17]/20 text-[#341D17]';
 
+  const handleDelete = async () => {
+    if (!window.confirm(`Apakah Anda yakin ingin menghapus kursus "${course.title}"?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/courses?id=${course.id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        router.push('/dashboard/admin/courses');
+        router.refresh();
+      } else {
+        alert('Gagal menghapus kursus.');
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Terjadi kesalahan koneksi.');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-[#341D17]/45 backdrop-blur-xs overflow-y-auto flex items-start justify-center px-4 py-6 sm:py-10">
       <div className="w-full max-w-4xl bg-[#FFFDF9] rounded-3xl shadow-2xl border border-[#341D17]/20 overflow-hidden my-auto">
         
-        {/* TOP BAR / HEADER MODAL (Tanpa teks 'Kembali ke Manajemen Kursus') */}
-        <div className="px-6 py-4 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-end">
+        {/* TOP BAR / HEADER MODAL (Tombol Edit, Hapus, & Tutup) */}
+        <div className="px-6 py-4 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-between">
+          <span className="bg-[#F9DDBB] text-[#802924] px-3 py-1 rounded-full text-[10px] font-extrabold">
+            #CRS-{String(course.id).padStart(3, '0')}
+          </span>
+
           <div className="flex items-center gap-2">
-            <span className="bg-[#F9DDBB] text-[#802924] px-3 py-1 rounded-full text-[10px] font-extrabold">
-              #CRS-{String(course.id).padStart(3, '0')}
-            </span>
+            <Link
+              href={`/dashboard/admin/courses/${course.id}/edit`}
+              className="px-3 py-1.5 rounded-xl bg-[#F9DDBB]/50 hover:bg-[#F9DDBB] text-[#341D17] text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+            >
+              <span>✏️</span> Edit
+            </Link>
+
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="px-3 py-1.5 rounded-xl bg-[#802924]/10 hover:bg-[#802924] text-[#802924] hover:text-[#F9DDBB] text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
+            >
+              <span>🗑️</span> Hapus
+            </button>
+
             <Link
               href="/dashboard/admin/courses"
               aria-label="Tutup"
-              className="w-8 h-8 rounded-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] flex items-center justify-center text-xs font-bold transition shadow-xs"
+              className="w-8 h-8 rounded-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] flex items-center justify-center text-xs font-bold transition shadow-xs ml-2"
             >
               ✕
             </Link>
@@ -47,23 +88,13 @@ export default function AdminCourseDetailModal({ course }) {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2 text-[10px] font-extrabold uppercase">
               <span className="bg-[#F9DDBB] text-[#802924] px-3 py-1 rounded-full">
-                {course.category_name || 'FRENCH VIENNOISERIE & PÂTISSERIE'}
-              </span>
-              <span className="bg-[#FFFDF9] border border-[#341D17]/15 text-[#341D17]/75 px-3 py-1 rounded-full">
-                Laminated Dough
-              </span>
-              <span className="bg-[#FFFDF9] border border-[#341D17]/15 text-[#341D17]/75 px-3 py-1 rounded-full">
-                Fermentasi Dingin
+                {course.category_name || 'TRADITIONAL INDONESIAN CAKES'}
               </span>
             </div>
 
             <h1 className="font-editorial text-xl sm:text-2xl md:text-3xl font-bold text-[#341D17] leading-snug">
               {course.title}
             </h1>
-
-            <p className="text-xs text-[#341D17]/75">
-              Kursus Induk: <strong className="text-[#341D17]">{course.title}</strong>
-            </p>
           </div>
 
           {/* Profil Instruktur */}
@@ -73,23 +104,14 @@ export default function AdminCourseDetailModal({ course }) {
                 👨‍🍳
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-xs font-bold text-[#341D17]">
-                    {course.instructor_name || 'Chef Antoine Dupont'}
-                  </p>
-                  <span className="bg-[#82882B]/20 text-[#82882B] px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase">
-                    CAP Boulangerie
-                  </span>
-                </div>
+                <p className="text-xs font-bold text-[#341D17]">
+                  {course.instructor_name || 'Chef Yuyu'}
+                </p>
                 <p className="text-[11px] text-[#341D17]/65 mt-0.5">
-                  Maître Boulanger • Ferrandi Paris Alum
+                  Master Baker • Atelier Instructor
                 </p>
               </div>
             </div>
-
-            <span className="w-9 h-9 rounded-xl bg-[#FFFDF9] border border-[#341D17]/15 flex items-center justify-center text-xs text-[#341D17]">
-              ✉️
-            </span>
           </div>
 
           {/* Status Kurasi Konten */}
@@ -102,7 +124,7 @@ export default function AdminCourseDetailModal({ course }) {
             </span>
           </div>
 
-          {/* Video Pembelajaran HD Preview */}
+          {/* Video Pembelajaran HD (Dikembalikan) */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-editorial text-sm sm:text-base font-bold text-[#341D17] flex items-center gap-2">
@@ -129,7 +151,7 @@ export default function AdminCourseDetailModal({ course }) {
           <div className="bg-[#F9DDBB]/25 border border-[#341D17]/10 rounded-2xl p-5 space-y-2">
             <h4 className="font-editorial text-sm font-bold text-[#341D17]">Tentang Modul Ini</h4>
             <p className="text-xs text-[#341D17]/80 leading-relaxed">
-              {course.description || 'Mempelajari secara mendalam teknik pelapisan mentega Tourage 84% dengan metode pembekuan bertahap untuk menghasilkan rongga sarang lebah yang renyah dan sempurna.'}
+              {course.description || 'Teknik membuat bolu kukus mekar sempurna menggunakan bantuan air soda atau teknik pengukusan suhu tinggi tanpa bahan pengembang buatan berlebih.'}
             </p>
           </div>
 
