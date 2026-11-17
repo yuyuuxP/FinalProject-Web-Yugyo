@@ -34,6 +34,31 @@ CREATE TABLE courses (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabel Report (untuk keluhan, kendala resep, tiket teknis)
+CREATE TABLE IF NOT EXISTS reports (
+    id SERIAL PRIMARY KEY,
+    student_id INT REFERENCES users(id) ON DELETE SET NULL,
+    course_id INT REFERENCES courses(id) ON DELETE SET NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    category VARCHAR(50) DEFAULT 'complaint', -- 'complaint', 'technical', 'schedule'
+    status VARCHAR(50) DEFAULT 'Sedang Ditinjau', -- 'Sedang Ditinjau', 'Urgent', 'Belum Dibaca', 'Selesai'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabel Review (untuk ulasan & rating bintang dari siswa)
+CREATE TABLE IF NOT EXISTS reviews (
+    id SERIAL PRIMARY KEY,
+    student_id INT REFERENCES users(id) ON DELETE SET NULL,
+    course_id INT REFERENCES courses(id) ON DELETE SET NULL,
+    rating INT CHECK (rating >= 1 AND rating <= 5) DEFAULT 5,
+    content TEXT NOT NULL,
+    image_proof VARCHAR(255), -- Foto hasil praktek siswa (opsional)
+    status VARCHAR(50) DEFAULT 'published', -- 'published', 'pending'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
 -- Index untuk relasi Foreign Key (mempercepat proses JOIN tabel courses dengan categories & users)
 CREATE INDEX idx_courses_category_id ON courses(category_id);
 CREATE INDEX idx_courses_instructor_id ON courses(instructor_id);
@@ -52,3 +77,4 @@ CREATE INDEX idx_categories_name ON categories(name);
 -- Menambah kolom untuk gambar yg diupload
 ALTER TABLE categories 
 ADD COLUMN IF NOT EXISTS image_url VARCHAR(255);
+

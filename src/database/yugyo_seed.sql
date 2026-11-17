@@ -135,3 +135,20 @@ INSERT INTO courses (title, description, category_id, instructor_id, status, vid
 UPDATE users 
 SET password = 'admin123' 
 WHERE email = 'admin@yugyo.com';
+
+
+-- SEEDING REPORTS
+INSERT INTO reports (title, content, category, status, created_at) 
+VALUES 
+('Kendala Teknis Video & PDF', 'Video tutorial langkah pemipihan mentega putus-putus pada menit 04:20 dan file PDF resep sheet rasio mentega tidak bisa diunduh.', 'technical', 'Sedang Ditinjau', NOW()),
+('Tautan Live Session Hilang', 'Saya belum menerima link zoom live session untuk sesi tanya jawab starter ragi liar besok pagi jam 08:30 WIB.', 'complaint', 'Belum Dibaca', NOW() - INTERVAL '2 hours');
+
+INSERT INTO reports (student_id, course_id, title, content, category, status, created_at) 
+VALUES 
+(NULL, NULL, 'Permintaan Ubah Jadwal Sesi Sourdough', 'Halo Chef, apakah saya bisa memindahkan jadwal pembuktian adonan ke akhir pekan karena ada kendala mendadak?', 'schedule', 'Selesai', NOW() - INTERVAL '1 day'),
+(NULL, NULL, 'Konsultasi Rasio Tepung Protein Tinggi', 'Terima kasih atas tanggapan cepatnya kemarin, rasio air pada adonan viennoiserie saya sekarang sudah jauh lebih stabil.', 'complaint', 'Selesai', NOW() - INTERVAL '3 days');
+
+INSERT INTO reviews (student_id, course_id, rating, content, status, created_at) 
+VALUES 
+(NULL, NULL, 5, 'Penjelasan rasio almond flour dan meringue Italia sangat presisi! Kaki macaron keluar sempurna tanpa rongga kopong pada percobaan pertama.', 'published', NOW() - INTERVAL '4 hours'),
+(NULL, NULL, 4, 'Materi sangat detail dan resep pastry cream vanilla bean sangat harum. Saran: tambahkan tips alternatif jika oven tidak memiliki kipas konveksi.', 'published', NOW() - INTERVAL '2 days');

@@ -186,10 +186,10 @@ export default function AdminShell({ children }) {
           <div className="flex items-center gap-2.5">
             <Link
               href="/courses"
-              target="_blank"
-              className="hidden sm:inline-flex items-center gap-1.5 bg-[#F9DDBB]/70 hover:bg-[#F9DDBB] text-[#341D17] px-3 py-1.5 rounded-full text-[11px] font-bold border border-[#341D17]/15 transition"
+              className="inline-flex items-center gap-1.5 bg-[#F9DDBB] hover:bg-[#f3ce9b] text-[#802924] px-4 py-2 rounded-2xl text-xs font-bold transition shadow-2xs"
             >
-              <span>👁️</span> Lihat Katalog Guest
+              <span>👁️</span>
+              <span>Lihat Katalog Guest</span>
             </Link>
 
             <button
