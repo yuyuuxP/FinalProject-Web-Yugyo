@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import pool from '@/lib/db';
+import ScheduleCalendar from '@/components/ScheduleCalendar';
 
 export default async function AdminSchedulePage({ searchParams }) {
   const resolvedSearchParams = await searchParams;
@@ -13,7 +14,6 @@ export default async function AdminSchedulePage({ searchParams }) {
   let attendanceRate = '98%';
 
   try {
-    // Mengambil data kursus/jadwal dari database courses & users
     const res = await pool.query(`
       SELECT 
         c.id, 
@@ -31,9 +31,8 @@ export default async function AdminSchedulePage({ searchParams }) {
 
     const allCourses = res.rows.map((item, idx) => ({
       ...item,
-      // Simulasi status jadwal berdasarkan indeks untuk memperkaya tampilan seperti referensi
       schedule_status: idx === 0 ? 'SEDANG BERLANGSUNG' : idx === 1 ? 'SIAP DIMULAI' : idx === 2 ? 'TERJADWAL' : 'KONFIRMASI STUDIO',
-      time_info: idx === 0 ? '01:15:30 tersisa' : idx === 1 ? 'Hari ini, 14:00 - 16:30 WIB' : 'Besok, 10:00 - 12:30 WIB',
+      time_info: idx === 0 ? '01:15:30 tersisa' : idx === 1 ? 'Hari ini, 14:00 - 16:30 WIT' : 'Besok, 10:00 - 12:30 WIT',
       room: idx === 2 ? 'Atelier Kitchen Lab 2' : 'Streaming Studio A & B',
       students_count: Math.floor(Math.random() * 15) + 15,
     }));
@@ -72,7 +71,7 @@ export default async function AdminSchedulePage({ searchParams }) {
 
         <div className="shrink-0">
           <span className="inline-flex items-center gap-1.5 bg-[#F9DDBB] text-[#802924] px-4 py-2 rounded-2xl text-xs font-extrabold shadow-2xs">
-            <span>🕒</span> WIB (GMT+7)
+            <span>🕒</span> WIT (GMT+9)
           </span>
         </div>
       </div>
@@ -128,43 +127,8 @@ export default async function AdminSchedulePage({ searchParams }) {
         </div>
       </div>
 
-      {/* 3. MINI KALENDER MINGGUAN */}
-      <div className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 shadow-2xs space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-editorial text-base font-bold text-[#341D17] flex items-center gap-2">
-            <span>📅</span> November 2026
-          </h3>
-          <div className="flex items-center gap-1">
-            <button aria-label="Sebelumnya" className="w-7 h-7 rounded-xl bg-[#F9DDBB]/40 hover:bg-[#F9DDBB] text-[#341D17] flex items-center justify-center text-xs transition cursor-pointer">‹</button>
-            <button aria-label="Selanjutnya" className="w-7 h-7 rounded-xl bg-[#F9DDBB]/40 hover:bg-[#F9DDBB] text-[#341D17] flex items-center justify-center text-xs transition cursor-pointer">›</button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-7 gap-2 text-center">
-          {[
-            { day: 'SEN', date: '18', active: false },
-            { day: 'SEL', date: '19', active: true },
-            { day: 'RAB', date: '20', active: false },
-            { day: 'KAM', date: '21', active: false },
-            { day: 'JUM', date: '22', active: false },
-            { day: 'SAB', date: '23', active: false },
-            { day: 'MIN', date: '24', active: false },
-          ].map((item, idx) => (
-            <div
-              key={idx}
-              className={`p-3 rounded-2xl flex flex-col items-center justify-center transition ${
-                item.active
-                  ? 'bg-[#802924] text-[#F9DDBB] shadow-md'
-                  : 'bg-[#F9DDBB]/20 hover:bg-[#F9DDBB]/40 text-[#341D17]'
-              }`}
-            >
-              <span className="text-[9px] font-extrabold uppercase tracking-wider opacity-75">{item.day}</span>
-              <span className="font-editorial text-base font-bold mt-0.5">{item.date}</span>
-              <span className={`w-1 h-1 rounded-full mt-1 ${item.active ? 'bg-[#F9DDBB]' : 'bg-[#802924]'}`} />
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* 3. MINI KALENDER INTERAKTIF TAHUN 2026 */}
+      <ScheduleCalendar />
 
       {/* 4. PENCARIAN & TAB FILTER */}
       <div className="space-y-3.5">
