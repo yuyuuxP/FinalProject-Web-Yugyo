@@ -8,7 +8,6 @@ const ATELIER_MENU = [
   { label: 'Dashboard', href: '/dashboard/admin', icon: '⊞' },
   { label: 'Course Management', href: '/dashboard/admin/courses', icon: '🎓' },
   { label: 'Category Management', href: '/dashboard/admin/categories', icon: '🗂️' },
-  { label: 'Content Management', href: '/dashboard/admin/content', icon: '📖' },
   { label: 'Users Management', href: '/dashboard/admin/users', icon: '👥' },
   { label: 'Schedule', href: '/dashboard/admin/schedule', icon: '📅' },
   { label: 'Reports Management', href: '/dashboard/admin/reports', icon: '📊' },

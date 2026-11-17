@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import pool from '@/lib/db';
+import DeleteCategoryButton from '@/components/DeleteCategoryButton';
 
 const CATEGORY_THUMBS = [
   'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=400&q=80',
@@ -18,7 +19,6 @@ export default async function AdminCategoriesPage({ searchParams }) {
   let draftCategoriesCount = 0;
 
   try {
-    // Ambil data kategori dari database beserta hitungan jumlah kursus terkait
     const catRes = await pool.query(`
       SELECT 
         c.id, 
@@ -35,9 +35,8 @@ export default async function AdminCategoriesPage({ searchParams }) {
 
     totalCoursesCount = allCategories.reduce((acc, curr) => acc + parseInt(curr.course_count || 0, 0), 0);
     activeCategoriesCount = allCategories.length;
-    draftCategoriesCount = 0; // atau sesuaikan jika ada kolom status
+    draftCategoriesCount = 0;
 
-    // Filter pencarian
     categories = allCategories.filter((item) => {
       if (!searchQuery) return true;
       const matchName = item.name?.toLowerCase().includes(searchQuery);
@@ -51,7 +50,7 @@ export default async function AdminCategoriesPage({ searchParams }) {
   return (
     <div className="space-y-7">
       
-      {/* 1. HEADER & BREADCRUMB */}
+      {/* HEADER & BREADCRUMB */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold tracking-[0.18em] uppercase text-[#802924]">
@@ -72,7 +71,7 @@ export default async function AdminCategoriesPage({ searchParams }) {
         </div>
       </div>
 
-      {/* 2. SEARCH BAR & TOMBOL TAMBAH KATEGORI */}
+      {/* SEARCH BAR & TOMBOL TAMBAH KATEGORI */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="relative flex-1">
           <span className="absolute inset-y-0 left-4 flex items-center text-[#341D17]/45 text-xs">
@@ -98,10 +97,8 @@ export default async function AdminCategoriesPage({ searchParams }) {
         </Link>
       </div>
 
-      {/* 3. STATISTIK KARTU (TOTAL, STATUS, ATELIER) */}
+      {/* STATISTIK KARTU */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 shadow-2xs">
-        
-        {/* Total Kursus */}
         <div className="flex items-center gap-4 p-2">
           <div className="w-10 h-10 rounded-xl bg-[#F9DDBB]/50 text-[#802924] flex items-center justify-center font-bold text-sm">
             📖
@@ -115,7 +112,6 @@ export default async function AdminCategoriesPage({ searchParams }) {
           </div>
         </div>
 
-        {/* Status Aktif */}
         <div className="flex items-center gap-4 p-2 sm:border-x border-[#341D17]/10">
           <div className="w-10 h-10 rounded-xl bg-[#82882B]/15 text-[#82882B] flex items-center justify-center font-bold text-sm">
             ✓
@@ -129,7 +125,6 @@ export default async function AdminCategoriesPage({ searchParams }) {
           </div>
         </div>
 
-        {/* Arsip / Draft */}
         <div className="flex items-center gap-4 p-2">
           <div className="w-10 h-10 rounded-xl bg-[#802924]/10 text-[#802924] flex items-center justify-center font-bold text-sm">
             🗂️
@@ -142,10 +137,9 @@ export default async function AdminCategoriesPage({ searchParams }) {
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* 4. DAFTAR KATEGORI KURSUS SECTION */}
+      {/* DAFTAR KATEGORI KURSUS */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-editorial text-base sm:text-lg font-bold text-[#341D17] flex items-center gap-2">
@@ -156,7 +150,6 @@ export default async function AdminCategoriesPage({ searchParams }) {
           </span>
         </div>
 
-        {/* List Items */}
         <div className="space-y-4">
           {categories.map((cat, idx) => (
             <div
@@ -165,7 +158,6 @@ export default async function AdminCategoriesPage({ searchParams }) {
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 
-                {/* Info Kategori & Thumbnail */}
                 <div className="flex items-start sm:items-center gap-3.5">
                   <img
                     src={CATEGORY_THUMBS[idx % CATEGORY_THUMBS.length]}
@@ -190,7 +182,6 @@ export default async function AdminCategoriesPage({ searchParams }) {
                   </div>
                 </div>
 
-                {/* Actions & Drag Handle */}
                 <div className="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#341D17]/10">
                   <span className="text-[10px] font-extrabold text-[#341D17]/50 bg-[#F9DDBB]/40 px-2.5 py-1 rounded-lg hidden md:inline-block">
                     ✓ Dipakai di Course Builder
@@ -204,17 +195,8 @@ export default async function AdminCategoriesPage({ searchParams }) {
                       <span>✏️</span> Ubah
                     </Link>
 
-                    <form action={`/api/admin/categories/${cat.id}`} method="POST">
-                      <input type="hidden" name="_method" value="DELETE" />
-                      <button
-                        type="submit"
-                        aria-label="Hapus Kategori"
-                        className="w-8 h-8 rounded-xl bg-[#802924]/10 hover:bg-[#802924] text-[#802924] hover:text-[#F9DDBB] flex items-center justify-center text-xs transition cursor-pointer shadow-2xs"
-                        title="Hapus Kategori"
-                      >
-                        🗑️
-                      </button>
-                    </form>
+                    {/* Tombol Hapus Menggunakan Komponen Client */}
+                    <DeleteCategoryButton categoryId={cat.id} categoryName={cat.name} />
 
                     <span className="text-[#341D17]/30 px-1 cursor-grab" title="Drag to reorder">
                       ⋮⋮
