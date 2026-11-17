@@ -39,10 +39,11 @@ export default async function CreateSchedulePage() {
           </Link>
         </div>
 
-        {/* BODY FORM */}
+        {/* BODY FORM (Menggunakan enctype multipart/form-data untuk upload file) */}
         <form 
           action="/api/admin/schedule" 
           method="POST" 
+          encType="multipart/form-data"
           className="p-6 sm:p-8 space-y-5 bg-[#FFFDF9]"
         >
           {/* Judul Sesi */}
@@ -130,6 +131,36 @@ export default async function CreateSchedulePage() {
               </select>
             </div>
           </div>
+
+          {/* PILIHAN VIDEO: Tautan YouTube ATAU Upload File Langsung */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-extrabold uppercase text-[#341D17]">
+                Tautan YouTube (Opsional)
+              </label>
+              <input
+                type="text"
+                name="video_url"
+                placeholder="https://youtube.com/watch?v=..."
+                className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-extrabold uppercase text-[#341D17]">
+                Atau Upload File Video (MP4)
+              </label>
+              <input
+                type="file"
+                name="video_file"
+                accept="video/*"
+                className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-3 py-2 text-xs text-[#341D17] file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#802924] file:text-[#F9DDBB] hover:file:bg-[#661F1B] transition shadow-2xs cursor-pointer"
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-[#341D17]/60 pl-1">
+            *Pilih salah satu: masukkan tautan YouTube atau unggah file video langsung (disimpan ke folder <code className="bg-[#F9DDBB]/50 px-1 py-0.5 rounded text-[#802924]">public/videos/</code>).
+          </p>
 
           {/* Deskripsi */}
           <div className="space-y-1.5">
