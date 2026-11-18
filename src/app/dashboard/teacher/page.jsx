@@ -33,11 +33,11 @@ export default async function TeacherDashboardPage() {
 
     const teacherId = teacher.id;
 
-    // 2. Hitung jumlah Kelas Masterclass
+    // 2. Hitung jumlah Kelas Masterclass yang diampu oleh guru ini
     const classRes = await pool.query('SELECT COUNT(*) as total FROM courses WHERE instructor_id = $1;', [teacherId]);
     stats.activeClasses = parseInt(classRes.rows[0]?.total || 0);
 
-    // 3. Hitung Total Siswa Aktif
+    // 3. Hitung Total Siswa Aktif yang mendaftar di kursus milik guru ini
     const studentRes = await pool.query(`
       SELECT COUNT(DISTINCT se.student_id) as total 
       FROM student_enrollments se 
@@ -46,16 +46,16 @@ export default async function TeacherDashboardPage() {
     `, [teacherId]);
     stats.totalStudents = parseInt(studentRes.rows[0]?.total || 0);
 
-    // 4. Hitung Karya & Uji Rasa / Laporan yang menunggu evaluasi
+    // 4. Hitung Karya & Uji Rasa / Laporan yang menunggu evaluasi (khusus kursus guru ini)
     const reportRes = await pool.query(`
       SELECT COUNT(*) as total 
       FROM reports r 
-      LEFT JOIN courses c ON r.course_id = c.id 
-      WHERE (c.instructor_id = $1 OR r.course_id IS NULL) AND r.status != 'Selesai';
+      JOIN courses c ON r.course_id = c.id 
+      WHERE c.instructor_id = $1 AND r.status != 'Selesai';
     `, [teacherId]);
     stats.pendingEvaluations = parseInt(reportRes.rows[0]?.total || 0);
 
-    // 5. Hitung kepuasan siswa dari ulasan kursus
+    // 5. Hitung kepuasan siswa dari ulasan kursus yang diampu guru ini
     const reviewRes = await pool.query(`
       SELECT COUNT(rev.id) as total, AVG(rev.rating) as avg_rating 
       FROM reviews rev 
@@ -68,7 +68,7 @@ export default async function TeacherDashboardPage() {
       stats.avgRating = parseFloat(reviewRes.rows[0].avg_rating).toFixed(1);
     }
 
-    // 6. Ambil jadwal live sesi mendatang
+    // 6. Ambil jadwal live sesi mendatang secara dinamis
     const scheduleRes = await pool.query(`
       SELECT c.title as course_title, c.created_at 
       FROM courses c 
@@ -91,7 +91,7 @@ export default async function TeacherDashboardPage() {
       };
     }
 
-    // 7. Ambil daftar kursus yang diampu
+    // 7. Ambil daftar kursus yang diampu oleh guru ini
     const coursesRes = await pool.query(`
       SELECT c.*, 
              (SELECT COUNT(se.id) FROM student_enrollments se WHERE se.course_id = c.id) as enrolled_count 
@@ -101,15 +101,15 @@ export default async function TeacherDashboardPage() {
     `, [teacherId]);
     teacherCourses = coursesRes.rows;
 
-    // 8. Ambil data Diskusi & Pertanyaan Siswa (Inklusif untuk menampilkan seluruh laporan dan nama siswa dari users)
+    // 8. Ambil data Diskusi & Pertanyaan Siswa MURNI dari user dengan role 'student'
     const discussionsRes = await pool.query(`
       SELECT r.id, r.title, r.content, r.category, r.status, r.created_at,
-             COALESCE(u.full_name, 'Siswa Atelier') as student_name,
+             u.full_name as student_name,
              COALESCE(c.title, 'Masterclass Atelier') as course_title
       FROM reports r
-      LEFT JOIN users u ON r.student_id = u.id
+      JOIN users u ON r.student_id = u.id
       LEFT JOIN courses c ON r.course_id = c.id
-      WHERE c.instructor_id = $1 OR r.course_id IS NULL OR r.student_id IS NOT NULL
+      WHERE (c.instructor_id = $1 OR r.course_id IS NULL) AND u.role = 'student'
       ORDER BY r.created_at DESC
       LIMIT 5;
     `, [teacherId]);
