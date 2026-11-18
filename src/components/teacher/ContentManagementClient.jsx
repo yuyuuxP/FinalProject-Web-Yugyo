@@ -7,10 +7,12 @@ export default function ContentManagementClient({ courses, currentCourse, conten
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('Semua'); // 'Semua', 'Draft'
   
-  // State untuk form editor materi baru (tanpa duration_minutes dan content_type)
   const [newContent, setNewContent] = useState({
+    course_id: currentCourse?.id || '',
     title: '',
     description: '',
+    video_url: '',
+    cover_image_url: '',
     status: 'published'
   });
   const [loading, setLoading] = useState(false);
@@ -25,9 +27,24 @@ export default function ContentManagementClient({ courses, currentCourse, conten
     setNewContent({ ...newContent, [e.target.name]: e.target.value });
   };
 
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setNewContent({ ...newContent, cover_image_url: URL.createObjectURL(file) });
+    }
+  };
+
+  const handleVideoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setNewContent({ ...newContent, video_url: URL.createObjectURL(file) });
+    }
+  };
+
   const handleSave = async (statusType) => {
-    if (!currentCourse) {
-      alert('Silakan pilih atau buat kursus terlebih dahulu.');
+    const targetCourseId = newContent.course_id || currentCourse?.id;
+    if (!targetCourseId) {
+      alert('Silakan pilih kursus terlebih dahulu.');
       return;
     }
     if (!newContent.title) {
@@ -44,7 +61,7 @@ export default function ContentManagementClient({ courses, currentCourse, conten
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newContent,
-          course_id: currentCourse.id,
+          course_id: targetCourseId,
           status: statusType,
           order_index: contents.length + 1
         }),
@@ -172,7 +189,9 @@ export default function ContentManagementClient({ courses, currentCourse, conten
                 {filteredContents.map((item, index) => (
                   <div key={item.id || index} className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-start gap-3">
-                      <span className="text-[#341D17]/40 font-bold text-sm mt-0.5 cursor-grab">⋮⋮</span>
+                      {item.cover_image_url && (
+                        <img src={item.cover_image_url} alt="Cover" className="w-12 h-12 rounded-xl object-cover border border-[#341D17]/15" />
+                      )}
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="bg-[#802924]/10 text-[#802924] text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
@@ -206,7 +225,7 @@ export default function ContentManagementClient({ courses, currentCourse, conten
             )}
           </div>
 
-          {/* EDITOR MATERI AKTIF (DENGAN RICH TEXT EDITOR & TANPA DURASI) */}
+          {/* EDITOR MATERI AKTIF (DENGAN TOMBOL UPLOAD VIDEO DISAMPING INPUT TAUTAN) */}
           <div id="editor-materi" className="bg-[#FFFDF9] border border-[#341D17]/20 rounded-3xl p-6 sm:p-8 shadow-md space-y-6">
             
             <div className="flex items-center justify-between border-b border-[#341D17]/10 pb-4">
@@ -215,7 +234,7 @@ export default function ContentManagementClient({ courses, currentCourse, conten
                   EDITOR MATERI AKTIF
                 </span>
                 <h2 className="font-editorial text-xl font-bold text-[#341D17] mt-0.5">
-                  Modul Pembelajaran Baru: {currentCourse.title}
+                  Modul Pembelajaran Baru
                 </h2>
               </div>
               <span className="text-xs font-extrabold text-[#802924] bg-[#802924]/10 px-3 py-1.5 rounded-xl">
@@ -230,6 +249,27 @@ export default function ContentManagementClient({ courses, currentCourse, conten
             )}
 
             <div className="space-y-4">
+              
+              {/* Dropdown Kursus Tujuan */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#341D17]/80">
+                  Terbitkan ke Kursus
+                </label>
+                <select
+                  name="course_id"
+                  value={newContent.course_id || currentCourse.id}
+                  onChange={handleInputChange}
+                  className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] font-bold focus:outline-none focus:border-[#802924] cursor-pointer"
+                >
+                  {courses.map((crs) => (
+                    <option key={crs.id} value={crs.id}>
+                      {crs.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Judul Modul */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold uppercase tracking-wider text-[#341D17]/80">
                   Judul Modul / Materi
@@ -244,6 +284,58 @@ export default function ContentManagementClient({ courses, currentCourse, conten
                 />
               </div>
 
+              {/* Cover Gambar & Tautan Video dengan Tombol Upload Video di Sampingnya */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                
+                {/* Cover Gambar Materi */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#341D17]/80">
+                    Cover Gambar Materi (Dijadikan Sampul)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <label className="bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs py-2.5 px-4 rounded-xl cursor-pointer transition">
+                      <span>Pilih Gambar</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    <span className="text-xs text-[#341D17]/60 truncate">
+                      {newContent.cover_image_url ? 'Cover terpilih' : 'Belum ada'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Tautan Video & Tombol Upload Video di Sampingnya */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#341D17]/80">
+                    Tautan Video (*URL) Atau Upload File
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      name="video_url"
+                      placeholder="https://youtube.com/..."
+                      value={newContent.video_url.startsWith('blob:') ? '[Video Lokal Terpilih]' : newContent.video_url}
+                      onChange={handleInputChange}
+                      className="flex-1 bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:border-[#802924]"
+                    />
+                    <label className="bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs py-3 px-4 rounded-2xl cursor-pointer transition whitespace-nowrap shadow-xs">
+                      <span>Upload Video</span>
+                      <input
+                        type="file"
+                        accept="video/*"
+                        onChange={handleVideoUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+              </div>
+
               {/* ATELIER RICH TEXT EDITOR */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -253,7 +345,6 @@ export default function ContentManagementClient({ courses, currentCourse, conten
                   <span className="text-[10px] font-extrabold text-[#82882B]">Baker&apos;s Formula Tools Ready</span>
                 </div>
 
-                {/* Toolbar Editor */}
                 <div className="flex flex-wrap items-center gap-1 bg-[#F9DDBB]/30 border border-[#341D17]/15 rounded-2xl p-2 text-xs font-bold text-[#341D17]">
                   <button type="button" className="px-3 py-1.5 hover:bg-[#FFFDF9] rounded-xl transition">B</button>
                   <button type="button" className="px-3 py-1.5 hover:bg-[#FFFDF9] rounded-xl transition italic">I</button>
@@ -262,13 +353,9 @@ export default function ContentManagementClient({ courses, currentCourse, conten
                   <button type="button" className="px-3 py-1.5 hover:bg-[#FFFDF9] rounded-xl transition">H1</button>
                   <button type="button" className="px-3 py-1.5 hover:bg-[#FFFDF9] rounded-xl transition">H2</button>
                   <span className="text-[#341D17]/20">|</span>
-                  <button type="button" className="px-3 py-1.5 hover:bg-[#FFFDF9] rounded-xl transition">bullet</button>
-                  <button type="button" className="px-3 py-1.5 hover:bg-[#FFFDF9] rounded-xl transition">number</button>
-                  <span className="text-[#341D17]/20">|</span>
-                  <button type="button" className="bg-[#FFFDF9] border border-[#341D17]/15 px-3 py-1.5 rounded-xl text-[10px] font-extrabold">Sisipkan Baker&apos;s</button>
+                  <button type="button" className="bg-[#FFFDF9] border border-[#341D17]/15 px-3 py-1.5 rounded-xl text-[10px] font-extrabold text-[#802924]">％ Sisipkan Baker&apos;s %</button>
                   <button type="button" className="bg-[#FFFDF9] border border-[#341D17]/15 px-3 py-1.5 rounded-xl text-[10px] font-extrabold">Foto Step</button>
                   <button type="button" className="bg-[#FFFDF9] border border-[#341D17]/15 px-3 py-1.5 rounded-xl text-[10px] font-extrabold">Embed Video</button>
-                  <button type="button" className="bg-[#FFFDF9] border border-[#341D17]/15 px-3 py-1.5 rounded-xl text-[10px] font-extrabold">Timer Step</button>
                 </div>
 
                 <textarea

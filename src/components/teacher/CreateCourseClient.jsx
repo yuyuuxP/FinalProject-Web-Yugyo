@@ -13,7 +13,6 @@ export default function CreateCourseClient({ teacher, assignedCategory }) {
     title: '',
     description: '',
     category_id: assignedCategory?.id || '',
-    video_url: '',
     start_date: '',
     end_date: '',
     thumbnail_url: '',
@@ -111,34 +110,18 @@ export default function CreateCourseClient({ teacher, assignedCategory }) {
             />
           </div>
 
-          {/* Kategori Studio & Tautan Video */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/75">
-                KATEGORI ATELIER (TERKUNCI SESUAI SPESIALISASI)
-              </label>
-              <input
-                type="text"
-                disabled
-                value={assignedCategory?.name || 'Spesialisasi Atelier'}
-                className="w-full bg-[#341D17]/5 border border-[#341D17]/15 rounded-2xl px-4 py-3 text-xs font-bold text-[#341D17]/80 cursor-not-allowed"
-              />
-              <input type="hidden" name="category_id" value={assignedCategory?.id || ''} />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/75">
-                TAUTAN VIDEO SAMPEL (*URL)
-              </label>
-              <input
-                type="url"
-                name="video_url"
-                placeholder="https://youtube.com/watch?v=..."
-                value={formData.video_url}
-                onChange={handleChange}
-                className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:border-[#802924]"
-              />
-            </div>
+          {/* Kategori Studio (Terkunci Sesuai Spesialisasi - Tanpa kolom tautan video) */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/75">
+              KATEGORI ATELIER (TERKUNCI SESUAI SPESIALISASI)
+            </label>
+            <input
+              type="text"
+              disabled
+              value={assignedCategory?.name || 'French Patisserie & Pastry'}
+              className="w-full bg-[#341D17]/5 border border-[#341D17]/15 rounded-2xl px-4 py-3 text-xs font-bold text-[#341D17]/80 cursor-not-allowed"
+            />
+            <input type="hidden" name="category_id" value={assignedCategory?.id || ''} />
           </div>
 
           {/* Tanggal Mulai & Tanggal Selesai */}
@@ -170,7 +153,7 @@ export default function CreateCourseClient({ teacher, assignedCategory }) {
             </div>
           </div>
 
-          {/* Upload Foto Thumbnail Wajib */}
+          {/* Foto Thumbnail Kursus */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/75">
               FOTO THUMBNAIL KURSUS (WAJIB)

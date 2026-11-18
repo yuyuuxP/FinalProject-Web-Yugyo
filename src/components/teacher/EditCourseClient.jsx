@@ -9,11 +9,13 @@ export default function EditCourseClient({ course, categories }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Cari kategori kursus saat ini atau fallback ke French Patisserie & Pastry
+  const currentCategory = categories.find(cat => cat.id === course.category_id) || categories[0];
+
   const [formData, setFormData] = useState({
     title: course.title || '',
     description: course.description || '',
-    category_id: course.category_id || categories[0]?.id || '',
-    video_url: course.video_url || '',
+    category_id: course.category_id || currentCategory?.id || '',
     start_date: course.start_date ? course.start_date.split('T')[0] : '',
     end_date: course.end_date ? course.end_date.split('T')[0] : '',
   });
@@ -93,37 +95,18 @@ export default function EditCourseClient({ course, categories }) {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/75">
-                KATEGORI ATELIER
-              </label>
-              <select
-                name="category_id"
-                value={formData.category_id}
-                onChange={handleChange}
-                className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:border-[#802924]"
-              >
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/75">
-                TAUTAN VIDEO SAMPEL (*URL)
-              </label>
-              <input
-                type="url"
-                name="video_url"
-                value={formData.video_url}
-                onChange={handleChange}
-                className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:border-[#802924]"
-              />
-            </div>
+          {/* Kategori */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/75">
+              KATEGORI ATELIER
+            </label>
+            <input
+              type="text"
+              disabled
+              value={currentCategory?.name || 'French Patisserie & Pastry'}
+              className="w-full bg-[#341D17]/5 border border-[#341D17]/15 rounded-2xl px-4 py-3 text-xs font-bold text-[#341D17]/80 cursor-not-allowed"
+            />
+            <input type="hidden" name="category_id" value={formData.category_id} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
