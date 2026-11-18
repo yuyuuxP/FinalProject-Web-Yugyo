@@ -152,3 +152,15 @@ INSERT INTO reviews (student_id, course_id, rating, content, status, created_at)
 VALUES 
 (NULL, NULL, 5, 'Penjelasan rasio almond flour dan meringue Italia sangat presisi! Kaki macaron keluar sempurna tanpa rongga kopong pada percobaan pertama.', 'published', NOW() - INTERVAL '4 hours'),
 (NULL, NULL, 4, 'Materi sangat detail dan resep pastry cream vanilla bean sangat harum. Saran: tambahkan tips alternatif jika oven tidak memiliki kipas konveksi.', 'published', NOW() - INTERVAL '2 days');
+
+-- SEEDING SETTINGS
+INSERT INTO system_settings (key_name, key_value) VALUES 
+('auto_approval', 'false'),
+('studio_capacity', '20'),
+('submission_deadline', '14 Hari Kerja (Sourdough & Viennoiserie Lanjut)'),
+('wa_notification', 'true'),
+('email_notification', 'true'),
+('oven_reminder', 'true'),
+('language', 'id'),
+('timezone', 'WIT')
+ON CONFLICT (key_name) DO NOTHING;

@@ -58,6 +58,13 @@ CREATE TABLE IF NOT EXISTS reviews (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabel Settings 
+CREATE TABLE IF NOT EXISTS system_settings (
+    id SERIAL PRIMARY KEY,
+    key_name VARCHAR(100) UNIQUE NOT NULL,
+    key_value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 -- Index untuk relasi Foreign Key (mempercepat proses JOIN tabel courses dengan categories & users)
 CREATE INDEX idx_courses_category_id ON courses(category_id);
@@ -73,6 +80,20 @@ CREATE INDEX idx_users_email ON users(email);
 
 -- Index untuk tabel categories (mempercepat pencarian nama kategori)
 CREATE INDEX idx_categories_name ON categories(name);
+
+-- Index untuk tabel reports
+CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reports_student_id ON reports(student_id);
+
+-- Indeks untuk tabel reviews
+CREATE INDEX IF NOT EXISTS idx_reviews_rating ON reviews(rating);
+CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status);
+CREATE INDEX IF NOT EXISTS idx_reviews_created_at ON reviews(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reviews_student_id ON reviews(student_id);
+
+--Index untuk tabel settings
+CREATE INDEX IF NOT EXISTS idx_system_settings_key_name ON system_settings(key_name);
 
 -- Menambah kolom untuk gambar yg diupload
 ALTER TABLE categories 

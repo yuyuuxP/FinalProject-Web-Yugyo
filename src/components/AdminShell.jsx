@@ -15,7 +15,6 @@ const ATELIER_MENU = [
 
 const SYSTEM_MENU = [
   { label: 'Settings', href: '/dashboard/admin/settings', icon: '⚙️' },
-  { label: 'User Profile', href: '/dashboard/admin/profile', icon: '👤' },
 ];
 
 // 1. SidebarContent dipindah ke luar komponen utama AdminShell
