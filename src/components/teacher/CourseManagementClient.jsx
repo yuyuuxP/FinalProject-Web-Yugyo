@@ -28,6 +28,26 @@ export default function CourseManagementClient({ courses }) {
     return matchesSearch;
   });
 
+  const handleDelete = async (courseId, courseTitle) => {
+    const confirmed = window.confirm(`Apakah Anda yakin ingin menghapus kursus "${courseTitle}" dari Atelier? Tindakan ini tidak dapat dipulihkan.`);
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/teacher/courses/${courseId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Gagal menghapus kursus.');
+      }
+
+      window.location.reload();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       
@@ -63,7 +83,6 @@ export default function CourseManagementClient({ courses }) {
       {/* FILTER TABS & SEARCH BAR */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2">
         
-        {/* TABS FILTER */}
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -111,7 +130,6 @@ export default function CourseManagementClient({ courses }) {
           </button>
         </div>
 
-        {/* SEARCH INPUT */}
         <div className="w-full lg:w-72">
           <input
             type="text"
@@ -187,9 +205,7 @@ export default function CourseManagementClient({ courses }) {
                     </span>
                   </div>
 
-                  {/* KONDISI TOMBOL AKSI BERDASARKAN STATUS */}
                   {isDraft ? (
-                    // 1. Status DRAFT: Muncul tombol Lanjutkan Pengeditan
                     <div className="pt-2">
                       <Link
                         href={`/dashboard/teacher/courses/${course.id}/edit`}
@@ -199,21 +215,19 @@ export default function CourseManagementClient({ courses }) {
                       </Link>
                     </div>
                   ) : isPending ? (
-                    // 2. Status PENDING / DIAJUKAN: Dikunci (Tidak bisa diedit, tampil info peninjauan)
                     <div className="pt-2">
                       <div className="w-full bg-[#341D17]/5 border border-[#341D17]/15 text-[#341D17]/70 font-bold text-xs py-3 px-6 rounded-2xl text-center flex items-center justify-center gap-2 select-none">
                         <span>🔒 Sedang Ditinjau Admin (Tidak dapat diedit)</span>
                       </div>
                     </div>
                   ) : (
-                    // 3. Status ACTIVE / SEDANG TAYANG: Tombol Materi, Edit, dan Hapus
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-                      <Link
-                        href={`/dashboard/teacher/contents`}
+                      <a
+                        href={course.video_url || 'https://youtube.com'}
                         className="w-full sm:flex-1 bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs py-3 px-6 rounded-2xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
                       >
-                        <span>📚 Materi</span>
-                      </Link>
+                        <span>Materi</span>
+                      </a>
                       
                       <div className="flex items-center gap-2 w-full sm:w-auto">
                         <Link
@@ -226,7 +240,7 @@ export default function CourseManagementClient({ courses }) {
                         
                         <button
                           type="button"
-                          onClick={() => alert(`Fitur hapus untuk kursus: ${course.title}`)}
+                          onClick={() => handleDelete(course.id, course.title)}
                           className="bg-[#802924]/10 hover:bg-[#802924]/20 text-[#802924] p-3 rounded-2xl transition cursor-pointer"
                           title="Hapus Kursus"
                         >

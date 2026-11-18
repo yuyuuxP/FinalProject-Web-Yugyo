@@ -36,7 +36,7 @@ export default async function EditUserPage({ params }) {
         <div className="px-6 py-4 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-between">
           <div>
             <span className="text-[10px] font-extrabold tracking-[0.18em] uppercase text-[#802924]">
-              🥐 DIREKTORI ATELIER • UBAH PENGGUNA
+              DIREKTORI ATELIER • UBAH PENGGUNA
             </span>
             <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
               Edit Akun: {user.full_name}
@@ -72,32 +72,21 @@ export default async function EditUserPage({ params }) {
             />
           </div>
 
-          {/* Email */}
+          {/* Email (Di-freeze / ReadOnly dengan value agar bebas error hidrasi/controlled) */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-              Alamat Email
+            <label className="block text-xs font-extrabold uppercase text-[#341D17]/75">
+              Alamat Email (Terkunci)
             </label>
             <input
               type="email"
               name="email"
-              defaultValue={user.email}
-              required
-              className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
+              value={user.email || ''}
+              readOnly
+              className="w-full bg-[#341D17]/5 border border-[#341D17]/15 rounded-2xl px-4 py-3 text-xs font-bold text-[#341D17]/60 cursor-not-allowed select-none focus:outline-none"
             />
           </div>
 
-          {/* Password Baru (Opsional) */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-              Kata Sandi Baru (Opsional)
-            </label>
-            <input
-              type="text"
-              name="password"
-              placeholder="Kosongkan jika tidak ingin mengubah sandi"
-              className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
-            />
-          </div>
+          {/* Kolom Kata Sandi Baru telah dihilangkan sepenuhnya */}
 
           {/* Role & Status */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -154,9 +143,8 @@ export default async function EditUserPage({ params }) {
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-sm py-3.5 px-6 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-sm py-3.5 px-6 rounded-2xl shadow-lg transition flex items-center justify-center cursor-pointer"
             >
-              <span>💾</span>
               <span>Simpan Perubahan Pengguna</span>
             </button>
           </div>
