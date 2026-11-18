@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import pool from '@/lib/db';
 import { cookies } from 'next/headers';
+import TeacherCoursesList from '@/components/teacher/TeacherCoursesList';
 
 export default async function TeacherDashboardPage() {
   let teacher = { id: null, full_name: 'Chef Pengajar' };
@@ -13,6 +14,7 @@ export default async function TeacherDashboardPage() {
   };
   let liveSession = null;
   let teacherCourses = [];
+  let studentDiscussions = [];
 
   try {
     const cookieStore = await cookies();
@@ -31,11 +33,11 @@ export default async function TeacherDashboardPage() {
 
     const teacherId = teacher.id;
 
-    // 2. Hitung jumlah Kelas Masterclass yang diajar oleh guru ini
+    // 2. Hitung jumlah Kelas Masterclass
     const classRes = await pool.query('SELECT COUNT(*) as total FROM courses WHERE instructor_id = $1;', [teacherId]);
     stats.activeClasses = parseInt(classRes.rows[0]?.total || 0);
 
-    // 3. Hitung Total Siswa Aktif yang mendaftar di kursus-kursus milik guru ini
+    // 3. Hitung Total Siswa Aktif
     const studentRes = await pool.query(`
       SELECT COUNT(DISTINCT se.student_id) as total 
       FROM student_enrollments se 
@@ -44,16 +46,16 @@ export default async function TeacherDashboardPage() {
     `, [teacherId]);
     stats.totalStudents = parseInt(studentRes.rows[0]?.total || 0);
 
-    // 4. Hitung Karya & Uji Rasa / Laporan yang menunggu evaluasi terkait kursus guru ini
+    // 4. Hitung Karya & Uji Rasa / Laporan yang menunggu evaluasi
     const reportRes = await pool.query(`
       SELECT COUNT(*) as total 
       FROM reports r 
-      JOIN courses c ON r.course_id = c.id 
-      WHERE c.instructor_id = $1 AND r.status != 'Selesai';
+      LEFT JOIN courses c ON r.course_id = c.id 
+      WHERE (c.instructor_id = $1 OR r.course_id IS NULL) AND r.status != 'Selesai';
     `, [teacherId]);
     stats.pendingEvaluations = parseInt(reportRes.rows[0]?.total || 0);
 
-    // 5. Hitung kepuasan siswa dari ulasan kursus guru ini
+    // 5. Hitung kepuasan siswa dari ulasan kursus
     const reviewRes = await pool.query(`
       SELECT COUNT(rev.id) as total, AVG(rev.rating) as avg_rating 
       FROM reviews rev 
@@ -66,7 +68,7 @@ export default async function TeacherDashboardPage() {
       stats.avgRating = parseFloat(reviewRes.rows[0].avg_rating).toFixed(1);
     }
 
-    // 6. Ambil jadwal live sesi mendatang secara dinamis berdasarkan kursus milik guru ini
+    // 6. Ambil jadwal live sesi mendatang
     const scheduleRes = await pool.query(`
       SELECT c.title as course_title, c.created_at 
       FROM courses c 
@@ -79,7 +81,7 @@ export default async function TeacherDashboardPage() {
       liveSession = {
         title: `Sesi Mentoring & Troubleshooting: ${scheduleRes.rows[0].course_title}`,
         description: `Koreksi teknik dan evaluasi modul pastry bersama kohor siswa Anda hari ini.`,
-        time: 'Hari ini • 15:00 WIB',
+        time: 'Hari ini • 15:00 WIT',
       };
     } else {
       liveSession = {
@@ -89,7 +91,7 @@ export default async function TeacherDashboardPage() {
       };
     }
 
-    // 7. Ambil daftar kursus yang HANYA diajar oleh guru ini beserta statistik enrollments-nya
+    // 7. Ambil daftar kursus yang diampu
     const coursesRes = await pool.query(`
       SELECT c.*, 
              (SELECT COUNT(se.id) FROM student_enrollments se WHERE se.course_id = c.id) as enrolled_count 
@@ -98,6 +100,20 @@ export default async function TeacherDashboardPage() {
       ORDER BY c.id DESC;
     `, [teacherId]);
     teacherCourses = coursesRes.rows;
+
+    // 8. Ambil data Diskusi & Pertanyaan Siswa (Inklusif untuk menampilkan seluruh laporan dan nama siswa dari users)
+    const discussionsRes = await pool.query(`
+      SELECT r.id, r.title, r.content, r.category, r.status, r.created_at,
+             COALESCE(u.full_name, 'Siswa Atelier') as student_name,
+             COALESCE(c.title, 'Masterclass Atelier') as course_title
+      FROM reports r
+      LEFT JOIN users u ON r.student_id = u.id
+      LEFT JOIN courses c ON r.course_id = c.id
+      WHERE c.instructor_id = $1 OR r.course_id IS NULL OR r.student_id IS NOT NULL
+      ORDER BY r.created_at DESC
+      LIMIT 5;
+    `, [teacherId]);
+    studentDiscussions = discussionsRes.rows;
 
   } catch (err) {
     console.error('Error fetching teacher dashboard data:', err);
@@ -137,8 +153,6 @@ export default async function TeacherDashboardPage() {
 
       {/* STATS GRID CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Total Siswa Aktif */}
         <div className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 shadow-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold uppercase text-[#341D17]/70">Total Siswa Aktif</span>
@@ -147,7 +161,6 @@ export default async function TeacherDashboardPage() {
           <div className="font-editorial text-3xl font-bold text-[#341D17]">{stats.totalStudents} Siswa</div>
         </div>
 
-        {/* Kelas Masterclass */}
         <div className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 shadow-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold uppercase text-[#341D17]/70">Kelas Masterclass</span>
@@ -156,7 +169,6 @@ export default async function TeacherDashboardPage() {
           <div className="font-editorial text-3xl font-bold text-[#341D17]">{stats.activeClasses} Kelas</div>
         </div>
 
-        {/* Kepuasan Siswa */}
         <div className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 shadow-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold uppercase text-[#341D17]/70">Kepuasan Siswa</span>
@@ -169,7 +181,6 @@ export default async function TeacherDashboardPage() {
           <p className="text-[10px] text-[#341D17]/60 mt-1">{stats.totalReviews} ulasan kursus</p>
         </div>
 
-        {/* Karya & Uji Rasa */}
         <div className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold uppercase text-[#341D17]/70">Karya &amp; Uji Rasa</span>
@@ -178,7 +189,6 @@ export default async function TeacherDashboardPage() {
           <div className="font-editorial text-3xl font-bold text-[#802924]">{stats.pendingEvaluations} Karya</div>
           <p className="text-[10px] text-[#802924] font-medium mt-1">Menunggu Evaluasi</p>
         </div>
-
       </div>
 
       {/* JADWAL LIVE SESI MENDATANG */}
@@ -203,7 +213,7 @@ export default async function TeacherDashboardPage() {
         </div>
       </div>
 
-      {/* KURSUS YANG DIAJARKAN (DINAMIS DARI DATABASE SPESIFIK GURU) */}
+      {/* KURSUS YANG DIAJARKAN */}
       <div className="space-y-4 pt-2">
         <div className="flex items-center justify-between">
           <div>
@@ -213,62 +223,73 @@ export default async function TeacherDashboardPage() {
           <span className="text-xs font-bold text-[#802924]">{teacherCourses.length} Kursus Aktif</span>
         </div>
 
-        {teacherCourses.length === 0 ? (
+        <TeacherCoursesList courses={teacherCourses} />
+      </div>
+
+      {/* DISKUSI & PERTANYAAN SISWA */}
+      <div className="space-y-4 pt-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-editorial text-xl font-bold text-[#341D17]">Diskusi &amp; Pertanyaan Siswa</h2>
+            <p className="text-xs text-[#341D17]/70">Ulasan materi dan bimbingan teknis studio</p>
+          </div>
+          <span className="w-6 h-6 rounded-full bg-[#802924] text-[#F9DDBB] text-xs font-extrabold flex items-center justify-center shadow-xs">
+            {studentDiscussions.length}
+          </span>
+        </div>
+
+        {studentDiscussions.length === 0 ? (
           <div className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-8 text-center text-xs text-[#341D17]/60">
-            Belum ada kursus yang terdaftar atas nama Anda di database. Buat kursus baru melalui menu Course Management.
+            Belum ada diskusi atau pertanyaan baru dari siswa atelier.
           </div>
         ) : (
           <div className="space-y-4">
-            {teacherCourses.map((course) => (
-              <div key={course.id} className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4 relative overflow-hidden">
-                
-                {/* Background Banner / Thumbnail jika ada */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#341D17]/10 pb-4">
-                  <div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#802924]">
-                      ATELIER MASTERCLASS
+            {studentDiscussions.map((item) => {
+              const studentName = item.student_name || 'Siswa Atelier';
+              const initials = studentName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+              const isUrgent = item.status === 'Urgent' || item.category === 'technical';
+
+              return (
+                <div key={item.id} className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+                  
+                  <div className="flex items-center justify-between gap-2 border-b border-[#341D17]/10 pb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-[#802924] text-[#F9DDBB] flex items-center justify-center font-bold text-xs shadow-2xs">
+                        {initials}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-[#341D17]">{studentName}</span>
+                        </div>
+                        <p className="text-[10px] text-[#341D17]/60">{item.title} • WIT</p>
+                      </div>
+                    </div>
+
+                    <span className={`text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider ${
+                      isUrgent 
+                        ? 'bg-[#802924] text-[#F9DDBB]' 
+                        : 'bg-[#F9DDBB]/50 text-[#802924]'
+                    }`}>
+                      {item.course_title}
                     </span>
-                    <h3 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17] mt-0.5">
-                      {course.title}
-                    </h3>
-                    <p className="text-xs text-[#341D17]/70 mt-1 line-clamp-1">{course.description}</p>
                   </div>
-                  <span className="bg-[#82882B]/15 text-[#82882B] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase self-start shrink-0">
-                    Aktif Diampu
-                  </span>
-                </div>
 
-                {/* Info Progres & Siswa */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold">
-                    <span className="text-[#341D17]/70">👥 {course.enrolled_count || 0} Siswa Terdaftar</span>
-                    <span className="text-[#802924]">✓ 88% Selesai Kohor</span>
+                  <p className="text-xs sm:text-sm text-[#341D17]/85 italic bg-white border border-[#341D17]/10 rounded-2xl p-4">
+                    &ldquo;{item.content}&rdquo;
+                  </p>
+
+                  <div className="flex justify-end gap-3 pt-1">
+                    <button className="bg-[#FFFDF9] hover:bg-[#F9DDBB]/50 border border-[#341D17]/20 text-[#341D17] font-bold text-xs py-2 px-4 rounded-xl transition cursor-pointer">
+                      Tandai Dibaca
+                    </button>
+                    <button className="bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs py-2.5 px-5 rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer">
+                      <span>💬 Jawab Sekarang</span>
+                    </button>
                   </div>
-                  <div className="w-full bg-[#F9DDBB]/50 h-2 rounded-full overflow-hidden">
-                    <div className="bg-[#802924] h-full w-[88%]" />
-                  </div>
-                </div>
 
-                {/* Tombol Aksi Kursus */}
-                <div className="flex flex-wrap gap-3 pt-2">
-                  <Link
-                    href={`/dashboard/teacher/courses`}
-                    className="bg-[#F9DDBB]/40 hover:bg-[#F9DDBB] text-[#341D17] font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5"
-                  >
-                    <span>📊</span>
-                    <span>Lihat Progres Siswa</span>
-                  </Link>
-                  <Link
-                    href={`/dashboard/teacher/contents`}
-                    className="bg-[#F9DDBB]/40 hover:bg-[#F9DDBB] text-[#341D17] font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5"
-                  >
-                    <span>📚</span>
-                    <span>Kelola Materi</span>
-                  </Link>
                 </div>
-
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

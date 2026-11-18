@@ -14,7 +14,6 @@ export default function TeacherSidebar({ teacher }) {
     { name: 'Chat & Support', href: '/dashboard/teacher/chats', icon: '💬', badge: '2' },
   ];
 
-  // Ambil inisial nama untuk avatar (contoh: "Antoine Dupont" -> "AD")
   const getInitials = (name) => {
     if (!name) return 'CD';
     const parts = name.replace('Chef ', '').trim().split(' ');
@@ -26,11 +25,11 @@ export default function TeacherSidebar({ teacher }) {
   const initials = getInitials(fullName);
 
   return (
-    <aside className="w-full md:w-72 bg-[#FFFDF9] border-r border-[#341D17]/10 flex flex-col justify-between p-5 shrink-0">
+    <aside className="w-72 bg-[#FFFDF9] border-r border-[#341D17]/10 flex flex-col justify-between p-5 h-full shrink-0 select-none">
       <div className="space-y-6">
         
         {/* Brand Logo */}
-        <div className="flex items-center gap-3 px-2">
+        <div className="flex items-center gap-3 px-2 pt-1">
           <div className="w-9 h-9 rounded-2xl bg-[#802924] text-[#F9DDBB] flex items-center justify-center font-editorial font-bold text-sm shadow-sm">
             Y
           </div>
@@ -42,9 +41,9 @@ export default function TeacherSidebar({ teacher }) {
           </div>
         </div>
 
-        {/* Profile Card Ringkas di Sidebar (Dinamis dari Database) */}
+        {/* Profile Card Ringkas di Sidebar */}
         <div className="bg-[#F9DDBB]/30 border border-[#341D17]/10 rounded-2xl p-3.5 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#802924] text-[#F9DDBB] flex items-center justify-center font-bold text-xs shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#802924] text-[#F9DDBB] flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
             {initials}
           </div>
           <div className="overflow-hidden">
@@ -88,7 +87,7 @@ export default function TeacherSidebar({ teacher }) {
       </div>
 
       {/* Footer Sidebar / Logout */}
-      <div className="pt-6 border-t border-[#341D17]/10 mt-6">
+      <div className="pt-4 border-t border-[#341D17]/10 mt-auto">
         <Link
           href="/login"
           className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold text-[#802924] hover:bg-[#802924]/10 transition"

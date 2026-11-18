@@ -1,8 +1,12 @@
--- Aktifkan ekstensi pgcrypto untuk hashing password
+-- ==========================================
+-- YUGYO ATELIER - DATABASE SCHEMA
+-- ==========================================
+
+-- 1. Aktifkan ekstensi pgcrypto untuk hashing password
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Tabel Users
-CREATE TABLE users (
+-- 2. Tabel Users (Menyimpan data admin, teacher, dan student)
+CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
@@ -13,15 +17,16 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabel Categories
-CREATE TABLE categories (
+-- 3. Tabel Categories (Kategori kursus baking)
+CREATE TABLE IF NOT EXISTS categories (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT
+    description TEXT,
+    image_url VARCHAR(255)
 );
 
--- Tabel Courses
-CREATE TABLE courses (
+-- 4. Tabel Courses (Data kelas masterclass)
+CREATE TABLE IF NOT EXISTS courses (
     id SERIAL PRIMARY KEY,
     title VARCHAR(150) NOT NULL,
     description TEXT,
@@ -34,7 +39,7 @@ CREATE TABLE courses (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabel Report (untuk keluhan, kendala resep, tiket teknis)
+-- 5. Tabel Reports (Keluhan, kendala resep, tiket teknis oleh siswa)
 CREATE TABLE IF NOT EXISTS reports (
     id SERIAL PRIMARY KEY,
     student_id INT REFERENCES users(id) ON DELETE SET NULL,
@@ -46,7 +51,7 @@ CREATE TABLE IF NOT EXISTS reports (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabel Review (untuk ulasan & rating bintang dari siswa)
+-- 6. Tabel Reviews (Ulasan & rating bintang dari siswa)
 CREATE TABLE IF NOT EXISTS reviews (
     id SERIAL PRIMARY KEY,
     student_id INT REFERENCES users(id) ON DELETE SET NULL,
@@ -58,7 +63,7 @@ CREATE TABLE IF NOT EXISTS reviews (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabel Settings 
+-- 7. Tabel System Settings (Pengaturan sistem website)
 CREATE TABLE IF NOT EXISTS system_settings (
     id SERIAL PRIMARY KEY,
     key_name VARCHAR(100) UNIQUE NOT NULL,
@@ -66,7 +71,7 @@ CREATE TABLE IF NOT EXISTS system_settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabel Student Enrollments
+-- 8. Tabel Student Enrollments (Pendaftaran siswa ke kursus)
 CREATE TABLE IF NOT EXISTS student_enrollments (
     id SERIAL PRIMARY KEY,
     student_id INT REFERENCES users(id) ON DELETE CASCADE,
@@ -76,41 +81,37 @@ CREATE TABLE IF NOT EXISTS student_enrollments (
     enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Index untuk relasi Foreign Key (mempercepat proses JOIN tabel courses dengan categories & users)
-CREATE INDEX idx_courses_category_id ON courses(category_id);
-CREATE INDEX idx_courses_instructor_id ON courses(instructor_id);
 
--- Index untuk pencarian & filter pada tabel courses (mempercepat pencarian berdasarkan status dan judul)
-CREATE INDEX idx_courses_status ON courses(status);
-CREATE INDEX idx_courses_title ON courses(title);
+-- ==========================================
+-- DATABASE INDEXING (OPTIMASI PERFORMA QUERY)
+-- ==========================================
 
--- Index untuk tabel users (mempercepat filtering berdasarkan role dan pencarian email/nama)
-CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_users_email ON users(email);
+-- Index untuk Tabel Courses & Categories
+CREATE INDEX IF NOT EXISTS idx_courses_category_id ON courses(category_id);
+CREATE INDEX IF NOT EXISTS idx_courses_instructor_id ON courses(instructor_id);
+CREATE INDEX IF NOT EXISTS idx_courses_status ON courses(status);
+CREATE INDEX IF NOT EXISTS idx_courses_title ON courses(title);
+CREATE INDEX IF NOT EXISTS idx_categories_name ON categories(name);
 
--- Index untuk tabel categories (mempercepat pencarian nama kategori)
-CREATE INDEX idx_categories_name ON categories(name);
+-- Index untuk Tabel Users
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
--- Index untuk tabel reports
+-- Index untuk Tabel Reports
 CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
 CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_student_id ON reports(student_id);
 
--- Indeks untuk tabel reviews
+-- Index untuk Tabel Reviews
 CREATE INDEX IF NOT EXISTS idx_reviews_rating ON reviews(rating);
 CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status);
 CREATE INDEX IF NOT EXISTS idx_reviews_created_at ON reviews(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reviews_student_id ON reviews(student_id);
 
---Index untuk tabel settings
+-- Index untuk Tabel System Settings
 CREATE INDEX IF NOT EXISTS idx_system_settings_key_name ON system_settings(key_name);
 
--- Indeks performa untuk tabel student_enrollments
+-- Index untuk Tabel Student Enrollments
 CREATE INDEX IF NOT EXISTS idx_enrollments_student_id ON student_enrollments(student_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_course_id ON student_enrollments(course_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_status ON student_enrollments(status);
-
--- Menambah kolom untuk gambar yg diupload
-ALTER TABLE categories 
-ADD COLUMN IF NOT EXISTS image_url VARCHAR(255);
-
