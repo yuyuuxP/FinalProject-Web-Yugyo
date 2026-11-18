@@ -57,7 +57,7 @@ function SidebarContent({ onClose }) {
               👤
             </div>
             <div>
-              <p className="text-xs font-extrabold text-[#341D17] leading-tight">Chef Admin</p>
+              <p className="text-xs font-extrabold text-[#341D17] leading-tight">Admin Yugyo</p>
               <p className="text-[10px] text-[#341D17]/70">Head Atelier Director</p>
             </div>
           </div>

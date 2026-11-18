@@ -66,6 +66,16 @@ CREATE TABLE IF NOT EXISTS system_settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabel Student Enrollments
+CREATE TABLE IF NOT EXISTS student_enrollments (
+    id SERIAL PRIMARY KEY,
+    student_id INT REFERENCES users(id) ON DELETE CASCADE,
+    course_id INT REFERENCES courses(id) ON DELETE CASCADE,
+    progress_percentage INT DEFAULT 0,
+    status VARCHAR(50) DEFAULT 'active', -- 'active', 'completed', 'dropped'
+    enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Index untuk relasi Foreign Key (mempercepat proses JOIN tabel courses dengan categories & users)
 CREATE INDEX idx_courses_category_id ON courses(category_id);
 CREATE INDEX idx_courses_instructor_id ON courses(instructor_id);
@@ -94,6 +104,11 @@ CREATE INDEX IF NOT EXISTS idx_reviews_student_id ON reviews(student_id);
 
 --Index untuk tabel settings
 CREATE INDEX IF NOT EXISTS idx_system_settings_key_name ON system_settings(key_name);
+
+-- Indeks performa untuk tabel student_enrollments
+CREATE INDEX IF NOT EXISTS idx_enrollments_student_id ON student_enrollments(student_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_course_id ON student_enrollments(course_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_status ON student_enrollments(status);
 
 -- Menambah kolom untuk gambar yg diupload
 ALTER TABLE categories 
