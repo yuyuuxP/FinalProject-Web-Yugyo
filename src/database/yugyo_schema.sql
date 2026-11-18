@@ -81,6 +81,19 @@ CREATE TABLE IF NOT EXISTS student_enrollments (
     enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 9. Tabel Contents (Data materi kursus)
+CREATE TABLE IF NOT EXISTS course_contents (
+    id SERIAL PRIMARY KEY,
+    course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    content_type VARCHAR(100) DEFAULT 'Video & Bacaan',
+    duration_minutes INTEGER DEFAULT 15,
+    order_index INTEGER DEFAULT 1,
+    status VARCHAR(50) DEFAULT 'published',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 
 -- ==========================================
 -- DATABASE INDEXING (OPTIMASI PERFORMA QUERY)
