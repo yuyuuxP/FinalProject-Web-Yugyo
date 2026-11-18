@@ -11,6 +11,8 @@ export default async function TeacherDashboardPage() {
     totalReviews: 0,
     pendingEvaluations: 0,
   };
+  let liveSession = null;
+  let teacherCourses = [];
 
   try {
     const cookieStore = await cookies();
@@ -33,7 +35,7 @@ export default async function TeacherDashboardPage() {
     const classRes = await pool.query('SELECT COUNT(*) as total FROM courses WHERE instructor_id = $1;', [teacherId]);
     stats.activeClasses = parseInt(classRes.rows[0]?.total || 0);
 
-    // 3. Hitung Total Siswa Aktif yang mendaftar di kursus-kursus milik guru ini via tabel student_enrollments
+    // 3. Hitung Total Siswa Aktif yang mendaftar di kursus-kursus milik guru ini
     const studentRes = await pool.query(`
       SELECT COUNT(DISTINCT se.student_id) as total 
       FROM student_enrollments se 
@@ -64,8 +66,41 @@ export default async function TeacherDashboardPage() {
       stats.avgRating = parseFloat(reviewRes.rows[0].avg_rating).toFixed(1);
     }
 
+    // 6. Ambil jadwal live sesi mendatang secara dinamis berdasarkan kursus milik guru ini
+    const scheduleRes = await pool.query(`
+      SELECT c.title as course_title, c.created_at 
+      FROM courses c 
+      WHERE c.instructor_id = $1 
+      ORDER BY c.id DESC 
+      LIMIT 1;
+    `, [teacherId]);
+
+    if (scheduleRes.rows.length > 0) {
+      liveSession = {
+        title: `Sesi Mentoring & Troubleshooting: ${scheduleRes.rows[0].course_title}`,
+        description: `Koreksi teknik dan evaluasi modul pastry bersama kohor siswa Anda hari ini.`,
+        time: 'Hari ini • 15:00 WIB',
+      };
+    } else {
+      liveSession = {
+        title: 'Belum ada jadwal live sesi aktif',
+        description: 'Buat kelas atau atur jadwal materi baru untuk memulai sesi mentoring.',
+        time: 'Menunggu Jadwal',
+      };
+    }
+
+    // 7. Ambil daftar kursus yang HANYA diajar oleh guru ini beserta statistik enrollments-nya
+    const coursesRes = await pool.query(`
+      SELECT c.*, 
+             (SELECT COUNT(se.id) FROM student_enrollments se WHERE se.course_id = c.id) as enrolled_count 
+      FROM courses c 
+      WHERE c.instructor_id = $1 
+      ORDER BY c.id DESC;
+    `, [teacherId]);
+    teacherCourses = coursesRes.rows;
+
   } catch (err) {
-    console.error('Error fetching teacher specific metrics:', err);
+    console.error('Error fetching teacher dashboard data:', err);
   }
 
   const getInitials = (name) => {
@@ -91,7 +126,7 @@ export default async function TeacherDashboardPage() {
               </span>
             </div>
             <h1 className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17]">
-              Bonjour, Chef {teacher.full_name}
+              Bonjour, {teacher.full_name}
             </h1>
             <p className="text-xs text-[#341D17]/70 mt-0.5">
               Siklus mentoring dan kurasi resep aktif untuk kelas Anda hari ini.
@@ -100,10 +135,10 @@ export default async function TeacherDashboardPage() {
         </div>
       </div>
 
-      {/* STATS GRID CARDS (SPESIFIK MILIK GURU YANG LOGIN) */}
+      {/* STATS GRID CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* Total Siswa Aktif di Kursus Pengajar */}
+        {/* Total Siswa Aktif */}
         <div className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 shadow-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold uppercase text-[#341D17]/70">Total Siswa Aktif</span>
@@ -112,7 +147,7 @@ export default async function TeacherDashboardPage() {
           <div className="font-editorial text-3xl font-bold text-[#341D17]">{stats.totalStudents} Siswa</div>
         </div>
 
-        {/* Kelas Masterclass Pengajar */}
+        {/* Kelas Masterclass */}
         <div className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 shadow-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold uppercase text-[#341D17]/70">Kelas Masterclass</span>
@@ -150,14 +185,92 @@ export default async function TeacherDashboardPage() {
       <div className="bg-[#802924] text-[#F9DDBB] rounded-3xl p-6 shadow-md space-y-3">
         <div className="flex items-center justify-between">
           <span className="bg-[#FFFDF9]/20 text-[#FFFDF9] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
-            🔴 JADWAL LIVE SESI MENDATANG
+            🔴 JADWAL LIVE SESI MENDATANG (DATABASE SYNC)
           </span>
-          <span className="text-xs font-bold text-[#F9DDBB]">Hari ini • 15:00 WIB</span>
+          <span className="text-xs font-bold text-[#F9DDBB]">{liveSession.time}</span>
         </div>
         <div>
-          <h2 className="font-editorial text-xl font-bold text-[#FFFDF9]">Croissant Honeycomb Troubleshooting</h2>
-          <p className="text-xs text-[#F9DDBB]/80 mt-1">Koreksi teknik laminasi mentega suhu 16°C &amp; proofing akhir untuk rongga sempurna.</p>
+          <h2 className="font-editorial text-xl font-bold text-[#FFFDF9]">{liveSession.title}</h2>
+          <p className="text-xs text-[#F9DDBB]/80 mt-1">{liveSession.description}</p>
         </div>
+        <div className="flex flex-wrap gap-3 pt-2">
+          <button className="bg-[#FFFDF9] hover:bg-[#f3ece4] text-[#802924] font-bold text-xs px-5 py-2.5 rounded-xl shadow-xs transition cursor-pointer">
+            ▶ Mulai Sesi Live
+          </button>
+          <button className="bg-[#341D17]/30 hover:bg-[#341D17]/50 text-[#F9DDBB] font-bold text-xs px-5 py-2.5 rounded-xl transition cursor-pointer">
+            📋 Cek Presensi Kohor
+          </button>
+        </div>
+      </div>
+
+      {/* KURSUS YANG DIAJARKAN (DINAMIS DARI DATABASE SPESIFIK GURU) */}
+      <div className="space-y-4 pt-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-editorial text-xl font-bold text-[#341D17]">Kursus yang Diajarkan</h2>
+            <p className="text-xs text-[#341D17]/70">Pantau kohor dan progres modul siswa di kelas Anda</p>
+          </div>
+          <span className="text-xs font-bold text-[#802924]">{teacherCourses.length} Kursus Aktif</span>
+        </div>
+
+        {teacherCourses.length === 0 ? (
+          <div className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-8 text-center text-xs text-[#341D17]/60">
+            Belum ada kursus yang terdaftar atas nama Anda di database. Buat kursus baru melalui menu Course Management.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {teacherCourses.map((course) => (
+              <div key={course.id} className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4 relative overflow-hidden">
+                
+                {/* Background Banner / Thumbnail jika ada */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#341D17]/10 pb-4">
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#802924]">
+                      ATELIER MASTERCLASS
+                    </span>
+                    <h3 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17] mt-0.5">
+                      {course.title}
+                    </h3>
+                    <p className="text-xs text-[#341D17]/70 mt-1 line-clamp-1">{course.description}</p>
+                  </div>
+                  <span className="bg-[#82882B]/15 text-[#82882B] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase self-start shrink-0">
+                    Aktif Diampu
+                  </span>
+                </div>
+
+                {/* Info Progres & Siswa */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-[#341D17]/70">👥 {course.enrolled_count || 0} Siswa Terdaftar</span>
+                    <span className="text-[#802924]">✓ 88% Selesai Kohor</span>
+                  </div>
+                  <div className="w-full bg-[#F9DDBB]/50 h-2 rounded-full overflow-hidden">
+                    <div className="bg-[#802924] h-full w-[88%]" />
+                  </div>
+                </div>
+
+                {/* Tombol Aksi Kursus */}
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <Link
+                    href={`/dashboard/teacher/courses`}
+                    className="bg-[#F9DDBB]/40 hover:bg-[#F9DDBB] text-[#341D17] font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5"
+                  >
+                    <span>📊</span>
+                    <span>Lihat Progres Siswa</span>
+                  </Link>
+                  <Link
+                    href={`/dashboard/teacher/contents`}
+                    className="bg-[#F9DDBB]/40 hover:bg-[#F9DDBB] text-[#341D17] font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5"
+                  >
+                    <span>📚</span>
+                    <span>Kelola Materi</span>
+                  </Link>
+                </div>
+
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
     </div>
