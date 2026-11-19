@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import pool from '@/lib/db';
+import { deleteLocalPictureFile } from '@/lib/mediaStorage';
 
 const ALLOWED_STATUSES = ['active', 'pending', 'draft', 'published'];
 
@@ -156,6 +158,10 @@ async function handleUpdateCourse(request, context) {
       ]
     );
 
+    revalidatePath('/dashboard/admin/courses');
+    revalidatePath(`/dashboard/admin/courses/${courseId}`);
+    revalidatePath(`/dashboard/admin/courses/${courseId}/edit`);
+
     if (!isJson) {
       return NextResponse.redirect(new URL('/dashboard/admin/courses', request.url), 303);
     }
@@ -171,6 +177,40 @@ async function handleUpdateCourse(request, context) {
     console.error('UPDATE /api/admin/courses/[id] Error:', err);
     return NextResponse.json(
       { error: err?.message || 'Gagal menyimpan perubahan kursus' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(_request, context) {
+  try {
+    const { id } = await context.params;
+    const courseId = Number(id);
+
+    if (!Number.isInteger(courseId) || courseId <= 0) {
+      return NextResponse.json({ error: 'ID kursus tidak valid' }, { status: 400 });
+    }
+
+    const deletedRes = await pool.query(
+      'DELETE FROM courses WHERE id = $1 RETURNING id, thumbnail_url;',
+      [courseId]
+    );
+
+    if (deletedRes.rowCount === 0) {
+      return NextResponse.json({ error: 'Kursus tidak ditemukan' }, { status: 404 });
+    }
+
+    const thumbPath = deletedRes.rows[0]?.thumbnail_url;
+    if (thumbPath) {
+      await deleteLocalPictureFile(thumbPath, 'courses');
+    }
+
+    revalidatePath('/dashboard/admin/courses');
+    return NextResponse.json({ message: 'Kursus dan gambar berhasil dihapus' }, { status: 200 });
+  } catch (err) {
+    console.error('DELETE /api/admin/courses/[id] Error:', err);
+    return NextResponse.json(
+      { error: err?.message || 'Gagal menghapus kursus' },
       { status: 500 }
     );
   }

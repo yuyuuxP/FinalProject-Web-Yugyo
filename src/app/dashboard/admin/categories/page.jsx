@@ -2,97 +2,134 @@ import Link from 'next/link';
 import pool from '@/lib/db';
 import DeleteCategoryButton from '@/components/DeleteCategoryButton';
 
-const CATEGORY_THUMBS = [
-  'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1585478259715-876acc5be8eb?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1612203985729-70726954388c?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=400&q=80',
+export const dynamic = 'force-dynamic';
+
+const CATEGORY_IMAGE_MAP = [
+  {
+    file: '/pictures/categories/bread&yeast_goods.png',
+    keywords: ['bread', 'yeast', 'roti', 'ragi'],
+  },
+  {
+    file: '/pictures/categories/indonesian_cakes.png',
+    keywords: ['indonesian', 'indonesia', 'nusantara', 'tradisional', 'indo'],
+  },
+  {
+    file: '/pictures/categories/cakes_decorating.png',
+    keywords: ['cake', 'decor', 'dekor', 'frosting', 'buttercream'],
+  },
+  {
+    file: '/pictures/categories/cookies.png',
+    keywords: ['cookie', 'cookies', 'kukis', 'small bites', 'biskuit'],
+  },
+  {
+    file: '/pictures/categories/french_patisserie.png',
+    keywords: ['french', 'patisserie', 'pastry', 'prancis'],
+  },
 ];
+
+function resolveCategoryImage(category, idx = 0) {
+  if (category?.image_url && String(category.image_url).startsWith('/pictures/categories/')) {
+    return category.image_url;
+  }
+
+  const nameLower = (category?.name || '').toLowerCase();
+  const matched = CATEGORY_IMAGE_MAP.find((item) =>
+    item.keywords.some((kw) => nameLower.includes(kw))
+  );
+  if (matched) {
+    return matched.file;
+  }
+
+  const fallbackList = [
+    '/pictures/categories/bread&yeast_goods.png',
+    '/pictures/categories/indonesian_cakes.png',
+    '/pictures/categories/cakes_decorating.png',
+    '/pictures/categories/cookies.png',
+    '/pictures/categories/french_patisserie.png',
+  ];
+  return fallbackList[idx % fallbackList.length];
+}
 
 export default async function AdminCategoriesPage({ searchParams }) {
   const resolvedSearchParams = await searchParams;
-  const searchQuery = (resolvedSearchParams?.q || '').toLowerCase();
+  const searchQuery = (resolvedSearchParams?.q || '').toLowerCase().trim();
 
+  let allCategories = [];
   let categories = [];
   let totalCoursesCount = 0;
-  let activeCategoriesCount = 0;
-  let draftCategoriesCount = 0;
 
   try {
-    const catRes = await pool.query(`
-      SELECT 
-        c.id, 
-        c.name, 
-        c.description, 
-        COUNT(crs.id) AS course_count
-      FROM categories c
-      LEFT JOIN courses crs ON c.id = crs.category_id
-      GROUP BY c.id, c.name, c.description
-      ORDER BY c.id ASC;
-    `);
+    const [catRes, courseCountRes] = await Promise.all([
+      pool.query(`
+        SELECT
+          cat.id,
+          cat.name,
+          cat.description,
+          cat.image_url,
+          COUNT(c.id)::int AS course_count,
+          COUNT(c.id) FILTER (WHERE LOWER(COALESCE(c.status, 'active')) = 'active')::int AS active_course_count
+        FROM categories cat
+        LEFT JOIN courses c ON c.category_id = cat.id
+        GROUP BY cat.id, cat.name, cat.description, cat.image_url
+        ORDER BY cat.id ASC;
+      `),
+      pool.query('SELECT COUNT(*)::int AS total FROM courses;'),
+    ]);
 
-    const allCategories = catRes.rows;
+    allCategories = catRes.rows;
+    totalCoursesCount = Number(courseCountRes.rows?.[0]?.total || 0);
 
-    totalCoursesCount = allCategories.reduce((acc, curr) => acc + parseInt(curr.course_count || 0, 0), 0);
-    activeCategoriesCount = allCategories.length;
-    draftCategoriesCount = 0;
-
-    categories = allCategories.filter((item) => {
+    categories = allCategories.filter((cat) => {
       if (!searchQuery) return true;
-      const matchName = item.name?.toLowerCase().includes(searchQuery);
-      const matchDesc = item.description?.toLowerCase().includes(searchQuery);
+      const matchName = cat.name?.toLowerCase().includes(searchQuery);
+      const matchDesc = cat.description?.toLowerCase().includes(searchQuery);
       return matchName || matchDesc;
     });
   } catch (err) {
-    console.error('Database Error fetching categories:', err);
+    console.error('Admin Categories DB Error:', err);
   }
+
+  const activeCategoriesCount = allCategories.length;
+  const draftCategoriesCount = 0;
 
   return (
     <div className="space-y-7">
-      
-      {/* HEADER & BREADCRUMB */}
+      {/* 1. HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold tracking-[0.18em] uppercase text-[#802924]">
-            <span>🥐</span> ATELIER TAXONOMY
+            ATELIER TAXONOMY
           </span>
           <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
-            Kelola Kategori & Taksonomi
+            Kelola Kategori &amp; Taksonomi
           </h1>
           <p className="text-xs sm:text-sm text-[#341D17]/75">
             Atur kurikulum induk pastry, taksonomi materi, dan pengelompokan kelas pada silabus Yugyo Academy.
           </p>
         </div>
 
-        <div className="shrink-0">
-          <span className="inline-flex items-center gap-1.5 bg-[#802924] text-[#F9DDBB] px-4 py-2 rounded-2xl text-xs font-extrabold shadow-2xs">
-            <span>📚</span> {activeCategoriesCount} Master Kategori
-          </span>
-        </div>
+        <span className="self-start sm:self-center bg-[#802924] text-[#F9DDBB] px-4 py-1.5 rounded-full text-xs font-bold shadow-xs">
+          {allCategories.length} Master Kategori
+        </span>
       </div>
 
-      {/* SEARCH BAR & TOMBOL TAMBAH KATEGORI */}
+      {/* 2. SEARCH & TOMBOL TAMBAH KATEGORI */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative flex-1">
-          <span className="absolute inset-y-0 left-4 flex items-center text-[#341D17]/45 text-xs">
-            🔍
-          </span>
-          <form method="GET">
-            <input
-              type="text"
-              name="q"
-              defaultValue={searchQuery}
-              placeholder="Cari kategori pastry..."
-              className="w-full bg-[#FFFDF9] border border-[#341D17]/15 rounded-2xl pl-11 pr-4 py-3 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
-            />
-          </form>
-        </div>
+        <form method="GET" className="flex-1">
+          <input
+            type="text"
+            name="q"
+            defaultValue={searchQuery}
+            placeholder="Cari kategori pastry..."
+            className="w-full bg-[#FFFDF9] border border-[#341D17]/15 rounded-2xl px-4 py-3 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
+          />
+        </form>
 
         <Link
           href="/dashboard/admin/categories/create"
-          className="bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs sm:text-sm py-3 px-6 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          className="bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs sm:text-sm py-3 px-5 rounded-2xl shadow-md transition flex items-center justify-center gap-2 shrink-0"
         >
-          <span>＋</span>
+          <span>+</span>
           <span>Kategori</span>
         </Link>
       </div>
@@ -139,83 +176,73 @@ export default async function AdminCategoriesPage({ searchParams }) {
         </div>
       </div>
 
-      {/* DAFTAR KATEGORI KURSUS */}
-      <div className="space-y-4">
+      {/* 4. DAFTAR KATEGORI KURSUS */}
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-editorial text-base sm:text-lg font-bold text-[#341D17] flex items-center gap-2">
-            <span>📋</span> Daftar Kategori Kursus
-          </h3>
-          <span className="text-xs text-[#341D17]/60 font-semibold bg-[#F9DDBB]/30 px-3 py-1 rounded-full">
+          <h2 className="font-editorial text-base sm:text-lg font-bold text-[#341D17]">
+            Daftar Kategori Kursus
+          </h2>
+          <span className="text-[11px] font-semibold text-[#341D17]/60">
             Auto-sync
           </span>
         </div>
 
-        <div className="space-y-4">
-          {categories.map((cat, idx) => (
-            <div
-              key={cat.id}
-              className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-4 sm:p-5 shadow-2xs space-y-3 transition hover:border-[#802924]/30"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                
-                <div className="flex items-start sm:items-center gap-3.5">
+        <div className="space-y-3.5">
+          {categories.map((cat, idx) => {
+            const imgSrc = resolveCategoryImage(cat, idx);
+            const courseCount = Number(cat.course_count || 0);
+
+            return (
+              <div
+                key={cat.id}
+                className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-4 min-w-0">
                   <img
-                    src={CATEGORY_THUMBS[idx % CATEGORY_THUMBS.length]}
+                    src={imgSrc}
                     alt={cat.name}
-                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border border-[#341D17]/15 shrink-0"
+                    className="w-16 h-16 rounded-2xl object-cover border border-[#341D17]/15 shrink-0 bg-[#F9DDBB]/30"
                   />
-                  <div className="space-y-1">
+
+                  <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="font-editorial text-base sm:text-lg font-bold text-[#341D17]">
+                      <h3 className="font-editorial text-sm sm:text-base font-bold text-[#341D17] truncate">
                         {cat.name}
-                      </h4>
+                      </h3>
                       <span className="bg-[#82882B]/15 text-[#82882B] px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider">
-                        Aktif
+                        AKTIF
                       </span>
                     </div>
-                    <p className="text-xs text-[#341D17]/75 line-clamp-1">
-                      {cat.description || 'Taksonomi materi dan pengelompokan kelas akademi pastry.'}
+
+                    <p className="text-xs text-[#341D17]/70 mt-0.5 line-clamp-1">
+                      {cat.description || 'Kurikulum kategori pastry Yugyo Academy.'}
                     </p>
-                    <p className="text-[11px] text-[#341D17]/60 font-semibold">
-                      🍞 {cat.course_count} Kursus Aktif • Index #{idx + 1}
+
+                    <p className="text-[11px] text-[#341D17]/60 mt-1 font-medium">
+                      {courseCount} Kursus Terdaftar • Index #{idx + 1}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#341D17]/10">
-                  <span className="text-[10px] font-extrabold text-[#341D17]/50 bg-[#F9DDBB]/40 px-2.5 py-1 rounded-lg hidden md:inline-block">
-                    ✓ Dipakai di Course Builder
+                <div className="flex items-center justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#341D17]/10">
+                  <span className="hidden md:inline-flex items-center px-3 py-1 rounded-xl bg-[#F9DDBB]/40 text-[11px] font-semibold text-[#341D17]/75">
+                    Dipakai di Course Builder
                   </span>
 
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/dashboard/admin/categories/${cat.id}/edit`}
-                      className="px-3 py-1.5 rounded-xl bg-[#F9DDBB]/50 hover:bg-[#F9DDBB] text-[#341D17] text-xs font-bold transition flex items-center gap-1 shadow-2xs"
-                    >
-                      <span>✏️</span> Ubah
-                    </Link>
+                  <Link
+                    href={`/dashboard/admin/categories/${cat.id}/edit`}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#F9DDBB]/60 hover:bg-[#F9DDBB] text-[#341D17] text-xs font-bold transition"
+                  >
+                    Ubah
+                  </Link>
 
-                    {/* Tombol Hapus Menggunakan Komponen Client */}
-                    <DeleteCategoryButton categoryId={cat.id} categoryName={cat.name} />
-
-                    <span className="text-[#341D17]/30 px-1 cursor-grab" title="Drag to reorder">
-                      ⋮⋮
-                    </span>
-                  </div>
+                  <DeleteCategoryButton categoryId={cat.id} categoryName={cat.name} />
                 </div>
-
               </div>
-            </div>
-          ))}
-
-          {categories.length === 0 && (
-            <div className="text-center py-12 bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl">
-              <p className="text-xs text-[#341D17]/60">Belum ada kategori terdaftar di dalam database.</p>
-            </div>
-          )}
+            );
+          })}
         </div>
-      </div>
-
+      </section>
     </div>
   );
 }
