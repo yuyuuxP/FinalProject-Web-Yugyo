@@ -94,6 +94,31 @@ CREATE TABLE IF NOT EXISTS course_contents (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 10. Tabel SESSION (Menyimpan data sesi kursu yg dibuat oleh guru)
+CREATE TABLE IF NOT EXISTS course_sessions (
+  id SERIAL PRIMARY KEY,
+  course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  instructor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  title VARCHAR(200) NOT NULL,
+  notes TEXT,
+  session_date DATE NOT NULL,
+  session_time VARCHAR(50),
+  location_label VARCHAR(100) DEFAULT 'Atelier Live',
+  is_popup BOOLEAN DEFAULT FALSE,
+  is_done BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 11. Tabel COMPLETE SESSION (Menyimpan data sesi yg telah diselesaikan)
+CREATE TABLE IF NOT EXISTS session_student_completions (
+  id SERIAL PRIMARY KEY,
+  session_id INTEGER NOT NULL REFERENCES course_sessions(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  marked_done_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (session_id, student_id)
+);
+
 
 -- ==========================================
 -- DATABASE INDEXING (OPTIMASI PERFORMA QUERY)
@@ -128,6 +153,19 @@ CREATE INDEX IF NOT EXISTS idx_system_settings_key_name ON system_settings(key_n
 CREATE INDEX IF NOT EXISTS idx_enrollments_student_id ON student_enrollments(student_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_course_id ON student_enrollments(course_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_status ON student_enrollments(status);
+
+-- Index untuk Tabel course_sessions
+CREATE INDEX IF NOT EXISTS idx_course_sessions_course_id ON course_sessions(course_id);
+CREATE INDEX IF NOT EXISTS idx_course_sessions_instructor_id ON course_sessions(instructor_id);
+CREATE INDEX IF NOT EXISTS idx_course_sessions_session_date ON course_sessions(session_date);
+CREATE INDEX IF NOT EXISTS idx_course_sessions_is_done ON course_sessions(is_done);
+
+-- Index untuk Tabel session_student_completions
+CREATE INDEX IF NOT EXISTS idx_session_completions_sess	ion_id ON session_student_completions(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_completions_student_id ON session_student_completions(student_id);
+
+-- Index opsional untuk thumbnail_url di courses (bila sering difilter/dicek)
+CREATE INDEX IF NOT EXISTS idx_courses_thumbnail_url ON courses(thumbnail_url) WHERE thumbnail_url IS NOT NULL;
 
 
 -- ==========================================
