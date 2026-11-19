@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
 const DAY_NAMES = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
@@ -39,6 +39,7 @@ export default function TeacherScheduleClient({
   initialParticipants = [],
 }) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const todayStr = formatDateKey(new Date());
 
   const [sessions, setSessions] = useState(
@@ -47,7 +48,9 @@ export default function TeacherScheduleClient({
       status: normalizeSessionStatus(s),
     }))
   );
-  const [participants, setParticipants] = useState(initialParticipants);
+  const [participants, setParticipants] = useState(
+    Array.isArray(initialParticipants) ? initialParticipants : []
+  );
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [weekOffset, setWeekOffset] = useState(0);
   const [filterByDate, setFilterByDate] = useState(false);
@@ -109,12 +112,17 @@ export default function TeacherScheduleClient({
     const pendingValidationCount = sessions.filter(
       (s) => normalizeSessionStatus(s) === 'scheduled'
     ).length;
+    const completedCount = sessions.filter(
+      (s) => normalizeSessionStatus(s) === 'completed'
+    ).length;
 
     return {
       todaySessionsCount,
+      totalSessionsCount: sessions.length,
       totalParticipants: uniqueStudentIds.size || participants.length,
       activeStudentsCount,
       pendingValidationCount,
+      completedCount,
     };
   }, [sessions, participants, todayStr]);
 
@@ -164,14 +172,16 @@ export default function TeacherScheduleClient({
         course_title: matchedCourse?.title || 'Kursus Atelier',
       };
 
-      setSessions((prev) => [...prev, created]);
+      setSessions((prev) => [created, ...prev]);
       setIsModalOpen(false);
       setFeedbackMsg(
         formData.is_popup
           ? 'Kelas dadakan berhasil ditambahkan ke jadwal.'
           : 'Jadwal sesi kelas baru berhasil disimpan.'
       );
-      router.refresh();
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (err) {
       setErrorMsg(err?.message || 'Terjadi kesalahan saat membuat sesi.');
     } finally {
@@ -210,7 +220,9 @@ export default function TeacherScheduleClient({
         )
       );
       setFeedbackMsg(`Kelas "${sessionItem.title}" telah diubah menjadi Dibatalkan.`);
-      router.refresh();
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (err) {
       setErrorMsg(err?.message || 'Gagal membatalkan kelas.');
     } finally {
@@ -261,7 +273,9 @@ export default function TeacherScheduleClient({
       );
 
       setFeedbackMsg(`Sesi "${sessionItem.title}" ditandai selesai (Mark as Done).`);
-      router.refresh();
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (err) {
       setErrorMsg(err?.message || 'Gagal menandai sesi selesai.');
     } finally {
@@ -294,7 +308,9 @@ export default function TeacherScheduleClient({
 
       setSessions((prev) => prev.filter((s) => s.id !== sessionItem.id));
       setFeedbackMsg(`Kelas "${sessionItem.title}" berhasil dihapus.`);
-      router.refresh();
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (err) {
       setErrorMsg(err?.message || 'Gagal menghapus kelas.');
     } finally {
@@ -330,7 +346,7 @@ export default function TeacherScheduleClient({
 
       {feedbackMsg && (
         <div className="rounded-2xl border border-[#341D17]/20 bg-[#F9DDBB]/60 px-4 py-3 text-xs font-bold text-[#341D17]">
-          {feedbackMsg}
+          {feedbackMsg} {isPending ? '• Menyinkronkan...' : ''}
         </div>
       )}
 
@@ -345,14 +361,16 @@ export default function TeacherScheduleClient({
         <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-5 shadow-2xs space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/65">
-              HARI INI
+              HARI INI ({todayStr})
             </span>
             <span className="h-2.5 w-2.5 rounded-full bg-[#802924]" />
           </div>
           <p className="font-editorial text-2xl font-bold text-[#341D17]">
             {stats.todaySessionsCount}
           </p>
-          <p className="text-xs text-[#341D17]/75">Sesi Kelas Terjadwal</p>
+          <p className="text-xs text-[#341D17]/75">
+            Sesi Terjadwal • {stats.totalSessionsCount} Total Semua Tanggal
+          </p>
         </div>
 
         <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-5 shadow-2xs space-y-2">
@@ -380,7 +398,9 @@ export default function TeacherScheduleClient({
           <p className="font-editorial text-2xl font-bold text-[#341D17]">
             {stats.pendingValidationCount}
           </p>
-          <p className="text-xs text-[#341D17]/75">Menunggu Validasi Selesai</p>
+          <p className="text-xs text-[#341D17]/75">
+            Menunggu Validasi ({stats.completedCount} Selesai)
+          </p>
         </div>
       </div>
 
@@ -553,6 +573,7 @@ export default function TeacherScheduleClient({
                   <div className="space-y-1">
                     <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
                       {item.course_title}
+                      {item.instructor_name ? ` • CHEF ${String(item.instructor_name).toUpperCase()}` : ''}
                     </p>
                     <h3
                       className={`font-editorial text-lg sm:text-xl font-bold ${

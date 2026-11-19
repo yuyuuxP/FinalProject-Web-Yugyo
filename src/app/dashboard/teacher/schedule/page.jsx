@@ -29,50 +29,37 @@ export default async function TeacherSchedulePage() {
       if (tFallback.rows.length > 0) teacher = tFallback.rows[0];
     }
 
-    const coursesRes = teacher.id
-      ? await pool.query(
-          `SELECT c.id, c.title, c.description, c.status, c.start_date, c.end_date,
-                  cat.name AS category_name
-           FROM courses c
-           LEFT JOIN categories cat ON c.category_id = cat.id
-           WHERE c.instructor_id = $1
-           ORDER BY c.id DESC;`,
-          [teacher.id]
-        )
-      : await pool.query(
-          `SELECT c.id, c.title, c.description, c.status, c.start_date, c.end_date,
-                  cat.name AS category_name
-           FROM courses c
-           LEFT JOIN categories cat ON c.category_id = cat.id
-           ORDER BY c.id DESC;`
-        );
+    const coursesRes = await pool.query(
+      `SELECT c.id, c.title, c.description, c.status, c.start_date, c.end_date,
+              cat.name AS category_name
+       FROM courses c
+       LEFT JOIN categories cat ON c.category_id = cat.id
+       ORDER BY c.id DESC;`
+    );
 
     courses = coursesRes.rows;
 
     try {
-      const sessRes = teacher.id
-        ? await pool.query(
-            `SELECT s.id, s.course_id, s.title, s.notes,
-                    TO_CHAR(s.session_date, 'YYYY-MM-DD') AS session_date,
-                    s.session_time, s.location_label, s.is_popup, s.is_done,
-                    COALESCE(s.status, CASE WHEN s.is_done THEN 'completed' ELSE 'scheduled' END) AS status,
-                    c.title AS course_title
-             FROM course_sessions s
-             JOIN courses c ON s.course_id = c.id
-             WHERE c.instructor_id = $1
-             ORDER BY s.session_date ASC, s.id ASC;`,
-            [teacher.id]
-          )
-        : await pool.query(
-            `SELECT s.id, s.course_id, s.title, s.notes,
-                    TO_CHAR(s.session_date, 'YYYY-MM-DD') AS session_date,
-                    s.session_time, s.location_label, s.is_popup, s.is_done,
-                    COALESCE(s.status, CASE WHEN s.is_done THEN 'completed' ELSE 'scheduled' END) AS status,
-                    c.title AS course_title
-             FROM course_sessions s
-             JOIN courses c ON s.course_id = c.id
-             ORDER BY s.session_date ASC, s.id ASC;`
-          );
+      const sessRes = await pool.query(`
+        SELECT s.id,
+               s.course_id,
+               s.instructor_id,
+               s.title,
+               s.notes,
+               TO_CHAR(s.session_date, 'YYYY-MM-DD') AS session_date,
+               s.session_time,
+               s.location_label,
+               s.is_popup,
+               s.is_done,
+               COALESCE(s.status, CASE WHEN s.is_done THEN 'completed' ELSE 'scheduled' END) AS status,
+               c.title AS course_title,
+               COALESCE(u.full_name, inst.full_name) AS instructor_name
+        FROM course_sessions s
+        LEFT JOIN courses c ON s.course_id = c.id
+        LEFT JOIN users u ON s.instructor_id = u.id
+        LEFT JOIN users inst ON c.instructor_id = inst.id
+        ORDER BY s.session_date DESC, s.id DESC;
+      `);
 
       sessions = sessRes.rows;
     } catch {
@@ -90,48 +77,33 @@ export default async function TeacherSchedulePage() {
         is_done: false,
         status: 'scheduled',
         course_title: c.title,
+        instructor_name: teacher.full_name || 'Ayu',
       }));
     }
 
     try {
-      const studRes = teacher.id
-        ? await pool.query(
-            `SELECT u.id AS student_id,
-                    u.full_name,
-                    u.email,
-                    c.id AS course_id,
-                    c.title AS course_title,
-                    COALESCE((
-                      SELECT COUNT(*)
-                      FROM session_student_completions ssc
-                      JOIN course_sessions cs ON ssc.session_id = cs.id
-                      WHERE ssc.student_id = u.id AND cs.course_id = c.id
-                    ), 0)::int AS done_classes_count,
-                    GREATEST((
-                      SELECT COUNT(*)
-                      FROM course_sessions cs2
-                      WHERE cs2.course_id = c.id
-                    ), 1)::int AS total_classes_count
-             FROM student_enrollments e
-             JOIN users u ON e.student_id = u.id
-             JOIN courses c ON e.course_id = c.id
-             WHERE c.instructor_id = $1
-             ORDER BY u.full_name ASC;`,
-            [teacher.id]
-          )
-        : await pool.query(
-            `SELECT u.id AS student_id,
-                    u.full_name,
-                    u.email,
-                    c.id AS course_id,
-                    c.title AS course_title,
-                    0::int AS done_classes_count,
-                    1::int AS total_classes_count
-             FROM student_enrollments e
-             JOIN users u ON e.student_id = u.id
-             JOIN courses c ON e.course_id = c.id
-             ORDER BY u.full_name ASC;`
-          );
+      const studRes = await pool.query(`
+        SELECT u.id AS student_id,
+               u.full_name,
+               u.email,
+               c.id AS course_id,
+               c.title AS course_title,
+               COALESCE((
+                 SELECT COUNT(*)
+                 FROM session_student_completions ssc
+                 JOIN course_sessions cs ON ssc.session_id = cs.id
+                 WHERE ssc.student_id = u.id AND cs.course_id = c.id
+               ), 0)::int AS done_classes_count,
+               GREATEST((
+                 SELECT COUNT(*)
+                 FROM course_sessions cs2
+                 WHERE cs2.course_id = c.id
+               ), 1)::int AS total_classes_count
+        FROM student_enrollments e
+        JOIN users u ON e.student_id = u.id
+        JOIN courses c ON e.course_id = c.id
+        ORDER BY u.full_name ASC;
+      `);
 
       participants = studRes.rows.map((p) => {
         const doneCount = Number(p.done_classes_count || 0);
