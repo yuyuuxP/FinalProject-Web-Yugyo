@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -15,24 +15,42 @@ export default function CreateCourseClient({ teacher, assignedCategory }) {
     category_id: assignedCategory?.id || '',
     start_date: '',
     end_date: '',
-    thumbnail_url: '',
   });
 
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleImageUpload = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0] || null;
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
     if (file) {
-      setFormData({ ...formData, thumbnail_url: URL.createObjectURL(file) });
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    } else {
+      setSelectedFile(null);
+      setPreviewUrl('');
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.thumbnail_url) {
-      setError('Foto thumbnail kursus wajib diunggah.');
+    if (!selectedFile) {
+      setError('Foto thumbnail kursus wajib diunggah sebelum menyimpan.');
       return;
     }
 
@@ -40,33 +58,48 @@ export default function CreateCourseClient({ teacher, assignedCategory }) {
     setError('');
 
     try {
+      const payload = new FormData();
+      payload.append('title', formData.title);
+      payload.append('description', formData.description);
+      payload.append('category_id', formData.category_id || assignedCategory?.id || '');
+      payload.append('start_date', formData.start_date);
+      payload.append('end_date', formData.end_date);
+      payload.append('image_file', selectedFile);
+
       const res = await fetch('/api/teacher/courses', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: payload,
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        data = {};
+      }
 
       if (!res.ok) {
-        throw new Error(data.message || 'Gagal membuat kursus baru.');
+        const specificMsg =
+          data?.message ||
+          data?.error ||
+          data?.detail ||
+          rawText?.slice(0, 200) ||
+          `Permintaan ditolak server dengan status ${res.status}.`;
+        throw new Error(`${specificMsg} (Status ${res.status})`);
       }
 
       router.push('/dashboard/teacher/courses');
       router.refresh();
     } catch (err) {
-      setError(err.message);
+      setError(err?.message || 'Terjadi kesalahan saat menyimpan kursus.');
       setLoading(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-      
-      {/* Modal Card Utama */}
       <div className="w-full max-w-3xl bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-        
-        {/* HEADER MODAL */}
         <div className="flex items-start justify-between border-b border-[#341D17]/10 pb-4">
           <div>
             <span className="text-[10px] font-extrabold tracking-[0.2em] uppercase text-[#802924]">
@@ -86,15 +119,12 @@ export default function CreateCourseClient({ teacher, assignedCategory }) {
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-700 text-xs p-4 rounded-2xl">
+          <div className="bg-red-500/10 border border-red-500/30 text-red-800 text-xs font-medium p-4 rounded-2xl break-words">
             {error}
           </div>
         )}
 
-        {/* FORM INPUT */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          
-          {/* Judul Kursus */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/75">
               JUDUL KURSUS / MODUL
@@ -110,7 +140,6 @@ export default function CreateCourseClient({ teacher, assignedCategory }) {
             />
           </div>
 
-          {/* Kategori Studio (Terkunci Sesuai Spesialisasi - Tanpa kolom tautan video) */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/75">
               KATEGORI ATELIER (TERKUNCI SESUAI SPESIALISASI)
@@ -124,7 +153,6 @@ export default function CreateCourseClient({ teacher, assignedCategory }) {
             <input type="hidden" name="category_id" value={assignedCategory?.id || ''} />
           </div>
 
-          {/* Tanggal Mulai & Tanggal Selesai */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/75">
@@ -153,7 +181,6 @@ export default function CreateCourseClient({ teacher, assignedCategory }) {
             </div>
           </div>
 
-          {/* Foto Thumbnail Kursus */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/75">
               FOTO THUMBNAIL KURSUS (WAJIB)
@@ -170,12 +197,11 @@ export default function CreateCourseClient({ teacher, assignedCategory }) {
                 />
               </label>
               <span className="text-xs text-[#341D17]/60 truncate">
-                {formData.thumbnail_url ? 'File gambar terpilih' : 'Belum ada file dipilih'}
+                {selectedFile ? selectedFile.name : 'Belum ada file dipilih'}
               </span>
             </div>
           </div>
 
-          {/* Deskripsi & Silabus Modul */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/75">
               DESKRIPSI &amp; SILABUS MODUL
@@ -191,7 +217,6 @@ export default function CreateCourseClient({ teacher, assignedCategory }) {
             />
           </div>
 
-          {/* TOMBOL SUBMIT UTAMA */}
           <div className="pt-3">
             <button
               type="submit"
@@ -201,9 +226,7 @@ export default function CreateCourseClient({ teacher, assignedCategory }) {
               <span>{loading ? 'Menyimpan & Mengajukan...' : 'Simpan & Ajukan Kursus (Draft / Review)'}</span>
             </button>
           </div>
-
         </form>
-
       </div>
     </div>
   );

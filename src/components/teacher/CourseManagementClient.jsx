@@ -1,263 +1,372 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
-export default function CourseManagementClient({ courses }) {
+const FALLBACK_IMAGES = [
+  '/pictures/courses/french_patisserie/Madeleines.png',
+  '/pictures/courses/french_patisserie/macaron.png',
+  '/pictures/categories/french_patisserie.png',
+  '/pictures/categories/cakes_decorating.png',
+  '/pictures/categories/cookies.png',
+  '/pictures/categories/bread&yeast_goods.png',
+  '/pictures/categories/indonesian_cakes.png',
+];
+
+function resolveCourseBanner(course, idx = 0) {
+  const raw = course?.thumbnail_url || course?.image_url || course?.banner_url || '';
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    return raw.trim();
+  }
+
+  const titleLower = (course?.title || '').toLowerCase();
+  if (titleLower.includes('madeleine')) {
+    return '/pictures/courses/french_patisserie/Madeleines.png';
+  }
+  if (titleLower.includes('macaron')) {
+    return '/pictures/courses/french_patisserie/macaron.png';
+  }
+
+  const catLower = (course?.category_name || '').toLowerCase();
+  if (catLower.includes('french') || catLower.includes('patisserie') || catLower.includes('pastry')) {
+    return '/pictures/categories/french_patisserie.png';
+  }
+  if (catLower.includes('cake') || catLower.includes('decor')) {
+    return '/pictures/categories/cakes_decorating.png';
+  }
+  if (catLower.includes('cookie')) {
+    return '/pictures/categories/cookies.png';
+  }
+  if (catLower.includes('bread') || catLower.includes('yeast')) {
+    return '/pictures/categories/bread&yeast_goods.png';
+  }
+  if (catLower.includes('indonesian')) {
+    return '/pictures/categories/indonesian_cakes.png';
+  }
+
+  return FALLBACK_IMAGES[idx % FALLBACK_IMAGES.length];
+}
+
+function getStatusBadge(status) {
+  const s = String(status || 'active').toLowerCase();
+  if (s === 'pending') {
+    return {
+      label: 'PENDING',
+      className: 'bg-[#F9DDBB] text-[#802924]',
+    };
+  }
+  if (s === 'draft') {
+    return {
+      label: 'DRAFT',
+      className: 'bg-[#FFFDF9]/90 text-[#341D17]',
+    };
+  }
+  return {
+    label: 'AKTIF TAYANG',
+    className: 'bg-[#F9DDBB] text-[#341D17]',
+  };
+}
+
+export default function CourseManagementClient({ courses = [], teacherName = 'Chef Ayu' }) {
+  const router = useRouter();
+  const initialCourses = Array.isArray(courses) ? courses : [];
+  const [courseList, setCourseList] = useState(initialCourses);
+  const [prevCoursesRef, setPrevCoursesRef] = useState(courses);
+  const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('Semua'); // 'Semua', 'Sedang Tayang', 'Draft', 'Pending'
+  const [deletingId, setDeletingId] = useState(null);
+  const [actionError, setActionError] = useState('');
 
-  const totalCourses = courses.length;
-  const activeCount = courses.filter(c => c.status === 'active').length;
-  const draftCount = courses.filter(c => c.status === 'draft').length;
-  const pendingCount = courses.filter(c => c.status === 'pending').length;
+  if (courses !== prevCoursesRef) {
+    setPrevCoursesRef(courses);
+    setCourseList(Array.isArray(courses) ? courses : []);
+  }
 
-  const filteredCourses = courses.filter((course) => {
-    const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (course.description && course.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    if (activeTab === 'Sedang Tayang') {
-      return matchesSearch && course.status === 'active';
-    }
-    if (activeTab === 'Draft') {
-      return matchesSearch && course.status === 'draft';
-    }
-    if (activeTab === 'Pending') {
-      return matchesSearch && course.status === 'pending';
-    }
-    return matchesSearch;
-  });
+  const handleDeleteCourse = async (course) => {
+    if (!course?.id || deletingId) return;
 
-  const handleDelete = async (courseId, courseTitle) => {
-    const confirmed = window.confirm(`Apakah Anda yakin ingin menghapus kursus "${courseTitle}" dari Atelier? Tindakan ini tidak dapat dipulihkan.`);
+    const confirmed = window.confirm(
+      `Yakin ingin menghapus kursus "${course.title || 'ini'}"? File gambar dan data kursus akan dihapus.`
+    );
     if (!confirmed) return;
 
+    setDeletingId(course.id);
+    setActionError('');
+
     try {
-      const res = await fetch(`/api/teacher/courses/${courseId}`, {
+      const res = await fetch(`/api/teacher/courses/${course.id}`, {
         method: 'DELETE',
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Gagal menghapus kursus.');
+      const rawText = await res.text();
+      let data = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        data = {};
       }
 
-      window.location.reload();
+      if (!res.ok) {
+        const msg =
+          data?.message ||
+          data?.error ||
+          data?.detail ||
+          `Gagal menghapus kursus (Status ${res.status}).`;
+        throw new Error(msg);
+      }
+
+      setCourseList((prev) => prev.filter((item) => item.id !== course.id));
+      router.refresh();
     } catch (err) {
-      alert(err.message);
+      setActionError(err?.message || 'Gagal menghapus kursus.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
+  const counts = useMemo(() => {
+    const active = courseList.filter((c) =>
+      ['active', 'published'].includes(String(c?.status || 'active').toLowerCase())
+    ).length;
+    const draft = courseList.filter((c) => String(c?.status || '').toLowerCase() === 'draft').length;
+    const pending = courseList.filter(
+      (c) => String(c?.status || '').toLowerCase() === 'pending'
+    ).length;
+    return {
+      all: courseList.length,
+      active,
+      draft,
+      pending,
+    };
+  }, [courseList]);
+
+  const filteredCourses = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+
+    return courseList.filter((course) => {
+      const st = String(course?.status || 'active').toLowerCase();
+      const matchTab =
+        activeTab === 'all' ||
+        (activeTab === 'active' && ['active', 'published'].includes(st)) ||
+        (activeTab === 'draft' && st === 'draft') ||
+        (activeTab === 'pending' && st === 'pending');
+
+      if (!matchTab) return false;
+      if (!q) return true;
+
+      const titleMatch = String(course?.title || '').toLowerCase().includes(q);
+      const descMatch = String(course?.description || '').toLowerCase().includes(q);
+      const catMatch = String(course?.category_name || '').toLowerCase().includes(q);
+      return titleMatch || descMatch || catMatch;
+    });
+  }, [courseList, activeTab, searchQuery]);
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      
-      {/* HEADER ATAS */}
+    <div className="space-y-6">
+      {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#802924]">
+        <div className="space-y-1">
+          <span className="block text-[10px] font-extrabold tracking-[0.18em] uppercase text-[#802924]">
             STUDIO ATELIER CHEF
           </span>
-          <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17] mt-0.5">
+          <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
             Kelola Kelas Saya
           </h1>
         </div>
+
         <Link
           href="/dashboard/teacher/courses/create"
-          className="bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs px-5 py-3 rounded-2xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer self-start"
+          className="self-start sm:self-auto rounded-2xl bg-[#802924] hover:bg-[#661F1B] px-5 py-3 text-xs sm:text-sm font-bold text-[#F9DDBB] shadow-md transition inline-flex items-center gap-2"
         >
-          <span>+ Buat Kursus</span>
+          <span>+</span>
+          <span>Buat Kursus</span>
         </Link>
       </div>
 
-      {/* BANNER PROSES KURASI AKADEMIK */}
-      <div className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 shadow-xs flex items-start gap-3">
-        <span className="text-xl text-[#82882B]">🛡️</span>
-        <div>
-          <h2 className="font-editorial font-bold text-sm text-[#341D17]">Proses Kurasi Akademik</h2>
-          <p className="text-xs text-[#341D17]/70 mt-0.5">
-            Pemberitahuan: Setiap kursus baru yang diajukan akan ditinjau oleh Admin Atelier Yugyo sebelum dipublikasikan ke siswa. Kursus yang berstatus pending tidak dapat diedit kembali.
-          </p>
-        </div>
+      {/* BANNER PEMBERITAHUAN KURASI */}
+      <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-4 sm:p-5 shadow-2xs space-y-1">
+        <p className="text-xs sm:text-sm font-bold text-[#341D17]">
+          Proses Kurasi Akademik
+        </p>
+        <p className="text-[11px] sm:text-xs text-[#341D17]/75">
+          Pemberitahuan: Setiap kursus baru yang diajukan akan ditinjau oleh Admin Atelier Yugyo sebelum dipublikasikan ke siswa. Kursus yang berstatus pending tidak dapat diedit kembali.
+        </p>
       </div>
 
-      {/* FILTER TABS & SEARCH BAR */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2">
-        
+      {actionError && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs font-medium text-red-800">
+          {actionError}
+        </div>
+      )}
+
+      {/* FILTER TAB & PENCARIAN */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setActiveTab('Semua')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition cursor-pointer ${
-              activeTab === 'Semua'
-                ? 'bg-[#802924] text-[#F9DDBB]'
-                : 'bg-[#FFFDF9] text-[#341D17] border border-[#341D17]/15 hover:bg-[#F9DDBB]/30'
+            onClick={() => setActiveTab('all')}
+            className={`rounded-full px-4 py-1.5 text-xs font-bold transition cursor-pointer ${
+              activeTab === 'all'
+                ? 'bg-[#802924] text-[#F9DDBB] shadow-xs'
+                : 'bg-[#FFFDF9] text-[#341D17] border border-[#341D17]/15 hover:bg-[#F9DDBB]/50'
             }`}
           >
-            Semua ({totalCourses})
+            Semua ({counts.all})
           </button>
+
           <button
             type="button"
-            onClick={() => setActiveTab('Sedang Tayang')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition cursor-pointer ${
-              activeTab === 'Sedang Tayang'
-                ? 'bg-[#802924] text-[#F9DDBB]'
-                : 'bg-[#FFFDF9] text-[#341D17] border border-[#341D17]/15 hover:bg-[#F9DDBB]/30'
+            onClick={() => setActiveTab('active')}
+            className={`rounded-full px-4 py-1.5 text-xs font-bold transition cursor-pointer ${
+              activeTab === 'active'
+                ? 'bg-[#802924] text-[#F9DDBB] shadow-xs'
+                : 'bg-[#FFFDF9] text-[#341D17] border border-[#341D17]/15 hover:bg-[#F9DDBB]/50'
             }`}
           >
-            Sedang Tayang ({activeCount})
+            Sedang Tayang ({counts.active})
           </button>
+
           <button
             type="button"
-            onClick={() => setActiveTab('Draft')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition cursor-pointer ${
-              activeTab === 'Draft'
-                ? 'bg-[#802924] text-[#F9DDBB]'
-                : 'bg-[#FFFDF9] text-[#341D17] border border-[#341D17]/15 hover:bg-[#F9DDBB]/30'
+            onClick={() => setActiveTab('draft')}
+            className={`rounded-full px-4 py-1.5 text-xs font-bold transition cursor-pointer ${
+              activeTab === 'draft'
+                ? 'bg-[#802924] text-[#F9DDBB] shadow-xs'
+                : 'bg-[#FFFDF9] text-[#341D17] border border-[#341D17]/15 hover:bg-[#F9DDBB]/50'
             }`}
           >
-            Draft ({draftCount})
+            Draft ({counts.draft})
           </button>
+
           <button
             type="button"
-            onClick={() => setActiveTab('Pending')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition cursor-pointer ${
-              activeTab === 'Pending'
-                ? 'bg-[#802924] text-[#F9DDBB]'
-                : 'bg-[#FFFDF9] text-[#341D17] border border-[#341D17]/15 hover:bg-[#F9DDBB]/30'
+            onClick={() => setActiveTab('pending')}
+            className={`rounded-full px-4 py-1.5 text-xs font-bold transition cursor-pointer ${
+              activeTab === 'pending'
+                ? 'bg-[#802924] text-[#F9DDBB] shadow-xs'
+                : 'bg-[#FFFDF9] text-[#341D17] border border-[#341D17]/15 hover:bg-[#F9DDBB]/50'
             }`}
           >
-            Pending ({pendingCount})
+            Pending ({counts.pending})
           </button>
         </div>
 
-        <div className="w-full lg:w-72">
-          <input
-            type="text"
-            placeholder="Cari judul kursus..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-2 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:border-[#802924]"
-          />
-        </div>
-
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Cari judul kursus..."
+          className="w-full md:w-64 rounded-2xl border border-[#341D17]/15 bg-[#FFFDF9] px-4 py-2 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924]"
+        />
       </div>
 
-      {/* DAFTAR KURSUS */}
+      {/* DAFTAR KARTU KURSUS */}
       {filteredCourses.length === 0 ? (
-        <div className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-12 text-center text-xs text-[#341D17]/60">
-          Tidak ada kursus yang ditemukan dengan filter atau kata kunci tersebut.
+        <div className="rounded-3xl border border-[#341D17]/20 bg-[#FFFDF9] p-8 text-center text-xs text-[#341D17]/70">
+          Tidak ada kursus yang sesuai dengan filter atau pencarian.
         </div>
       ) : (
-        <div className="space-y-6">
-          {filteredCourses.map((course) => {
-            const isDraft = course.status === 'draft';
-            const isPending = course.status === 'pending';
-            const isActive = course.status === 'active';
-
-            const statusLabel = isActive ? 'Aktif Tayang' : isPending ? 'Menunggu Review' : 'Draft';
-            const statusBadgeColor = isActive 
-              ? 'bg-[#82882B]/15 text-[#82882B]' 
-              : 'bg-amber-500/15 text-amber-700';
+        <div className="space-y-5">
+          {filteredCourses.map((course, idx) => {
+            const bannerSrc = resolveCourseBanner(course, idx);
+            const badge = getStatusBadge(course?.status);
+            const enrolledCount = Number(course?.enrolled_count ?? course?.student_count ?? 0);
+            const isOwner = course?.is_owner !== false;
+            const isDeleting = deletingId === course.id;
 
             return (
-              <div key={course.id} className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl overflow-hidden shadow-xs space-y-4">
-                
-                <div className="relative h-44 sm:h-52 bg-[#341D17]/10 flex items-end p-4">
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#341D17]/80 via-[#341D17]/20 to-transparent" />
-                  
-                  <div className="absolute top-4 left-4">
-                    <span className="bg-[#FFFDF9]/90 text-[#802924] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider shadow-xs">
-                      {course.category_name || 'ATELIER MASTERCLASS'}
+              <div
+                key={course.id ?? idx}
+                className="overflow-hidden rounded-3xl border border-[#341D17]/20 bg-[#FFFDF9] shadow-sm transition hover:shadow-md"
+              >
+                {/* BANNER GAMBAR KURSUS */}
+                <div className="relative h-44 sm:h-52 w-full overflow-hidden bg-[#341D17]">
+                  <img
+                    src={bannerSrc}
+                    alt={course.title || 'Kursus'}
+                    className="h-full w-full object-cover object-center"
+                  />
+
+                  <div
+                    style={{
+                      background:
+                        'linear-gradient(180deg, rgba(25,14,11,0.35) 0%, rgba(25,14,11,0.08) 45%, rgba(25,14,11,0.68) 100%)',
+                    }}
+                    className="pointer-events-none absolute inset-0"
+                  />
+
+                  <div className="relative z-10 flex items-center justify-between gap-2 p-4">
+                    <span className="rounded-full bg-[#341D17]/75 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#F9DDBB] backdrop-blur-xs">
+                      {course?.category_name || 'FRENCH PATISSERIE & PASTRY'}
                     </span>
-                  </div>
-                  
-                  <div className="absolute top-4 right-4">
-                    <span className={`${statusBadgeColor} text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider shadow-xs backdrop-blur-md`}>
-                      ● {statusLabel}
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider shadow-2xs ${badge.className}`}
+                    >
+                      {badge.label}
                     </span>
                   </div>
 
-                  <div className="relative z-10 flex items-center justify-between w-full text-[#FFFDF9] text-xs font-bold">
-                    <span>∞ Akses Lifetime</span>
-                    <span>👥 {course.enrolled_count || 0} Siswa</span>
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-between px-4 py-2.5 text-[11px] font-semibold text-[#F9DDBB]">
+                    <span>Akses Lifetime</span>
+                    <span>{enrolledCount} Siswa</span>
                   </div>
                 </div>
 
+                {/* BAGIAN KONTEN BAWAH KARTU */}
                 <div className="p-5 sm:p-6 space-y-4">
-                  <div>
-                    <h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17]">
+                  <div className="space-y-1">
+                    <h3 className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17]">
                       {course.title}
-                    </h2>
-                    <p className="text-xs text-[#341D17]/70 mt-1 line-clamp-2">
-                      {course.description || 'Deskripsi kursus belum ditambahkan.'}
-                    </p>
+                    </h3>
+                    {course.description && (
+                      <p className="text-xs sm:text-sm text-[#341D17]/75 line-clamp-2">
+                        {course.description}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="flex items-center justify-between bg-[#F9DDBB]/30 border border-[#341D17]/10 rounded-2xl px-4 py-3 text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-lg bg-[#802924] text-[#F9DDBB] flex items-center justify-center font-bold text-[10px]">
-                        AD
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#341D17]/10 pt-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#802924] text-[10px] font-extrabold text-[#F9DDBB]">
+                        {String(course?.instructor_initials || 'AY').slice(0, 2).toUpperCase()}
                       </span>
-                      <span className="font-bold text-[#341D17]">Chef {course.instructor_name || 'Pengajar'}</span>
+                      <span className="text-xs font-semibold text-[#341D17]">
+                        {course?.instructor_name || teacherName}
+                      </span>
                     </div>
-                    <span className="font-extrabold text-[#802924] uppercase text-[10px] tracking-wider">
-                      Milik Anda
-                    </span>
-                  </div>
 
-                  {isDraft ? (
-                    <div className="pt-2">
+                    <div className="flex items-center gap-2">
+                      {isOwner && (
+                        <span className="rounded-full bg-[#F9DDBB]/70 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
+                          MILIK ANDA
+                        </span>
+                      )}
+
                       <Link
                         href={`/dashboard/teacher/courses/${course.id}/edit`}
-                        className="w-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs py-3 px-6 rounded-2xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                        className="rounded-xl border border-[#341D17]/20 bg-[#FFFDF9] hover:bg-[#F9DDBB]/60 px-3 py-1.5 text-xs font-bold text-[#341D17] transition"
                       >
-                        <span>✏️ Lanjutkan Pengeditan</span>
+                        Ubah
                       </Link>
-                    </div>
-                  ) : isPending ? (
-                    <div className="pt-2">
-                      <div className="w-full bg-[#341D17]/5 border border-[#341D17]/15 text-[#341D17]/70 font-bold text-xs py-3 px-6 rounded-2xl text-center flex items-center justify-center gap-2 select-none">
-                        <span>🔒 Sedang Ditinjau Admin (Tidak dapat diedit)</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-                      <a
-                        href={course.video_url || 'https://youtube.com'}
-                        className="w-full sm:flex-1 bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs py-3 px-6 rounded-2xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+
+                      <button
+                        type="button"
+                        disabled={isDeleting}
+                        onClick={() => handleDeleteCourse(course)}
+                        className="rounded-xl border border-[#802924]/30 bg-[#802924]/10 hover:bg-[#802924] hover:text-[#F9DDBB] px-3 py-1.5 text-xs font-bold text-[#802924] transition cursor-pointer disabled:opacity-50"
                       >
-                        <span>Materi</span>
-                      </a>
-                      
-                      <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <Link
-                          href={`/dashboard/teacher/courses/${course.id}/edit`}
-                          className="flex-1 sm:flex-initial bg-[#FFFDF9] hover:bg-[#F9DDBB]/50 border border-[#341D17]/20 text-[#341D17] font-bold text-xs py-3 px-5 rounded-2xl transition flex items-center justify-center gap-1.5 cursor-pointer"
-                        >
-                          <span>✏️</span>
-                          <span>Edit</span>
-                        </Link>
-                        
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(course.id, course.title)}
-                          className="bg-[#802924]/10 hover:bg-[#802924]/20 text-[#802924] p-3 rounded-2xl transition cursor-pointer"
-                          title="Hapus Kursus"
-                        >
-                          <span>🗑️</span>
-                        </button>
-                      </div>
+                        {isDeleting ? 'Menghapus...' : 'Hapus'}
+                      </button>
                     </div>
-                  )}
-
+                  </div>
                 </div>
-
               </div>
             );
           })}
         </div>
       )}
-
     </div>
   );
 }

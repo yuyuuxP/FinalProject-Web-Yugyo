@@ -281,3 +281,5 @@ SET thumbnail_url = CASE
   ELSE '/pictures/courses/french_pastry/croissant.png'
 END
 WHERE thumbnail_url IS NULL;
+
+
