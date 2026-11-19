@@ -69,9 +69,10 @@ async function handleUpdateCourse(request, context) {
     }
 
     const contentType = request.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
     let body = {};
 
-    if (contentType.includes('application/json')) {
+    if (isJson) {
       body = await request.json();
     } else {
       const formData = await request.formData();
@@ -155,6 +156,10 @@ async function handleUpdateCourse(request, context) {
       ]
     );
 
+    if (!isJson) {
+      return NextResponse.redirect(new URL('/dashboard/admin/courses', request.url), 303);
+    }
+
     return NextResponse.json(
       {
         message: 'Perubahan kursus berhasil disimpan',
@@ -169,6 +174,10 @@ async function handleUpdateCourse(request, context) {
       { status: 500 }
     );
   }
+}
+
+export async function POST(request, context) {
+  return handleUpdateCourse(request, context);
 }
 
 export async function PUT(request, context) {

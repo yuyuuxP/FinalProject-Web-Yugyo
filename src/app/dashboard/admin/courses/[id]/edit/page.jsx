@@ -41,7 +41,7 @@ export default async function EditCoursePage({ params }) {
         <div className="px-6 py-4 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-between">
           <div>
             <span className="text-[10px] font-extrabold tracking-[0.18em] uppercase text-[#802924]">
-              🥐 ATELIER OPERATIONS • EDIT MODUL
+              ATELIER OPERATIONS • EDIT MODUL
             </span>
             <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
               Edit Kursus: {course?.title}
@@ -147,26 +147,41 @@ export default async function EditCoursePage({ params }) {
             </div>
           </div>
 
-          {/* Status */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-              Status Kurasi
-            </label>
-            <select
-              name="status"
-              defaultValue={course?.status || 'active'}
-              className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
-            >
-              <option value="active">Aktif (Published)</option>
-              <option value="pending">Menunggu Approval</option>
-              <option value="draft">Draft</option>
-            </select>
+          {/* Status & Thumbnail */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-extrabold uppercase text-[#341D17]">
+                Status Kurasi
+              </label>
+              <select
+                name="status"
+                defaultValue={course?.status || 'active'}
+                className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
+              >
+                <option value="active">Aktif (Published)</option>
+                <option value="pending">Menunggu Approval</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-extrabold uppercase text-[#341D17]">
+                Path Thumbnail Kursus
+              </label>
+              <input
+                type="text"
+                name="thumbnail_url"
+                defaultValue={course?.thumbnail_url || ''}
+                placeholder="/pictures/courses/..."
+                className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
+              />
+            </div>
           </div>
 
           {/* Deskripsi */}
           <div className="space-y-1.5">
             <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-              Deskripsi & Silabus Modul
+              Deskripsi &amp; Silabus Modul
             </label>
             <textarea
               name="description"
@@ -182,7 +197,6 @@ export default async function EditCoursePage({ params }) {
               type="submit"
               className="w-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-sm py-3.5 px-6 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>💾</span>
               <span>Simpan Perubahan Kursus</span>
             </button>
           </div>
