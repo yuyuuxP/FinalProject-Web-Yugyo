@@ -128,3 +128,16 @@ CREATE INDEX IF NOT EXISTS idx_system_settings_key_name ON system_settings(key_n
 CREATE INDEX IF NOT EXISTS idx_enrollments_student_id ON student_enrollments(student_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_course_id ON student_enrollments(course_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_status ON student_enrollments(status);
+
+
+-- ==========================================
+-- PENAMBAHAN KOLOM
+-- ==========================================
+
+-- Tambah Kolom Pendukung Gambar dan Video untuk Materi Belajar
+ALTER TABLE course_contents ADD COLUMN IF NOT EXISTS cover_image_url TEXT;
+ALTER TABLE course_contents ADD COLUMN IF NOT EXISTS video_url TEXT;
+
+-- Tambah Kolom Pendukung Gambar untuk Tabel Kategor dan Kursus
+ALTER TABLE courses
+ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;

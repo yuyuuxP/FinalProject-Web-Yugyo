@@ -3,69 +3,113 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function CourseFilterDropdown({ categories, selectedCat, currentTab, searchQuery, totalCount }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
+export default function CourseFilterDropdown({
+  categories = [],
+  selectedCat = 'all',
+  currentTab = 'semua',
+  searchQuery = '',
+  totalCount = 0,
+}) {
   const router = useRouter();
-
-  const currentCategoryName =
-    selectedCat === 'all'
-      ? `Semua ${totalCount}`
-      : categories.find((c) => String(c.id) === String(selectedCat))?.name || 'Kategori';
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
+    const handleOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setOpen(false);
       }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
   }, []);
 
-  const handleSelect = (catId) => {
-    setIsOpen(false);
+  const buildUrl = ({ nextTab, nextCat }) => {
     const params = new URLSearchParams();
-    if (currentTab && currentTab !== 'semua') params.set('tab', currentTab);
-    if (catId !== 'all') params.set('cat', catId);
-    if (searchQuery) params.set('q', searchQuery);
-    router.push(`/dashboard/admin/courses?${params.toString()}`);
+    const tabValue = nextTab ?? currentTab;
+    const catValue = nextCat ?? selectedCat;
+
+    if (tabValue && tabValue !== 'semua') {
+      params.set('tab', tabValue);
+    }
+    if (catValue && catValue !== 'all') {
+      params.set('cat', String(catValue));
+    }
+    if (searchQuery) {
+      params.set('q', searchQuery);
+    }
+
+    const qs = params.toString();
+    return qs ? `/dashboard/admin/courses?${qs}` : '/dashboard/admin/courses';
   };
+
+  const handleSelectAllStatuses = () => {
+    setOpen(false);
+    router.push(buildUrl({ nextTab: 'semua' }));
+  };
+
+  const handleSelectCategory = (catId) => {
+    setOpen(false);
+    router.push(buildUrl({ nextCat: catId }));
+  };
+
+  const isAllTab = !currentTab || currentTab === 'semua';
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`px-4 py-2 rounded-full text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-          selectedCat !== 'all'
+        onClick={() => setOpen((prev) => !prev)}
+        className={`px-4 py-2 rounded-full text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+          isAllTab
             ? 'bg-[#802924] text-[#F9DDBB] shadow-xs'
-            : 'bg-[#802924] text-[#F9DDBB] shadow-xs hover:bg-[#661F1B]'
+            : 'bg-[#FFFDF9] text-[#341D17] border border-[#341D17]/15 hover:bg-[#F9DDBB]/40'
         }`}
       >
-        <span>{currentCategoryName}</span>
-        <span className="text-[10px]">▼</span>
+        <span>Semua</span>
+        <span
+          className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+            isAllTab ? 'bg-[#FFFDF9] text-[#802924]' : 'bg-[#F9DDBB] text-[#802924]'
+          }`}
+        >
+          {totalCount}
+        </span>
+        <span className="text-[10px] ml-0.5">▾</span>
       </button>
 
-      {isOpen && (
-        <div className="absolute left-0 mt-2 w-64 bg-[#FFFDF9] border border-[#341D17]/15 rounded-2xl shadow-xl z-30 py-2 space-y-1">
+      {open && (
+        <div className="absolute left-0 mt-2 w-60 bg-[#FFFDF9] border border-[#341D17]/15 rounded-2xl shadow-xl py-2 z-30 space-y-1">
           <button
             type="button"
-            onClick={() => handleSelect('all')}
-            className={`w-full text-left px-4 py-2 text-xs font-bold transition ${
-              selectedCat === 'all' ? 'bg-[#F9DDBB]/60 text-[#802924]' : 'text-[#341D17] hover:bg-[#F9DDBB]/30'
+            onClick={handleSelectAllStatuses}
+            className={`w-full text-left px-4 py-2 text-xs font-bold transition cursor-pointer flex items-center justify-between ${
+              isAllTab ? 'bg-[#F9DDBB]/60 text-[#802924]' : 'text-[#341D17] hover:bg-[#F9DDBB]/30'
             }`}
           >
-            Semua Kategori ({totalCount})
+            <span>Semua Status ({totalCount})</span>
+            {isAllTab && <span>✓</span>}
           </button>
+
+          <div className="border-t border-[#341D17]/10 my-1" />
+
+          <button
+            type="button"
+            onClick={() => handleSelectCategory('all')}
+            className={`w-full text-left px-4 py-2 text-xs font-semibold transition cursor-pointer ${
+              selectedCat === 'all' ? 'text-[#802924] font-bold bg-[#F9DDBB]/30' : 'text-[#341D17] hover:bg-[#F9DDBB]/30'
+            }`}
+          >
+            Semua Kategori
+          </button>
+
           {categories.map((cat) => (
             <button
               key={cat.id}
               type="button"
-              onClick={() => handleSelect(cat.id)}
-              className={`w-full text-left px-4 py-2 text-xs font-medium transition ${
+              onClick={() => handleSelectCategory(cat.id)}
+              className={`w-full text-left px-4 py-2 text-xs font-semibold transition cursor-pointer ${
                 String(selectedCat) === String(cat.id)
-                  ? 'bg-[#F9DDBB]/60 text-[#802924] font-bold'
+                  ? 'text-[#802924] font-bold bg-[#F9DDBB]/30'
                   : 'text-[#341D17] hover:bg-[#F9DDBB]/30'
               }`}
             >

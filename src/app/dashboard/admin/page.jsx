@@ -1,11 +1,107 @@
 import Link from 'next/link';
 import pool from '@/lib/db';
 
-const COURSE_THUMBS = [
-  'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1585478259715-876acc5be8eb?auto=format&fit=crop&w=400&q=80',
-  'https://images.unsplash.com/photo-1612203985729-70726954388c?auto=format&fit=crop&w=400&q=80',
+const COURSE_IMAGE_RULES = [
+  // Bread & Yeast Goods (/pictures/courses/bread/...)
+  { folder: 'bread', file: 'bagel.png', keywords: ['bagel'] },
+  { folder: 'bread', file: 'brioche.png', keywords: ['brioche'] },
+  { folder: 'bread', file: 'ciabatta.png', keywords: ['ciabatta'] },
+  { folder: 'bread', file: 'focaccia.png', keywords: ['focaccia'] },
+  { folder: 'bread', file: 'milk_bread.png', keywords: ['milk bread', 'shokupan', 'roti susu'] },
+  { folder: 'bread', file: 'Pain_de_Campagne.png', keywords: ['pain de campagne', 'campagne', 'country bread'] },
+  { folder: 'bread', file: 'pretzel.png', keywords: ['pretzel'] },
+  { folder: 'bread', file: 'ragi_roti.png', keywords: ['ragi', 'yeast', 'fermentasi'] },
+  { folder: 'bread', file: 'roti_tawar.png', keywords: ['roti tawar', 'sandwich bread'] },
+  { folder: 'bread', file: 'sourdough.png', keywords: ['sourdough', 'levain', 'starter'] },
+
+  // Cakes Decorating (/pictures/courses/cakes_decor/...)
+  { folder: 'cakes_decor', file: 'cake_piping.png', keywords: ['piping', 'spuit', 'buttercream'] },
+  { folder: 'cakes_decor', file: 'floral_painting.png', keywords: ['floral', 'bunga', 'painting', 'lukis'] },
+  { folder: 'cakes_decor', file: 'fondan_sugar.png', keywords: ['fondan', 'fondant', 'sugar', 'gula'] },
+  { folder: 'cakes_decor', file: 'ganache_drip.png', keywords: ['ganache', 'drip'] },
+  { folder: 'cakes_decor', file: 'geomatric_metallic.png', keywords: ['geomatric', 'geometric', 'metallic', 'metalik'] },
+  { folder: 'cakes_decor', file: 'ice_cream.png', keywords: ['ice cream', 'es krim', 'gelato'] },
+  { folder: 'cakes_decor', file: 'mirror_glaze.png', keywords: ['mirror glaze', 'glaze', 'cermin'] },
+  { folder: 'cakes_decor', file: 'ombre_shadding.png', keywords: ['ombre', 'shadding', 'shading', 'gradasi'] },
+  { folder: 'cakes_decor', file: 'smoothing_kue.png', keywords: ['smoothing', 'poles', 'rata'] },
+  { folder: 'cakes_decor', file: 'wafer_paper.png', keywords: ['wafer paper', 'wafer'] },
+
+  // Cookies (/pictures/courses/cookies/...)
+  { folder: 'cookies', file: 'biscotti.png', keywords: ['biscotti'] },
+  { folder: 'cookies', file: 'crinckle.png', keywords: ['crinckle', 'crinkle'] },
+  { folder: 'cookies', file: 'florentines.png', keywords: ['florentine', 'florentines'] },
+  { folder: 'cookies', file: 'kastengel.png', keywords: ['kastengel', 'keju'] },
+  { folder: 'cookies', file: 'matcha_sable.png', keywords: ['matcha', 'sable', 'sablé'] },
+  { folder: 'cookies', file: 'nastar.png', keywords: ['nastar', 'nanas'] },
+  { folder: 'cookies', file: 'peanut_cookie.png', keywords: ['peanut', 'kacang tanah'] },
+  { folder: 'cookies', file: 'putri_salju.png', keywords: ['putri salju', 'snowball'] },
+  { folder: 'cookies', file: 'thumbprint_jam.png', keywords: ['thumbprint', 'selai'] },
+  { folder: 'cookies', file: 'cookie.png', keywords: ['cookie', 'cookies', 'kukis'] },
+
+  // French Pastry (/pictures/courses/french_pastry/...)
+  { folder: 'french_pastry', file: 'Choux_à_la_Crème_&Craquelin.png', keywords: ['choux', 'craquelin', 'soes'] },
+  { folder: 'french_pastry', file: 'croissant.png', keywords: ['croissant', 'lamination', 'laminasi'] },
+  { folder: 'french_pastry', file: 'eclair.png', keywords: ['eclair', 'éclair'] },
+  { folder: 'french_pastry', file: 'Fruits_tartle.png', keywords: ['tart', 'tartle', 'tarte', 'buah'] },
+  { folder: 'french_pastry', file: 'Kouign-Amann_Bretons.png', keywords: ['kouign', 'amann', 'breton'] },
+  { folder: 'french_pastry', file: 'macaron.png', keywords: ['macaron', 'macarons'] },
+  { folder: 'french_pastry', file: 'Madeleines.png', keywords: ['madeleine', 'madeleines'] },
+  { folder: 'french_pastry', file: 'Mille-Feuille.png', keywords: ['mille-feuille', 'mille feuille', 'napoleon'] },
+  { folder: 'french_pastry', file: 'opera_cake.png', keywords: ['opera'] },
+  { folder: 'french_pastry', file: 'Pain_au_Chocolat.png', keywords: ['pain au chocolat', 'chocolatine'] },
+
+  // Indonesian Cakes (/pictures/courses/Indo_cakes/...)
+  { folder: 'Indo_cakes', file: 'bolu_kukus.png', keywords: ['bolu kukus', 'bolu'] },
+  { folder: 'Indo_cakes', file: 'dadar.png', keywords: ['dadar', 'dadar gulung'] },
+  { folder: 'Indo_cakes', file: 'getuk_lindri.png', keywords: ['getuk', 'singkong'] },
+  { folder: 'Indo_cakes', file: 'klepon.png', keywords: ['klepon'] },
+  { folder: 'Indo_cakes', file: 'kue_lapis.png', keywords: ['lapis', 'kue lapis', 'lapis legit'] },
+  { folder: 'Indo_cakes', file: 'kue_talam.png', keywords: ['talam', 'kue talam'] },
+  { folder: 'Indo_cakes', file: 'nagasari.png', keywords: ['nagasari', 'pisang'] },
+  { folder: 'Indo_cakes', file: 'onde_onde.png', keywords: ['onde-onde', 'onde onde', 'wijen'] },
+  { folder: 'Indo_cakes', file: 'putu_ayu.png', keywords: ['putu ayu', 'putu'] },
+  { folder: 'Indo_cakes', file: 'serabi.png', keywords: ['serabi', 'surabi'] },
 ];
+
+const FALLBACK_THUMBS = [
+  '/pictures/courses/french_pastry/croissant.png',
+  '/pictures/courses/french_pastry/Madeleines.png',
+  '/pictures/courses/bread/sourdough.png',
+];
+
+function resolveCourseImage(course, idx = 0) {
+  if (course?.thumbnail_url && course.thumbnail_url.startsWith('/pictures/')) {
+    return course.thumbnail_url;
+  }
+
+  const titleLower = (course?.title || '').toLowerCase();
+  const catLower = (course?.category_name || '').toLowerCase();
+
+  const matched = COURSE_IMAGE_RULES.find((rule) =>
+    rule.keywords.some((kw) => titleLower.includes(kw))
+  );
+  if (matched) {
+    return `/pictures/courses/${matched.folder}/${matched.file}`;
+  }
+
+  if (catLower.includes('bread') || catLower.includes('yeast') || catLower.includes('roti')) {
+    return '/pictures/categories/bread&yeast_goods.png';
+  }
+  if (catLower.includes('cake') || catLower.includes('decor') || catLower.includes('dekor')) {
+    return '/pictures/categories/cakes_decorating.png';
+  }
+  if (catLower.includes('cookie') || catLower.includes('kukis')) {
+    return '/pictures/categories/cookies.png';
+  }
+  if (catLower.includes('indo') || catLower.includes('nusantara')) {
+    return '/pictures/categories/indonesian_cakes.png';
+  }
+  if (catLower.includes('french') || catLower.includes('patisserie') || catLower.includes('pastry')) {
+    return '/pictures/categories/french_patisserie.png';
+  }
+
+  return FALLBACK_THUMBS[idx % FALLBACK_THUMBS.length];
+}
 
 export default async function AdminOverviewPage() {
   let totalCourses = 0;
@@ -36,6 +132,7 @@ export default async function AdminOverviewPage() {
           c.id,
           c.title,
           c.status,
+          c.thumbnail_url,
           cat.name AS category_name,
           u.full_name AS instructor_name
         FROM courses c
@@ -69,7 +166,7 @@ export default async function AdminOverviewPage() {
         </span>
 
         <span className="text-[11px] font-extrabold tracking-wider uppercase text-[#341D17]/70">
-          SELASA, 17 NOVEMBER 2026
+          KAMIS, 19 NOVEMBER 2026
         </span>
       </div>
 
@@ -283,6 +380,7 @@ export default async function AdminOverviewPage() {
             const batchPercent = [88, 72, 64][idx % 3];
             const ratingVal = ['4.95', '4.88', '4.92'][idx % 3];
             const studentNum = [418, 390, 320][idx % 3];
+            const imgSrc = resolveCourseImage(course, idx);
 
             return (
               <div
@@ -292,7 +390,7 @@ export default async function AdminOverviewPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5">
                     <img
-                      src={COURSE_THUMBS[idx % COURSE_THUMBS.length]}
+                      src={imgSrc}
                       alt={course.title}
                       className="w-16 h-16 rounded-xl object-cover border border-[#341D17]/15 shrink-0"
                     />

@@ -200,3 +200,84 @@ INSERT INTO system_settings (key_name, key_value) VALUES
 ('language', 'id'),
 ('timezone', 'WIT')
 ON CONFLICT (key_name) DO NOTHING;
+
+-- 6. UPDATE GAMBAR PROFILE KATEGORI
+UPDATE categories
+SET image_url = CASE
+  WHEN LOWER(name) LIKE '%bread%' OR LOWER(name) LIKE '%yeast%' OR LOWER(name) LIKE '%roti%'
+    THEN '/pictures/categories/bread&yeast_goods.png'
+  WHEN LOWER(name) LIKE '%cake%' OR LOWER(name) LIKE '%decor%' OR LOWER(name) LIKE '%dekor%'
+    THEN '/pictures/categories/cakes_decorating.png'
+  WHEN LOWER(name) LIKE '%cookie%' OR LOWER(name) LIKE '%kukis%'
+    THEN '/pictures/categories/cookies.png'
+  WHEN LOWER(name) LIKE '%indo%' OR LOWER(name) LIKE '%nusantara%'
+    THEN '/pictures/categories/indonesian_cakes.png'
+  ELSE '/pictures/categories/french_patisserie.png'
+END;
+
+-- 7. UPDATE THUMBNAIL KURSUS BERDASARKAN JUDUL KURSUS
+UPDATE courses
+SET thumbnail_url = CASE
+  -- Bread
+  WHEN LOWER(title) LIKE '%bagel%' THEN '/pictures/courses/bread/bagel.png'
+  WHEN LOWER(title) LIKE '%brioche%' THEN '/pictures/courses/bread/brioche.png'
+  WHEN LOWER(title) LIKE '%ciabatta%' THEN '/pictures/courses/bread/ciabatta.png'
+  WHEN LOWER(title) LIKE '%focaccia%' THEN '/pictures/courses/bread/focaccia.png'
+  WHEN LOWER(title) LIKE '%milk bread%' OR LOWER(title) LIKE '%roti susu%' THEN '/pictures/courses/bread/milk_bread.png'
+  WHEN LOWER(title) LIKE '%campagne%' THEN '/pictures/courses/bread/Pain_de_Campagne.png'
+  WHEN LOWER(title) LIKE '%pretzel%' THEN '/pictures/courses/bread/pretzel.png'
+  WHEN LOWER(title) LIKE '%ragi%' THEN '/pictures/courses/bread/ragi_roti.png'
+  WHEN LOWER(title) LIKE '%roti tawar%' THEN '/pictures/courses/bread/roti_tawar.png'
+  WHEN LOWER(title) LIKE '%sourdough%' THEN '/pictures/courses/bread/sourdough.png'
+
+  -- Cakes Decor
+  WHEN LOWER(title) LIKE '%piping%' OR LOWER(title) LIKE '%spuit%' THEN '/pictures/courses/cakes_decor/cake_piping.png'
+  WHEN LOWER(title) LIKE '%floral%' OR LOWER(title) LIKE '%bunga%' THEN '/pictures/courses/cakes_decor/floral_painting.png'
+  WHEN LOWER(title) LIKE '%fondan%' OR LOWER(title) LIKE '%fondant%' THEN '/pictures/courses/cakes_decor/fondan_sugar.png'
+  WHEN LOWER(title) LIKE '%ganache%' OR LOWER(title) LIKE '%drip%' THEN '/pictures/courses/cakes_decor/ganache_drip.png'
+  WHEN LOWER(title) LIKE '%geomatric%' OR LOWER(title) LIKE '%geometric%' OR LOWER(title) LIKE '%metallic%' THEN '/pictures/courses/cakes_decor/geomatric_metallic.png'
+  WHEN LOWER(title) LIKE '%ice cream%' OR LOWER(title) LIKE '%es krim%' THEN '/pictures/courses/cakes_decor/ice_cream.png'
+  WHEN LOWER(title) LIKE '%mirror glaze%' OR LOWER(title) LIKE '%glaze%' THEN '/pictures/courses/cakes_decor/mirror_glaze.png'
+  WHEN LOWER(title) LIKE '%ombre%' THEN '/pictures/courses/cakes_decor/ombre_shadding.png'
+  WHEN LOWER(title) LIKE '%smoothing%' THEN '/pictures/courses/cakes_decor/smoothing_kue.png'
+  WHEN LOWER(title) LIKE '%wafer%' THEN '/pictures/courses/cakes_decor/wafer_paper.png'
+
+  -- Cookies
+  WHEN LOWER(title) LIKE '%biscotti%' THEN '/pictures/courses/cookies/biscotti.png'
+  WHEN LOWER(title) LIKE '%crinckle%' OR LOWER(title) LIKE '%crinkle%' THEN '/pictures/courses/cookies/crinckle.png'
+  WHEN LOWER(title) LIKE '%florentine%' THEN '/pictures/courses/cookies/florentines.png'
+  WHEN LOWER(title) LIKE '%kastengel%' THEN '/pictures/courses/cookies/kastengel.png'
+  WHEN LOWER(title) LIKE '%matcha%' OR LOWER(title) LIKE '%sable%' THEN '/pictures/courses/cookies/matcha_sable.png'
+  WHEN LOWER(title) LIKE '%nastar%' THEN '/pictures/courses/cookies/nastar.png'
+  WHEN LOWER(title) LIKE '%peanut%' OR LOWER(title) LIKE '%kacang%' THEN '/pictures/courses/cookies/peanut_cookie.png'
+  WHEN LOWER(title) LIKE '%putri salju%' THEN '/pictures/courses/cookies/putri_salju.png'
+  WHEN LOWER(title) LIKE '%thumbprint%' THEN '/pictures/courses/cookies/thumbprint_jam.png'
+  WHEN LOWER(title) LIKE '%cookie%' OR LOWER(title) LIKE '%kukis%' THEN '/pictures/courses/cookies/cookie.png'
+
+  -- French Pastry
+  WHEN LOWER(title) LIKE '%choux%' OR LOWER(title) LIKE '%craquelin%' THEN '/pictures/courses/french_pastry/Choux_à_la_Crème_&Craquelin.png'
+  WHEN LOWER(title) LIKE '%croissant%' OR LOWER(title) LIKE '%lamination%' THEN '/pictures/courses/french_pastry/croissant.png'
+  WHEN LOWER(title) LIKE '%eclair%' OR LOWER(title) LIKE '%éclair%' THEN '/pictures/courses/french_pastry/eclair.png'
+  WHEN LOWER(title) LIKE '%tart%' THEN '/pictures/courses/french_pastry/Fruits_tartle.png'
+  WHEN LOWER(title) LIKE '%kouign%' THEN '/pictures/courses/french_pastry/Kouign-Amann_Bretons.png'
+  WHEN LOWER(title) LIKE '%macaron%' THEN '/pictures/courses/french_pastry/macaron.png'
+  WHEN LOWER(title) LIKE '%madeleine%' THEN '/pictures/courses/french_pastry/Madeleines.png'
+  WHEN LOWER(title) LIKE '%mille%' THEN '/pictures/courses/french_pastry/Mille-Feuille.png'
+  WHEN LOWER(title) LIKE '%opera%' THEN '/pictures/courses/french_pastry/opera_cake.png'
+  WHEN LOWER(title) LIKE '%pain au chocolat%' THEN '/pictures/courses/french_pastry/Pain_au_Chocolat.png'
+
+  -- Indo Cakes
+  WHEN LOWER(title) LIKE '%bolu kukus%' THEN '/pictures/courses/Indo_cakes/bolu_kukus.png'
+  WHEN LOWER(title) LIKE '%dadar%' THEN '/pictures/courses/Indo_cakes/dadar.png'
+  WHEN LOWER(title) LIKE '%getuk%' THEN '/pictures/courses/Indo_cakes/getuk_lindri.png'
+  WHEN LOWER(title) LIKE '%klepon%' THEN '/pictures/courses/Indo_cakes/klepon.png'
+  WHEN LOWER(title) LIKE '%lapis%' THEN '/pictures/courses/Indo_cakes/kue_lapis.png'
+  WHEN LOWER(title) LIKE '%talam%' THEN '/pictures/courses/Indo_cakes/kue_talam.png'
+  WHEN LOWER(title) LIKE '%nagasari%' THEN '/pictures/courses/Indo_cakes/nagasari.png'
+  WHEN LOWER(title) LIKE '%onde%' THEN '/pictures/courses/Indo_cakes/onde_onde.png'
+  WHEN LOWER(title) LIKE '%putu%' THEN '/pictures/courses/Indo_cakes/putu_ayu.png'
+  WHEN LOWER(title) LIKE '%serabi%' THEN '/pictures/courses/Indo_cakes/serabi.png'
+
+  ELSE '/pictures/courses/french_pastry/croissant.png'
+END
+WHERE thumbnail_url IS NULL;
