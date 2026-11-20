@@ -119,6 +119,45 @@ CREATE TABLE IF NOT EXISTS session_student_completions (
   UNIQUE (session_id, student_id)
 );
 
+-- 12. Tabel CHAT THREADS ()
+CREATE TABLE IF NOT EXISTS chat_threads (
+  id SERIAL PRIMARY KEY,
+  category VARCHAR(40) NOT NULL DEFAULT 'recipe', -- 'recipe' | 'dm' | 'assignment'
+  student_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  student_name VARCHAR(120) NOT NULL,
+  student_avatar TEXT,
+  course_title VARCHAR(160) NOT NULL DEFAULT 'French Patisserie & Pastry',
+  is_online BOOLEAN NOT NULL DEFAULT TRUE,
+  review_status VARCHAR(30) NOT NULL DEFAULT 'pending_review', -- 'pending_review' | 'answered'
+  unread_count INTEGER NOT NULL DEFAULT 0,
+  last_preview TEXT,
+  last_time_label VARCHAR(40) DEFAULT 'Baru saja',
+  student_progress INTEGER NOT NULL DEFAULT 65,
+  teacher_notes TEXT DEFAULT 'Fokus pada kontrol suhu adonan dan tekstur remah.',
+  formula_title VARCHAR(160) DEFAULT 'Formula: Suhu Laminasi Ideal (14–16°C)',
+  formula_subtitle VARCHAR(220) DEFAULT 'Kartu acuan cepat kelembapan & elastisitas lemak',
+  formula_body TEXT DEFAULT 'Jaga suhu mentega 14–16°C dan détrempe ±10–12°C; istirahatkan 20–30 menit di chiller tiap lipatan.',
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- 13. TABEL CHAT MESSAGE ()
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id SERIAL PRIMARY KEY,
+  thread_id INTEGER NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
+  sender_role VARCHAR(20) NOT NULL DEFAULT 'student', -- 'student' | 'teacher' | 'system'
+  sender_name VARCHAR(120) NOT NULL,
+  time_label VARCHAR(30) NOT NULL DEFAULT '10:42 AM',
+  body TEXT NOT NULL,
+  image_url TEXT,
+  image_caption VARCHAR(120),
+  is_formula_card BOOLEAN NOT NULL DEFAULT FALSE,
+  formula_title VARCHAR(160),
+  formula_subtitle VARCHAR(220),
+  is_read BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 
 -- ==========================================
 -- DATABASE INDEXING (OPTIMASI PERFORMA QUERY)
@@ -160,16 +199,50 @@ CREATE INDEX IF NOT EXISTS idx_course_sessions_instructor_id ON course_sessions(
 CREATE INDEX IF NOT EXISTS idx_course_sessions_session_date ON course_sessions(session_date);
 CREATE INDEX IF NOT EXISTS idx_course_sessions_is_done ON course_sessions(is_done);
 
+-- Index untuk Kolom Status Sesi Kursus
+CREATE INDEX IF NOT EXISTS idx_course_sessions_status ON course_sessions(status);
+
 -- Index untuk Tabel session_student_completions
 CREATE INDEX IF NOT EXISTS idx_session_completions_sess	ion_id ON session_student_completions(session_id);
 CREATE INDEX IF NOT EXISTS idx_session_completions_student_id ON session_student_completions(student_id);
 
--- Index opsional untuk thumbnail_url di courses (bila sering difilter/dicek)
+-- Index Opsional untuk thumbnail_url di courses (bila sering difilter/dicek)
 CREATE INDEX IF NOT EXISTS idx_courses_thumbnail_url ON courses(thumbnail_url) WHERE thumbnail_url IS NOT NULL;
 
+-- Index untuk Tabel chat_threads
+-- Mempercepat urutan antrean chat terbaru (ORDER BY updated_at DESC, id DESC)
+CREATE INDEX IF NOT EXISTS idx_chat_threads_updated_at
+  ON chat_threads (updated_at DESC, id DESC);
+
+-- Mempercepat filter tab diskusi ('recipe', 'dm', 'assignment') dan urutan terbaru
+CREATE INDEX IF NOT EXISTS idx_chat_threads_category_updated
+  ON chat_threads (category, updated_at DESC);
+
+-- Mempercepat filter antrean review ('pending_review' | 'answered')
+CREATE INDEX IF NOT EXISTS idx_chat_threads_review_status
+  ON chat_threads (review_status, updated_at DESC);
+
+-- Mempercepat join / pencarian thread berdasarkan student_id (FK ke users.id)
+CREATE INDEX IF NOT EXISTS idx_chat_threads_student_id
+  ON chat_threads (student_id)
+  WHERE student_id IS NOT NULL;
+
+-- Index untuk Tabel chat_messages
+-- Mempercepat pengambilan riwayat pesan per thread secara berurutan (WHERE thread_id = $1 ORDER BY id ASC)
+CREATE INDEX IF NOT EXISTS idx_chat_messages_thread_id_id
+  ON chat_messages (thread_id, id ASC);
+
+-- Mempercepat query kronologis berdasarkan waktu pembuatan pesan
+CREATE INDEX IF NOT EXISTS idx_chat_messages_thread_created_at
+  ON chat_messages (thread_id, created_at ASC);
+
+-- Partial index untuk menghitung / mengambil pesan belum dibaca secara efisien
+CREATE INDEX IF NOT EXISTS idx_chat_messages_unread
+  ON chat_messages (thread_id, is_read)
+  WHERE is_read = FALSE;
 
 -- ==========================================
--- PENAMBAHAN KOLOM
+-- PENAMBAHAN KOLOM/QUERY
 -- ==========================================
 
 -- Tambah Kolom Pendukung Gambar dan Video untuk Materi Belajar
@@ -179,3 +252,16 @@ ALTER TABLE course_contents ADD COLUMN IF NOT EXISTS video_url TEXT;
 -- Tambah Kolom Pendukung Gambar untuk Tabel Kategor dan Kursus
 ALTER TABLE courses
 ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;
+
+-- Tambah Kolom Pendukung Status Kelas
+ALTER TABLE course_sessions
+ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'scheduled'
+CHECK (status IN ('scheduled', 'completed', 'canceled'));
+
+UPDATE course_sessions
+SET status = CASE
+  WHEN is_done = TRUE THEN 'completed'
+  ELSE 'scheduled'
+END
+WHERE status IS NULL OR status = '';
+
