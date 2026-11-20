@@ -4,9 +4,20 @@ import TeacherScheduleClient from '@/components/teacher/TeacherScheduleClient';
 
 export const dynamic = 'force-dynamic';
 
+function getLocalTodayWita() {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Makassar',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(new Date());
+}
+
 export default async function TeacherSchedulePage() {
   const cookieStore = await cookies();
   const cookieUserId = cookieStore.get('yugyo_user_id')?.value;
+  const initialToday = getLocalTodayWita();
 
   let teacher = { id: null, full_name: 'Ayu', specialty: 'French Patisserie & Pastry' };
   let courses = [];
@@ -63,22 +74,7 @@ export default async function TeacherSchedulePage() {
 
       sessions = sessRes.rows;
     } catch {
-      sessions = courses.map((c, idx) => ({
-        id: c.id,
-        course_id: c.id,
-        title: c.title,
-        notes: c.description || 'Sesi mentoring & praktik kelas.',
-        session_date: c.start_date
-          ? String(c.start_date).slice(0, 10)
-          : new Date(Date.now() + idx * 86400000).toISOString().slice(0, 10),
-        session_time: '14:00 WITA',
-        location_label: c.category_name || 'Atelier Studio',
-        is_popup: false,
-        is_done: false,
-        status: 'scheduled',
-        course_title: c.title,
-        instructor_name: teacher.full_name || 'Ayu',
-      }));
+      sessions = [];
     }
 
     try {
@@ -98,7 +94,13 @@ export default async function TeacherSchedulePage() {
                  SELECT COUNT(*)
                  FROM course_sessions cs2
                  WHERE cs2.course_id = c.id
-               ), 1)::int AS total_classes_count
+               ), 1)::int AS total_classes_count,
+               COALESCE((
+                 SELECT ARRAY_AGG(DISTINCT TO_CHAR(cs3.session_date, 'YYYY-MM-DD'))
+                 FROM session_student_completions ssc3
+                 JOIN course_sessions cs3 ON ssc3.session_id = cs3.id
+                 WHERE ssc3.student_id = u.id AND cs3.course_id = c.id
+               ), ARRAY[]::text[]) AS completed_dates
         FROM student_enrollments e
         JOIN users u ON e.student_id = u.id
         JOIN courses c ON e.course_id = c.id
@@ -114,6 +116,7 @@ export default async function TeacherSchedulePage() {
           done_classes_count: doneCount,
           total_classes_count: totalCount,
           progress_percent: progressPercent,
+          completed_dates: Array.isArray(p.completed_dates) ? p.completed_dates : [],
         };
       });
     } catch {
@@ -129,6 +132,7 @@ export default async function TeacherSchedulePage() {
       courses={courses}
       initialSessions={sessions}
       initialParticipants={participants}
+      initialToday={initialToday}
     />
   );
 }

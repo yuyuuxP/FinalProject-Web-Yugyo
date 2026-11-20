@@ -26,6 +26,14 @@ function formatDateKey(dateObj) {
   return `${y}-${m}-${d}`;
 }
 
+function parseDateKeyLocal(dateKey) {
+  const parts = String(dateKey || '').split('-').map(Number);
+  if (parts.length === 3 && parts.every((n) => Number.isFinite(n) && n > 0)) {
+    return new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+  }
+  return new Date(2026, 10, 20, 12, 0, 0);
+}
+
 function normalizeSessionStatus(item) {
   if (item?.status === 'canceled') return 'canceled';
   if (item?.status === 'completed' || item?.is_done) return 'completed';
@@ -37,10 +45,11 @@ export default function TeacherScheduleClient({
   courses = [],
   initialSessions = [],
   initialParticipants = [],
+  initialToday = '2026-11-20',
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const todayStr = formatDateKey(new Date());
+  const todayStr = initialToday;
 
   const [sessions, setSessions] = useState(
     (Array.isArray(initialSessions) ? initialSessions : []).map((s) => ({
@@ -53,7 +62,7 @@ export default function TeacherScheduleClient({
   );
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [weekOffset, setWeekOffset] = useState(0);
-  const [filterByDate, setFilterByDate] = useState(false);
+  const [filterByDate, setFilterByDate] = useState(true);
 
   const [busyId, setBusyId] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState('');
@@ -72,7 +81,7 @@ export default function TeacherScheduleClient({
   });
 
   const weekDays = useMemo(() => {
-    const base = new Date();
+    const base = parseDateKeyLocal(todayStr);
     base.setDate(base.getDate() + weekOffset * 7);
     const currentDay = base.getDay();
     const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
@@ -93,12 +102,14 @@ export default function TeacherScheduleClient({
         hasSession,
       };
     });
-  }, [weekOffset, sessions]);
+  }, [todayStr, weekOffset, sessions]);
 
   const activeMonthTitle = useMemo(() => {
     const mid = weekDays[3] || weekDays[0];
     return mid ? `${mid.monthName} ${mid.year}` : 'November 2026';
   }, [weekDays]);
+
+  const activeDate = filterByDate ? selectedDate : todayStr;
 
   const visibleSessions = useMemo(() => {
     if (!filterByDate) return sessions;
@@ -106,25 +117,48 @@ export default function TeacherScheduleClient({
   }, [sessions, filterByDate, selectedDate]);
 
   const stats = useMemo(() => {
-    const todaySessionsCount = sessions.filter((s) => s.session_date === todayStr).length;
-    const uniqueStudentIds = new Set(participants.map((p) => p.student_id));
-    const activeStudentsCount = participants.filter((p) => p.done_classes_count > 0).length;
-    const pendingValidationCount = sessions.filter(
+    const dateSessions = filterByDate
+      ? sessions.filter((s) => s.session_date === selectedDate)
+      : sessions;
+
+    const scheduledCourseIds = new Set(
+      dateSessions.map((s) => Number(s.course_id)).filter(Boolean)
+    );
+
+    const matchingParticipants = filterByDate
+      ? participants.filter((p) => scheduledCourseIds.has(Number(p.course_id)))
+      : participants;
+
+    const uniqueStudentIds = new Set(matchingParticipants.map((p) => p.student_id));
+    const activeStudentsCount = matchingParticipants.filter(
+      (p) => Number(p.done_classes_count || 0) > 0
+    ).length;
+
+    const completedStudentsOnDateCount = matchingParticipants.filter((p) => {
+      const dates = Array.isArray(p.completed_dates) ? p.completed_dates : [];
+      return filterByDate
+        ? dates.includes(selectedDate)
+        : Number(p.done_classes_count || 0) > 0;
+    }).length;
+
+    const pendingValidationCount = dateSessions.filter(
       (s) => normalizeSessionStatus(s) === 'scheduled'
     ).length;
-    const completedCount = sessions.filter(
+
+    const completedCount = dateSessions.filter(
       (s) => normalizeSessionStatus(s) === 'completed'
     ).length;
 
     return {
-      todaySessionsCount,
-      totalSessionsCount: sessions.length,
-      totalParticipants: uniqueStudentIds.size || participants.length,
+      dateSessionsCount: dateSessions.length,
+      totalAllSessionsCount: sessions.length,
+      totalParticipants: uniqueStudentIds.size || matchingParticipants.length,
       activeStudentsCount,
+      completedStudentsOnDateCount,
       pendingValidationCount,
       completedCount,
     };
-  }, [sessions, participants, todayStr]);
+  }, [sessions, participants, filterByDate, selectedDate]);
 
   const openCreateModal = (popupMode = false) => {
     setErrorMsg('');
@@ -173,6 +207,8 @@ export default function TeacherScheduleClient({
       };
 
       setSessions((prev) => [created, ...prev]);
+      setSelectedDate(formData.session_date);
+      setFilterByDate(true);
       setIsModalOpen(false);
       setFeedbackMsg(
         formData.is_popup
@@ -230,9 +266,12 @@ export default function TeacherScheduleClient({
     }
   };
 
-  const handleMarkAsDone = async (sessionItem) => {
+  const handleToggleMarkAsDone = async (sessionItem) => {
     const currentStatus = normalizeSessionStatus(sessionItem);
-    if (!sessionItem?.id || busyId || currentStatus !== 'scheduled') return;
+    if (!sessionItem?.id || busyId || currentStatus === 'canceled') return;
+
+    const isCurrentlyCompleted = currentStatus === 'completed';
+    const nextAction = isCurrentlyCompleted ? 'unmark_done' : 'mark_done';
 
     setBusyId(sessionItem.id);
     setErrorMsg('');
@@ -242,42 +281,79 @@ export default function TeacherScheduleClient({
       const res = await fetch('/api/teacher/schedule', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionItem.id, action: 'mark_done' }),
+        body: JSON.stringify({ session_id: sessionItem.id, action: nextAction }),
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.message || 'Gagal menandai kelas selesai.');
+        throw new Error(data?.message || 'Gagal memperbarui status Mark as Done.');
       }
 
-      setSessions((prev) =>
-        prev.map((s) =>
-          s.id === sessionItem.id ? { ...s, status: 'completed', is_done: true } : s
-        )
-      );
+      if (isCurrentlyCompleted) {
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id === sessionItem.id ? { ...s, status: 'scheduled', is_done: false } : s
+          )
+        );
 
-      setParticipants((prev) =>
-        prev.map((p) => {
-          if (Number(p.course_id) !== Number(sessionItem.course_id)) return p;
-          const nextDone = Math.min(
-            Number(p.total_classes_count || 1),
-            Number(p.done_classes_count || 0) + 1
-          );
-          const total = Math.max(Number(p.total_classes_count || 1), 1);
-          return {
-            ...p,
-            done_classes_count: nextDone,
-            progress_percent: Math.min(100, Math.round((nextDone / total) * 100)),
-          };
-        })
-      );
+        setParticipants((prev) =>
+          prev.map((p) => {
+            if (Number(p.course_id) !== Number(sessionItem.course_id)) return p;
+            const nextDone = Math.max(0, Number(p.done_classes_count || 0) - 1);
+            const total = Math.max(Number(p.total_classes_count || 1), 1);
+            const nextDates = (Array.isArray(p.completed_dates) ? p.completed_dates : []).filter(
+              (d) => d !== sessionItem.session_date
+            );
+            return {
+              ...p,
+              done_classes_count: nextDone,
+              progress_percent: Math.min(100, Math.round((nextDone / total) * 100)),
+              completed_dates: nextDates,
+            };
+          })
+        );
 
-      setFeedbackMsg(`Sesi "${sessionItem.title}" ditandai selesai (Mark as Done).`);
+        setFeedbackMsg(
+          `Mark as Done untuk "${sessionItem.title}" dibatalkan. Jumlah selesai berkurang dan tombol Mark as Done aktif kembali.`
+        );
+      } else {
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id === sessionItem.id ? { ...s, status: 'completed', is_done: true } : s
+          )
+        );
+
+        setParticipants((prev) =>
+          prev.map((p) => {
+            if (Number(p.course_id) !== Number(sessionItem.course_id)) return p;
+            const nextDone = Math.min(
+              Number(p.total_classes_count || 1),
+              Number(p.done_classes_count || 0) + 1
+            );
+            const total = Math.max(Number(p.total_classes_count || 1), 1);
+            const prevDates = Array.isArray(p.completed_dates) ? p.completed_dates : [];
+            const nextDates = prevDates.includes(sessionItem.session_date)
+              ? prevDates
+              : [...prevDates, sessionItem.session_date];
+            return {
+              ...p,
+              done_classes_count: nextDone,
+              progress_percent: Math.min(100, Math.round((nextDone / total) * 100)),
+              completed_dates: nextDates,
+            };
+          })
+        );
+
+        setFeedbackMsg(
+          `Sesi "${sessionItem.title}" ditandai selesai (Mark as Done). Jumlah selesai bertambah.`
+        );
+      }
+
       startTransition(() => {
         router.refresh();
       });
     } catch (err) {
-      setErrorMsg(err?.message || 'Gagal menandai sesi selesai.');
+      setErrorMsg(err?.message || 'Gagal memperbarui status Mark as Done.');
     } finally {
       setBusyId(null);
     }
@@ -356,20 +432,22 @@ export default function TeacherScheduleClient({
         </div>
       )}
 
-      {/* 3 KARTU RINGKASAN */}
+      {/* 3 KARTU RINGKASAN DISESUAIKAN DENGAN TANGGAL AKTIF */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-5 shadow-2xs space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/65">
-              HARI INI ({todayStr})
+              {filterByDate ? `TANGGAL ${activeDate}` : 'SEMUA TANGGAL'}
             </span>
             <span className="h-2.5 w-2.5 rounded-full bg-[#802924]" />
           </div>
           <p className="font-editorial text-2xl font-bold text-[#341D17]">
-            {stats.todaySessionsCount}
+            {stats.dateSessionsCount}
           </p>
           <p className="text-xs text-[#341D17]/75">
-            Sesi Terjadwal • {stats.totalSessionsCount} Total Semua Tanggal
+            {filterByDate
+              ? `Total Sesi Terjadwal (${stats.totalAllSessionsCount} Semua Tanggal)`
+              : 'Total Sesi Terjadwal di Database'}
           </p>
         </div>
 
@@ -385,7 +463,11 @@ export default function TeacherScheduleClient({
           <p className="font-editorial text-2xl font-bold text-[#341D17]">
             {stats.totalParticipants}
           </p>
-          <p className="text-xs text-[#341D17]/75">Siswa Terdaftar di Kelas</p>
+          <p className="text-xs text-[#341D17]/75">
+            {filterByDate
+              ? `Siswa Terdaftar • ${stats.completedStudentsOnDateCount} Tuntas di Tanggal Ini`
+              : 'Siswa Terdaftar di Kelas'}
+          </p>
         </div>
 
         <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-5 shadow-2xs space-y-2">
@@ -396,10 +478,10 @@ export default function TeacherScheduleClient({
             <span className="text-xs font-extrabold text-[#802924]">✓</span>
           </div>
           <p className="font-editorial text-2xl font-bold text-[#341D17]">
-            {stats.pendingValidationCount}
+            {stats.completedCount}
           </p>
           <p className="text-xs text-[#341D17]/75">
-            Menunggu Validasi ({stats.completedCount} Selesai)
+            Kursus/Sesi Selesai • {stats.pendingValidationCount} Menunggu Validasi
           </p>
         </div>
       </div>
@@ -450,7 +532,7 @@ export default function TeacherScheduleClient({
 
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
           {weekDays.map((day) => {
-            const isSelected = day.key === selectedDate;
+            const isSelected = filterByDate && day.key === selectedDate;
             return (
               <button
                 key={day.key}
@@ -592,7 +674,7 @@ export default function TeacherScheduleClient({
                       {status === 'canceled'
                         ? 'Kelas berstatus Dibatalkan. Tidak dapat ditandai Mark as Done dan kini dapat dihapus.'
                         : status === 'completed'
-                        ? 'Kelas telah divalidasi tuntas oleh pengajar.'
+                        ? 'Kelas telah divalidasi tuntas. Klik tombol untuk membatalkan Mark as Done dan mengaktifkan kembali.'
                         : 'Kelas sudah selesai dilaksanakan? Validasi agar progres siswa bertambah.'}
                     </span>
 
@@ -611,7 +693,7 @@ export default function TeacherScheduleClient({
                           <button
                             type="button"
                             disabled={isBusy}
-                            onClick={() => handleMarkAsDone(item)}
+                            onClick={() => handleToggleMarkAsDone(item)}
                             className="rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#F9DDBB] shadow-xs transition cursor-pointer disabled:opacity-50"
                           >
                             {isBusy ? 'Menyimpan...' : 'Mark as Done'}
@@ -620,9 +702,14 @@ export default function TeacherScheduleClient({
                       )}
 
                       {status === 'completed' && (
-                        <span className="rounded-xl bg-[#341D17]/10 px-4 py-2 text-xs font-bold text-[#341D17]/65">
-                          ✓ Marked as Done
-                        </span>
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => handleToggleMarkAsDone(item)}
+                          className="rounded-xl border border-[#802924] bg-[#F9DDBB] hover:bg-[#802924] hover:text-[#F9DDBB] px-4 py-2 text-xs font-bold text-[#802924] transition cursor-pointer disabled:opacity-50"
+                        >
+                          {isBusy ? 'Membatalkan...' : '✓ Marked as Done • Batal'}
+                        </button>
                       )}
 
                       {status === 'canceled' && (

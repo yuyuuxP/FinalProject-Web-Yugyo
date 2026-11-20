@@ -15,6 +15,13 @@ async function resolveTeacherId() {
   return res.rows[0]?.id ? Number(res.rows[0].id) : null;
 }
 
+function revalidateSchedulePaths() {
+  revalidatePath('/dashboard/teacher/schedule');
+  revalidatePath('/dashboard/teacher');
+  revalidatePath('/dashboard/admin/schedule');
+  revalidatePath('/dashboard/admin');
+}
+
 export async function POST(request) {
   try {
     const teacherId = await resolveTeacherId();
@@ -73,8 +80,7 @@ export async function POST(request) {
       [courseId, teacherId, title, notes || null, sessionDate, sessionTime, locationLabel, isPopup]
     );
 
-    revalidatePath('/dashboard/teacher/schedule');
-    revalidatePath('/dashboard/teacher');
+    revalidateSchedulePaths();
 
     return NextResponse.json({ success: true, session: inserted.rows[0] }, { status: 201 });
   } catch (err) {
@@ -90,7 +96,12 @@ export async function PATCH(request) {
   try {
     const body = await request.json();
     const sessionId = Number(body?.session_id);
-    const action = body?.action === 'cancel' ? 'cancel' : 'mark_done';
+    const action =
+      body?.action === 'cancel'
+        ? 'cancel'
+        : body?.action === 'unmark_done'
+        ? 'unmark_done'
+        : 'mark_done';
 
     if (!sessionId || Number.isNaN(sessionId)) {
       return NextResponse.json(
@@ -125,20 +136,63 @@ export async function PATCH(request) {
 
       const updatedCancel = await pool.query(
         `UPDATE course_sessions
-         SET status = 'canceled', is_done = FALSE
+         SET status = 'canceled', is_done = FALSE, completed_at = NULL
          WHERE id = $1
          RETURNING *;`,
         [sessionId]
       );
 
-      revalidatePath('/dashboard/teacher/schedule');
-      revalidatePath('/dashboard/teacher');
+      revalidateSchedulePaths();
 
       return NextResponse.json({
         success: true,
         status: 'canceled',
         session: updatedCancel.rows[0],
         message: 'Kelas berhasil diubah menjadi berstatus Dibatalkan (canceled).',
+      });
+    }
+
+    if (action === 'unmark_done') {
+      const updatedReopen = await pool.query(
+        `UPDATE course_sessions
+         SET is_done = FALSE,
+             status = 'scheduled',
+             completed_at = NULL
+         WHERE id = $1
+         RETURNING *;`,
+        [sessionId]
+      );
+
+      try {
+        await pool.query(
+          'DELETE FROM session_student_completions WHERE session_id = $1;',
+          [sessionId]
+        );
+      } catch (compErr) {
+        console.warn('Completion cleanup skipped:', compErr?.message);
+      }
+
+      try {
+        if (sessionRow.course_id) {
+          await pool.query(
+            `UPDATE courses
+             SET status = 'active'
+             WHERE id = $1 AND LOWER(COALESCE(status, '')) = 'completed';`,
+            [sessionRow.course_id]
+          );
+        }
+      } catch (courseErr) {
+        console.warn('Course active status sync skipped:', courseErr?.message);
+      }
+
+      revalidateSchedulePaths();
+
+      return NextResponse.json({
+        success: true,
+        status: 'scheduled',
+        course_status: 'active',
+        session: updatedReopen.rows[0],
+        message: 'Status Mark as Done dibatalkan dan sesi kembali aktif (scheduled).',
       });
     }
 
@@ -180,8 +234,7 @@ export async function PATCH(request) {
       console.warn('Enrollment completion sync skipped:', enrollErr?.message);
     }
 
-    revalidatePath('/dashboard/teacher/schedule');
-    revalidatePath('/dashboard/teacher');
+    revalidateSchedulePaths();
 
     return NextResponse.json({
       success: true,
@@ -239,8 +292,7 @@ export async function DELETE(request) {
 
     await pool.query('DELETE FROM course_sessions WHERE id = $1;', [sessionId]);
 
-    revalidatePath('/dashboard/teacher/schedule');
-    revalidatePath('/dashboard/teacher');
+    revalidateSchedulePaths();
 
     return NextResponse.json({
       success: true,
