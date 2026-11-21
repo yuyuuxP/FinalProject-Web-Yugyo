@@ -4,14 +4,10 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-const WEEK_DAYS = [
-  { key: 'SEN', label: 'SEN', dayNum: '21' },
-  { key: 'SEL', label: 'SEL', dayNum: '22' },
-  { key: 'RAB', label: 'RAB', dayNum: '23', hasDot: true },
-  { key: 'KAM', label: 'KAM', dayNum: '24' },
-  { key: 'JUM', label: 'JUM', dayNum: '25' },
-  { key: 'SAB', label: 'SAB', dayNum: '26' },
-];
+const DAY_SHORT_LABELS = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
+const MAX_CALENDAR_DATE = new Date(2027, 11, 31, 23, 59, 59); // 31 Desember 2027
+const MIN_CALENDAR_DATE = new Date(2024, 0, 1);
+const DEFAULT_ANCHOR_DATE = new Date(2026, 10, 22); // 22-11-2026 deterministik
 
 const FALLBACK_SESSIONS = [
   {
@@ -58,28 +54,134 @@ const FALLBACK_SESSIONS = [
   },
 ];
 
+function startOfWeekMonday(dateObj) {
+  const d = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function toIsoDateKey(dateObj) {
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatDayMonthYear(dateObj) {
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const year = dateObj.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
 export default function StudentScheduleClient({ sessions = [] }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
   const sessionList = useMemo(
-    () => (Array.isArray(sessions) && sessions.length > 0 ? sessions : FALLBACK_SESSIONS),
+    () =>
+      Array.isArray(sessions) && sessions.length > 0
+        ? sessions
+        : FALLBACK_SESSIONS,
     [sessions]
   );
 
-  const [selectedDayKey, setSelectedDayKey] = useState('RAB');
+  const [weekStart, setWeekStart] = useState(() =>
+    startOfWeekMonday(DEFAULT_ANCHOR_DATE)
+  );
+  const [selectedDateKey, setSelectedDateKey] = useState(() =>
+    toIsoDateKey(DEFAULT_ANCHOR_DATE)
+  );
+  const [showAllSessions, setShowAllSessions] = useState(false);
   const [completedIds, setCompletedIds] = useState(() =>
     sessionList.filter((s) => Boolean(s.is_completed)).map((s) => String(s.id))
   );
   const [markingId, setMarkingId] = useState(null);
   const [statusMessage, setStatusMessage] = useState('');
 
+  const displayedSessions = useMemo(() => {
+    if (showAllSessions) return sessionList;
+    return sessionList.slice(0, 4);
+  }, [sessionList, showAllSessions]);
+
+  const sessionDateSet = useMemo(() => {
+    const set = new Set();
+    for (const ses of sessionList) {
+      if (!ses?.session_date) continue;
+      const d = new Date(ses.session_date);
+      if (!Number.isNaN(d.getTime())) {
+        set.add(toIsoDateKey(d));
+      }
+    }
+    return set;
+  }, [sessionList]);
+
+  const weekDays = useMemo(() => {
+    const list = [];
+    for (let i = 0; i < 7; i += 1) {
+      const d = new Date(
+        weekStart.getFullYear(),
+        weekStart.getMonth(),
+        weekStart.getDate() + i
+      );
+      if (d > MAX_CALENDAR_DATE) break;
+      const isoKey = toIsoDateKey(d);
+      list.push({
+        isoKey,
+        formattedDate: formatDayMonthYear(d),
+        label: DAY_SHORT_LABELS[d.getDay()],
+        dayNum: String(d.getDate()).padStart(2, '0'),
+        hasDot: sessionDateSet.has(isoKey),
+      });
+    }
+    return list;
+  }, [weekStart, sessionDateSet]);
+
+  const canGoPrevWeek = useMemo(() => {
+    const prev = new Date(
+      weekStart.getFullYear(),
+      weekStart.getMonth(),
+      weekStart.getDate() - 7
+    );
+    return prev >= MIN_CALENDAR_DATE;
+  }, [weekStart]);
+
+  const canGoNextWeek = useMemo(() => {
+    const next = new Date(
+      weekStart.getFullYear(),
+      weekStart.getMonth(),
+      weekStart.getDate() + 7
+    );
+    return next <= MAX_CALENDAR_DATE;
+  }, [weekStart]);
+
+  const handlePrevWeek = () => {
+    if (!canGoPrevWeek) return;
+    setWeekStart(
+      (prev) =>
+        new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 7)
+    );
+  };
+
+  const handleNextWeek = () => {
+    if (!canGoNextWeek) return;
+    setWeekStart(
+      (prev) =>
+        new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 7)
+    );
+  };
+
   const totalSlots = Math.max(sessionList.length, 18);
   const completedCount = completedIds.length;
   const pendingCount = Math.max(0, sessionList.length - completedCount);
   const activityIndex = Math.min(
     100,
-    Math.max(55, Math.round((completedCount / Math.max(sessionList.length, 1)) * 100) || 78)
+    Math.max(
+      55,
+      Math.round((completedCount / Math.max(sessionList.length, 1)) * 100) || 78
+    )
   );
   const weeklyHours = Math.max(3, Number((completedCount * 1.5).toFixed(1)));
 
@@ -112,10 +214,10 @@ export default function StudentScheduleClient({ sessions = [] }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div suppressHydrationWarning className="space-y-5">
       {/* BADGE SEMESTER & JUDUL HALAMAN */}
-      <section className="space-y-1.5">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#802924]/25 bg-[#F9DDBB]/55 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
+      <section className="space-y-1">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#802924]/25 bg-[#F9DDBB]/55 px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
           <span>&bull; SEMESTER AKTIF • YUGYO ATELIER</span>
         </span>
 
@@ -128,40 +230,40 @@ export default function StudentScheduleClient({ sessions = [] }) {
         </p>
       </section>
 
-      {/* METRIK PEMBELAJARAN */}
-      <section className="rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] p-4 sm:p-6 shadow-2xs space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <span className="block text-[10px] font-extrabold uppercase tracking-[0.15em] text-[#341D17]/55">
+      {/* METRIK PEMBELAJARAN RINGKAS */}
+      <section className="rounded-2xl border border-[#341D17]/12 bg-[#FFFDF9] p-4 shadow-2xs space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <span className="block text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#341D17]/55">
               METRIK PEMBELAJARAN
             </span>
-            <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
+            <h2 className="font-editorial text-base sm:text-lg font-bold text-[#341D17] leading-tight">
               Indeks Keaktifan Belajar
             </h2>
             <div className="flex flex-wrap items-center gap-2 pt-0.5">
-              <span className="font-editorial text-2xl sm:text-3xl font-bold text-[#802924]">
+              <span className="font-editorial text-xl sm:text-2xl font-bold text-[#802924] leading-none">
                 {activityIndex}%
               </span>
-              <span className="rounded-full bg-[#ECFDF3] px-2.5 py-0.5 text-[10px] font-extrabold text-[#027A48]">
+              <span className="rounded-full bg-[#ECFDF3] px-2 py-0.5 text-[9px] font-extrabold text-[#027A48]">
                 Sangat Aktif
               </span>
             </div>
           </div>
 
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-4 border-[#802924] bg-[#FAF6F0] text-sm font-extrabold text-[#802924]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#802924] bg-[#FAF6F0] text-xs font-extrabold text-[#802924]">
             🔥
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs text-[#341D17]/70">
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px] text-[#341D17]/70">
             <span>
               <strong className="text-[#341D17]">{completedCount}</strong> dari{' '}
               {totalSlots} Sesi &amp; Kelas
             </span>
             <span>Terselesaikan</span>
           </div>
-          <div className="h-2 w-full rounded-full bg-[#F9DDBB] overflow-hidden">
+          <div className="h-1.5 w-full rounded-full bg-[#F9DDBB] overflow-hidden">
             <div
               className="h-full rounded-full bg-[#802924] transition-all"
               style={{ width: `${activityIndex}%` }}
@@ -169,52 +271,69 @@ export default function StudentScheduleClient({ sessions = [] }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-          <div className="rounded-2xl border border-[#341D17]/10 bg-[#FAF6F0]/70 p-3.5 text-center space-y-1">
-            <span className="text-sm text-[#802924]">📋</span>
-            <p className="font-editorial text-base sm:text-lg font-bold text-[#341D17]">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-xl border border-[#341D17]/10 bg-[#FAF6F0]/70 px-2.5 py-2 text-center space-y-0.5">
+            <p className="font-editorial text-sm sm:text-base font-bold text-[#341D17] leading-tight">
               {pendingCount} Sesi
             </p>
-            <p className="text-[11px] text-[#341D17]/60">Menanti</p>
+            <p className="text-[10px] text-[#341D17]/60">Menanti</p>
           </div>
 
-          <div className="rounded-2xl border border-[#341D17]/10 bg-[#FAF6F0]/70 p-3.5 text-center space-y-1">
-            <span className="text-sm text-[#027A48]">☑</span>
-            <p className="font-editorial text-base sm:text-lg font-bold text-[#341D17]">
+          <div className="rounded-xl border border-[#341D17]/10 bg-[#FAF6F0]/70 px-2.5 py-2 text-center space-y-0.5">
+            <p className="font-editorial text-sm sm:text-base font-bold text-[#341D17] leading-tight">
               {completedCount} Sesi
             </p>
-            <p className="text-[11px] text-[#341D17]/60">Selesai</p>
+            <p className="text-[10px] text-[#341D17]/60">Selesai</p>
           </div>
 
-          <div className="rounded-2xl border border-[#341D17]/10 bg-[#FAF6F0]/70 p-3.5 text-center space-y-1">
-            <span className="text-sm text-[#802924]">⏳</span>
-            <p className="font-editorial text-base sm:text-lg font-bold text-[#341D17]">
+          <div className="rounded-xl border border-[#341D17]/10 bg-[#FAF6F0]/70 px-2.5 py-2 text-center space-y-0.5">
+            <p className="font-editorial text-sm sm:text-base font-bold text-[#341D17] leading-tight">
               {weeklyHours} Jam
             </p>
-            <p className="text-[11px] text-[#341D17]/60">Pekan Ini</p>
+            <p className="text-[10px] text-[#341D17]/60">Pekan Ini</p>
           </div>
         </div>
       </section>
 
-      {/* STRIP KALENDER MINGGUAN */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between text-xs">
+      {/* STRIP KALENDER FORMAT TGL-BULAN-TAHUN HINGGA DESEMBER 2027 */}
+      <section className="space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
           <h2 className="font-bold text-[#341D17] inline-flex items-center gap-2">
             <span>📅</span>
             <span>Agenda Sesi Atelier</span>
           </h2>
-          <span className="text-[11px] text-[#341D17]/60">Pekan Aktif</span>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={!canGoPrevWeek}
+              onClick={handlePrevWeek}
+              aria-label="Pekan sebelumnya"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#FAF6F0] text-xs font-bold text-[#341D17] transition cursor-pointer disabled:opacity-40"
+            >
+              &lsaquo;
+            </button>
+            <button
+              type="button"
+              disabled={!canGoNextWeek}
+              onClick={handleNextWeek}
+              aria-label="Pekan berikutnya"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#FAF6F0] text-xs font-bold text-[#341D17] transition cursor-pointer disabled:opacity-40"
+            >
+              &rsaquo;
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
-          {WEEK_DAYS.map((day) => {
-            const active = selectedDayKey === day.key;
+        <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+          {weekDays.map((day) => {
+            const active = selectedDateKey === day.isoKey;
             return (
               <button
-                key={day.key}
+                key={day.isoKey}
                 type="button"
-                onClick={() => setSelectedDayKey(day.key)}
-                className={`rounded-2xl border p-3 text-center transition cursor-pointer flex flex-col items-center gap-1 ${
+                onClick={() => setSelectedDateKey(day.isoKey)}
+                className={`rounded-2xl border p-2.5 text-center transition cursor-pointer flex flex-col items-center gap-0.5 ${
                   active
                     ? 'border-[#802924] bg-[#802924] text-[#FFFDF9] shadow-2xs'
                     : 'border-[#341D17]/12 bg-[#FFFDF9] text-[#341D17] hover:bg-[#FAF6F0]'
@@ -229,6 +348,13 @@ export default function StudentScheduleClient({ sessions = [] }) {
                 </span>
                 <span className="font-editorial text-base font-bold leading-tight">
                   {day.dayNum}
+                </span>
+                <span
+                  className={`text-[9px] font-semibold ${
+                    active ? 'text-[#F9DDBB]/90' : 'text-[#341D17]/55'
+                  }`}
+                >
+                  {day.formattedDate}
                 </span>
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${
@@ -251,22 +377,23 @@ export default function StudentScheduleClient({ sessions = [] }) {
         </div>
       )}
 
-      {/* DAFTAR KELAS & SESI PRAKTEK */}
+      {/* DAFTAR KELAS & SESI PRAKTEK (MAKSIMAL 4 AWAL + TOMBOL TAMPILKAN SEMUA KELAS) */}
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
             Daftar Kelas &amp; Sesi Praktek
           </h2>
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/55">
-            {sessionList.length} TERDAFTAR
+            {displayedSessions.length} DARI {sessionList.length} TERDAFTAR
           </span>
         </div>
 
         <div className="space-y-4">
-          {sessionList.map((ses, idx) => {
+          {displayedSessions.map((ses, idx) => {
             const idStr = String(ses.id);
             const isDone = completedIds.includes(idStr);
-            const isUpcoming = !isDone && idx === sessionList.length - 1 && sessionList.length > 2;
+            const isUpcoming =
+              !isDone && idx === displayedSessions.length - 1 && displayedSessions.length > 2;
 
             return (
               <div
@@ -355,7 +482,7 @@ export default function StudentScheduleClient({ sessions = [] }) {
                         onClick={() =>
                           setStatusMessage(
                             isUpcoming
-                              ? `Pengingat jadwal "${ses.title}" aktif untuk hari ${selectedDayKey}.`
+                              ? `Pengingat jadwal "${ses.title}" aktif untuk tanggal ${selectedDateKey}.`
                               : `Ruang kelas virtual untuk "${ses.title}" siap diakses.`
                           )
                         }
@@ -389,6 +516,20 @@ export default function StudentScheduleClient({ sessions = [] }) {
             );
           })}
         </div>
+
+        {sessionList.length > 4 && (
+          <div className="pt-1 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setShowAllSessions((prev) => !prev)}
+              className="rounded-2xl border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#F9DDBB]/45 px-5 py-2.5 text-xs font-bold text-[#802924] shadow-2xs transition cursor-pointer"
+            >
+              {showAllSessions
+                ? 'Tampilkan 4 Kelas'
+                : `Tampilkan Semua Kelas (${sessionList.length})`}
+            </button>
+          </div>
+        )}
       </section>
 
       {/* BANNER APRESIASI & STANDAR SERTIFIKASI */}
