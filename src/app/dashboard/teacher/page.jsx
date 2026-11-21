@@ -8,10 +8,10 @@ async function getAuthenticatedTeacher() {
   const cookieStore = await cookies();
   const userId = cookieStore.get('yugyo_user_id')?.value;
 
-  if (userId) {
+  if (userId && Number.isInteger(Number(userId)) && Number(userId) > 0) {
     const res = await pool.query(
       "SELECT id, full_name, email, role, status, specialty FROM users WHERE id = $1 AND role = 'teacher' LIMIT 1;",
-      [userId]
+      [Number(userId)]
     );
     if (res.rows.length > 0) {
       return res.rows[0];
@@ -24,8 +24,52 @@ async function getAuthenticatedTeacher() {
   return fallback.rows[0] || null;
 }
 
+function isThreadForLoggedInTeacher(thread, teacher) {
+  if (!teacher?.id) return false;
+  if (String(teacher.status || '').trim().toLowerCase() === 'pending') return false;
+
+  const teacherId = Number(teacher.id);
+  const teacherName = String(teacher.full_name || '').trim().toLowerCase();
+  const firstName = teacherName.split(/\s+/).filter(Boolean)[0] || '';
+
+  const rawInstructorId = thread?.instructor_id ?? null;
+  const hasInstructorId =
+    rawInstructorId != null &&
+    String(rawInstructorId).trim() !== '' &&
+    Number.isFinite(Number(rawInstructorId)) &&
+    Number(rawInstructorId) > 0;
+
+  if (hasInstructorId) {
+    return Number(rawInstructorId) === teacherId;
+  }
+
+  const text = `${thread?.last_preview || ''} ${thread?.course_title || ''} ${
+    thread?.question_text || ''
+  }`.toLowerCase();
+
+  const matches = [
+    ...text.matchAll(/\b(?:chef|guru|kak|ustadz(?:ah)?)\s+([a-z]+)/gi),
+  ];
+
+  if (matches.length > 0 && teacherName) {
+    return matches.some((m) => {
+      const mentioned = String(m[1] || '').trim().toLowerCase();
+      return (
+        mentioned === firstName ||
+        (mentioned.length >= 2 && teacherName.includes(mentioned)) ||
+        (firstName.length >= 2 && mentioned.includes(firstName))
+      );
+    });
+  }
+
+  return false;
+}
+
 export default async function TeacherDashboardPage() {
   const teacher = await getAuthenticatedTeacher();
+  const isPending = teacher
+    ? String(teacher.status || '').trim().toLowerCase() === 'pending'
+    : false;
 
   let courses = [];
   let discussions = [];
@@ -38,7 +82,7 @@ export default async function TeacherDashboardPage() {
     pendingWorks: 0,
   };
 
-  if (teacher) {
+  if (teacher && !isPending) {
     const coursesRes = await pool.query(
       `SELECT
         c.id,
@@ -81,8 +125,7 @@ export default async function TeacherDashboardPage() {
         COALESCE(ROUND(AVG(r.rating)::numeric, 1), 4.9) AS avg_rating
        FROM reviews r
        LEFT JOIN courses c ON c.id = r.course_id
-       WHERE c.instructor_id = $1 OR c.instructor_id IS NULL;`
-      ,
+       WHERE c.instructor_id = $1 OR c.instructor_id IS NULL;`,
       [teacher.id]
     );
 
@@ -118,8 +161,9 @@ export default async function TeacherDashboardPage() {
     const discussionsRes = await pool.query(
       `SELECT
         ct.id,
+        ct.instructor_id,
         ct.category,
-        ct.student_name,
+        COALESCE(u_student.full_name, ct.student_name, 'Siswa') AS student_name,
         ct.course_title,
         ct.review_status,
         ct.unread_count,
@@ -127,7 +171,7 @@ export default async function TeacherDashboardPage() {
         ct.last_time_label,
         COALESCE(
           (
-            SELECT cm.body
+            SELECT COALESCE(cm.message, cm.body, '')
             FROM chat_messages cm
             WHERE cm.thread_id = ct.id AND cm.sender_role = 'student'
             ORDER BY cm.id DESC
@@ -137,9 +181,16 @@ export default async function TeacherDashboardPage() {
           'Pertanyaan teknis baking dari siswa'
         ) AS question_text
       FROM chat_threads ct
-      ORDER BY ct.updated_at DESC, ct.id DESC;`
+      LEFT JOIN users u_student ON u_student.id = ct.student_id
+      LEFT JOIN users u_inst ON u_inst.id = ct.instructor_id
+      WHERE COALESCE(u_inst.status, $1::text) IS DISTINCT FROM 'pending'
+      ORDER BY ct.updated_at DESC, ct.id DESC;`,
+      [String(teacher.status || 'active')]
     );
-    discussions = discussionsRes.rows || [];
+
+    discussions = (discussionsRes.rows || []).filter((row) =>
+      isThreadForLoggedInTeacher(row, teacher)
+    );
 
     stats = {
       totalStudents: Number(studentCountRes.rows[0]?.total_students ?? 0),
