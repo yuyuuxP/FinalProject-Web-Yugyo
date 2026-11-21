@@ -100,6 +100,7 @@ export default function StudentCoursesClient({
   const [selectedCourseId, setSelectedCourseId] = useState(
     courses?.[0]?.id ?? null
   );
+  const [showAllCourseButtons, setShowAllCourseButtons] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [sortAsc, setSortAsc] = useState(true);
@@ -116,6 +117,11 @@ export default function StudentCoursesClient({
     }
     return courses[0];
   }, [courses, selectedCourseId]);
+
+  const visibleCourseButtons = useMemo(() => {
+    if (showAllCourseButtons) return courses;
+    return courses.slice(0, 4);
+  }, [courses, showAllCourseButtons]);
 
   const baseModules = useMemo(() => {
     const source =
@@ -230,10 +236,10 @@ export default function StudentCoursesClient({
         </p>
       </section>
 
-      {/* PEMILIH KELAS JIKA SISWA MEMILIKI LEBIH DARI 1 KURSUS */}
+      {/* TOMBOL PILIHAN NAMA KELAS */}
       {courses.length > 1 && (
         <div className="flex flex-wrap items-center gap-2">
-          {courses.map((c) => {
+          {visibleCourseButtons.map((c) => {
             const active =
               featuredCourse && Number(c.id) === Number(featuredCourse.id);
             return (
@@ -241,7 +247,7 @@ export default function StudentCoursesClient({
                 key={c.id}
                 type="button"
                 onClick={() => setSelectedCourseId(c.id)}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+                className={`rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer ${
                   active
                     ? 'bg-[#802924] text-[#FFFDF9] shadow-2xs'
                     : 'border border-[#341D17]/15 bg-[#FFFDF9] text-[#341D17] hover:bg-[#FAF6F0]'
@@ -251,6 +257,16 @@ export default function StudentCoursesClient({
               </button>
             );
           })}
+
+          {courses.length > 4 && (
+            <button
+              type="button"
+              onClick={() => setShowAllCourseButtons((prev) => !prev)}
+              className="rounded-xl border border-[#802924]/30 bg-[#F9DDBB]/45 hover:bg-[#F9DDBB]/75 px-3 py-2 text-xs font-bold text-[#802924] transition cursor-pointer"
+            >
+              {showAllCourseButtons ? 'Ringkas' : `+${courses.length - 4} Kelas`}
+            </button>
+          )}
         </div>
       )}
 
@@ -477,7 +493,6 @@ export default function StudentCoursesClient({
                     </button>
                   </div>
 
-                  {/* PREVIEW MEDIA JIKA ADA ATAU DIBUKA */}
                   {(isCurrentStudio || isPreviewOpen) && (
                     <div className="space-y-3 pt-1">
                       {mod.media_url ? (
