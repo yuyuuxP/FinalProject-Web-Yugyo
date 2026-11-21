@@ -1,138 +1,158 @@
 import { cookies } from 'next/headers';
 import pool from '@/lib/db';
+import { isTeacherPending } from '@/lib/teacher-status';
 import TeacherScheduleClient from '@/components/teacher/TeacherScheduleClient';
 
 export const dynamic = 'force-dynamic';
 
-function getLocalTodayWita() {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Makassar',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  return formatter.format(new Date());
+async function getAuthenticatedTeacher() {
+  const cookieStore = await cookies();
+  const rawId = cookieStore.get('yugyo_user_id')?.value;
+
+  if (rawId && Number.isInteger(Number(rawId)) && Number(rawId) > 0) {
+    const res = await pool.query(
+      "SELECT id, full_name, email, role, status, specialty FROM users WHERE id = $1 AND role = 'teacher' LIMIT 1;",
+      [Number(rawId)]
+    );
+    if (res.rows.length > 0) {
+      return res.rows[0];
+    }
+  }
+
+  const fallback = await pool.query(
+    "SELECT id, full_name, email, role, status, specialty FROM users WHERE role = 'teacher' ORDER BY id ASC LIMIT 1;"
+  );
+  return fallback.rows[0] || null;
 }
 
 export default async function TeacherSchedulePage() {
-  const cookieStore = await cookies();
-  const cookieUserId = cookieStore.get('yugyo_user_id')?.value;
-  const initialToday = getLocalTodayWita();
+  const teacher = await getAuthenticatedTeacher();
+  const pendingAccount = teacher ? isTeacherPending(teacher.status) : false;
 
-  let teacher = { id: null, full_name: 'Ayu', specialty: 'French Patisserie & Pastry' };
   let courses = [];
   let sessions = [];
   let participants = [];
 
-  try {
-    if (cookieUserId && Number.isInteger(Number(cookieUserId))) {
-      const tRes = await pool.query(
-        "SELECT id, full_name, specialty FROM users WHERE id = $1 AND role = 'teacher' LIMIT 1;",
-        [Number(cookieUserId)]
-      );
-      if (tRes.rows.length > 0) teacher = tRes.rows[0];
-    }
-
-    if (!teacher.id) {
-      const tFallback = await pool.query(
-        "SELECT id, full_name, specialty FROM users WHERE role = 'teacher' ORDER BY id ASC LIMIT 1;"
-      );
-      if (tFallback.rows.length > 0) teacher = tFallback.rows[0];
-    }
-
+  if (teacher && !pendingAccount) {
     const coursesRes = await pool.query(
-      `SELECT c.id, c.title, c.description, c.status, c.start_date, c.end_date,
-              cat.name AS category_name
-       FROM courses c
-       LEFT JOIN categories cat ON c.category_id = cat.id
-       ORDER BY c.id DESC;`
+      `SELECT id, title, status
+       FROM courses
+       WHERE instructor_id = $1
+       ORDER BY id ASC;`,
+      [teacher.id]
+    );
+    courses = coursesRes.rows || [];
+
+    const sessionsRes = await pool.query(
+      `SELECT
+        cs.id,
+        cs.course_id,
+        cs.instructor_id,
+        cs.title,
+        cs.notes,
+        TO_CHAR(cs.session_date, 'YYYY-MM-DD') AS session_date,
+        cs.session_time,
+        cs.location_label,
+        cs.is_popup,
+        cs.is_done,
+        cs.status,
+        cs.completed_at,
+        cs.created_at,
+        c.title AS course_title,
+        COALESCE(inst.full_name, u.full_name, $2) AS instructor_name
+       FROM course_sessions cs
+       LEFT JOIN courses c ON c.id = cs.course_id
+       LEFT JOIN users inst ON inst.id = cs.instructor_id
+       LEFT JOIN users u ON u.id = c.instructor_id
+       WHERE
+         cs.instructor_id = $1
+         OR c.instructor_id = $1
+         OR LOWER(TRIM(COALESCE(inst.full_name, u.full_name, ''))) = LOWER(TRIM($2))
+       ORDER BY cs.session_date ASC, cs.id ASC;`,
+      [teacher.id, teacher.full_name || '']
+    );
+    sessions = sessionsRes.rows || [];
+
+    const courseIds = Array.from(
+      new Set(
+        [
+          ...courses.map((c) => Number(c.id)),
+          ...sessions.map((s) => Number(s.course_id)),
+        ].filter((id) => Number.isInteger(id) && id > 0)
+      )
     );
 
-    courses = coursesRes.rows;
+    if (courseIds.length > 0) {
+      const participantsRes = await pool.query(
+        `SELECT
+          se.student_id,
+          se.course_id,
+          u.full_name,
+          u.email,
+          c.title AS course_title,
+          COALESCE(comp.done_classes_count, 0)::int AS done_classes_count,
+          GREATEST(COALESCE(tot.total_classes_count, 1), 1)::int AS total_classes_count,
+          COALESCE(comp.completed_dates, ARRAY[]::text[]) AS completed_dates
+         FROM student_enrollments se
+         INNER JOIN users u ON u.id = se.student_id
+         INNER JOIN courses c ON c.id = se.course_id
+         LEFT JOIN (
+           SELECT
+             course_id,
+             COUNT(id)::int AS total_classes_count
+           FROM course_sessions
+           WHERE course_id = ANY($1::int[])
+             AND COALESCE(status, 'scheduled') <> 'canceled'
+           GROUP BY course_id
+         ) tot ON tot.course_id = se.course_id
+         LEFT JOIN (
+           SELECT
+             ssc.student_id,
+             cs.course_id,
+             COUNT(DISTINCT ssc.session_id)::int AS done_classes_count,
+             ARRAY_AGG(DISTINCT TO_CHAR(cs.session_date, 'YYYY-MM-DD'))
+               FILTER (WHERE cs.session_date IS NOT NULL) AS completed_dates
+           FROM session_student_completions ssc
+           INNER JOIN course_sessions cs ON cs.id = ssc.session_id
+           WHERE cs.course_id = ANY($1::int[])
+           GROUP BY ssc.student_id, cs.course_id
+         ) comp ON comp.student_id = se.student_id AND comp.course_id = se.course_id
+         WHERE se.course_id = ANY($1::int[])
+           AND se.status IS DISTINCT FROM 'dropped'
+         ORDER BY u.full_name ASC, c.title ASC;`,
+        [courseIds]
+      );
 
-    try {
-      const sessRes = await pool.query(`
-        SELECT s.id,
-               s.course_id,
-               s.instructor_id,
-               s.title,
-               s.notes,
-               TO_CHAR(s.session_date, 'YYYY-MM-DD') AS session_date,
-               s.session_time,
-               s.location_label,
-               s.is_popup,
-               s.is_done,
-               COALESCE(s.status, CASE WHEN s.is_done THEN 'completed' ELSE 'scheduled' END) AS status,
-               c.title AS course_title,
-               COALESCE(u.full_name, inst.full_name) AS instructor_name
-        FROM course_sessions s
-        LEFT JOIN courses c ON s.course_id = c.id
-        LEFT JOIN users u ON s.instructor_id = u.id
-        LEFT JOIN users inst ON c.instructor_id = inst.id
-        ORDER BY s.session_date DESC, s.id DESC;
-      `);
-
-      sessions = sessRes.rows;
-    } catch {
-      sessions = [];
-    }
-
-    try {
-      const studRes = await pool.query(`
-        SELECT u.id AS student_id,
-               u.full_name,
-               u.email,
-               c.id AS course_id,
-               c.title AS course_title,
-               COALESCE((
-                 SELECT COUNT(*)
-                 FROM session_student_completions ssc
-                 JOIN course_sessions cs ON ssc.session_id = cs.id
-                 WHERE ssc.student_id = u.id AND cs.course_id = c.id
-               ), 0)::int AS done_classes_count,
-               GREATEST((
-                 SELECT COUNT(*)
-                 FROM course_sessions cs2
-                 WHERE cs2.course_id = c.id
-               ), 1)::int AS total_classes_count,
-               COALESCE((
-                 SELECT ARRAY_AGG(DISTINCT TO_CHAR(cs3.session_date, 'YYYY-MM-DD'))
-                 FROM session_student_completions ssc3
-                 JOIN course_sessions cs3 ON ssc3.session_id = cs3.id
-                 WHERE ssc3.student_id = u.id AND cs3.course_id = c.id
-               ), ARRAY[]::text[]) AS completed_dates
-        FROM student_enrollments e
-        JOIN users u ON e.student_id = u.id
-        JOIN courses c ON e.course_id = c.id
-        ORDER BY u.full_name ASC;
-      `);
-
-      participants = studRes.rows.map((p) => {
-        const doneCount = Number(p.done_classes_count || 0);
-        const totalCount = Math.max(Number(p.total_classes_count || 1), 1);
-        const progressPercent = Math.min(100, Math.round((doneCount / totalCount) * 100));
+      participants = (participantsRes.rows || []).map((row) => {
+        const doneCount = Number(row.done_classes_count || 0);
+        const totalCount = Math.max(Number(row.total_classes_count || 1), 1);
         return {
-          ...p,
+          ...row,
           done_classes_count: doneCount,
           total_classes_count: totalCount,
-          progress_percent: progressPercent,
-          completed_dates: Array.isArray(p.completed_dates) ? p.completed_dates : [],
+          progress_percent: Math.min(100, Math.round((doneCount / totalCount) * 100)),
         };
       });
-    } catch {
-      participants = [];
     }
-  } catch (err) {
-    console.error('Error loading teacher schedule page:', err);
   }
+
+  const todayKey = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Makassar',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
 
   return (
     <TeacherScheduleClient
+      key={teacher?.id || 'teacher-schedule'}
       teacher={teacher}
+      isPendingAccount={pendingAccount}
       courses={courses}
       initialSessions={sessions}
       initialParticipants={participants}
-      initialToday={initialToday}
+      initialToday={todayKey}
+      initialFilterByDate={false}
     />
   );
 }

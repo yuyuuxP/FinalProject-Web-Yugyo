@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import pool from '@/lib/db';
+import { isTeacherPending } from '@/lib/teacher-status';
 
 async function resolveTeacherId() {
   const cookieStore = await cookies();
@@ -15,6 +16,15 @@ async function resolveTeacherId() {
   return res.rows[0]?.id ? Number(res.rows[0].id) : null;
 }
 
+async function getTeacherRecord(teacherId) {
+  if (!teacherId) return null;
+  const res = await pool.query(
+    "SELECT id, full_name, status FROM users WHERE id = $1 AND role = 'teacher' LIMIT 1;",
+    [teacherId]
+  );
+  return res.rows[0] || null;
+}
+
 function revalidateSchedulePaths() {
   revalidatePath('/dashboard/teacher/schedule');
   revalidatePath('/dashboard/teacher');
@@ -22,9 +32,61 @@ function revalidateSchedulePaths() {
   revalidatePath('/dashboard/admin');
 }
 
+export async function GET() {
+  try {
+    const teacherId = await resolveTeacherId();
+    if (!teacherId) {
+      return NextResponse.json({ success: true, sessions: [] });
+    }
+
+    const teacherRecord = await getTeacherRecord(teacherId);
+    if (!teacherRecord || isTeacherPending(teacherRecord.status)) {
+      return NextResponse.json({
+        success: true,
+        sessions: [],
+        blockedByPending: true,
+        message: 'Akun guru masih berstatus pending sehingga tidak dapat menerima schedule.',
+      });
+    }
+
+    const res = await pool.query(
+      `SELECT
+        cs.*,
+        c.title AS course_title,
+        COALESCE(inst.full_name, u.full_name) AS instructor_name
+       FROM course_sessions cs
+       LEFT JOIN courses c ON c.id = cs.course_id
+       LEFT JOIN users inst ON inst.id = cs.instructor_id
+       LEFT JOIN users u ON u.id = c.instructor_id
+       WHERE COALESCE(cs.instructor_id, c.instructor_id) = $1
+       ORDER BY cs.session_date ASC, cs.id ASC;`,
+      [teacherId]
+    );
+
+    return NextResponse.json({ success: true, sessions: res.rows || [] });
+  } catch (err) {
+    console.error('Error fetching teacher sessions:', err);
+    return NextResponse.json(
+      { message: `Gagal memuat jadwal sesi: ${err?.message || 'Kesalahan server.'}` },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request) {
   try {
     const teacherId = await resolveTeacherId();
+    const teacherRecord = await getTeacherRecord(teacherId);
+    if (!teacherRecord || isTeacherPending(teacherRecord.status)) {
+      return NextResponse.json(
+        {
+          message:
+            'Akun guru masih berstatus pending. Tidak dapat membuat atau menerima schedule sebelum diaktifkan admin.',
+        },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     const courseId = Number(body?.course_id);
@@ -62,6 +124,17 @@ export async function POST(request) {
       );
     }
 
+    const courseOwnerRes = await pool.query(
+      'SELECT id FROM courses WHERE id = $1 AND instructor_id = $2 LIMIT 1;',
+      [courseId, teacherId]
+    );
+    if (courseOwnerRes.rows.length === 0) {
+      return NextResponse.json(
+        { message: 'Kursus tidak ditemukan atau bukan milik pengajar yang sedang login.' },
+        { status: 403 }
+      );
+    }
+
     const inserted = await pool.query(
       `INSERT INTO course_sessions (
         course_id,
@@ -94,6 +167,15 @@ export async function POST(request) {
 
 export async function PATCH(request) {
   try {
+    const teacherId = await resolveTeacherId();
+    const teacherRecord = await getTeacherRecord(teacherId);
+    if (!teacherRecord || isTeacherPending(teacherRecord.status)) {
+      return NextResponse.json(
+        { message: 'Akun guru masih berstatus pending sehingga tidak dapat mengubah schedule.' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const sessionId = Number(body?.session_id);
     const action =
@@ -196,7 +278,6 @@ export async function PATCH(request) {
       });
     }
 
-    // Aksi mark_done
     if (currentStatus === 'canceled') {
       return NextResponse.json(
         { message: 'Kelas yang berstatus Dibatalkan tidak dapat ditandai Mark as Done.' },
@@ -253,6 +334,15 @@ export async function PATCH(request) {
 
 export async function DELETE(request) {
   try {
+    const teacherId = await resolveTeacherId();
+    const teacherRecord = await getTeacherRecord(teacherId);
+    if (!teacherRecord || isTeacherPending(teacherRecord.status)) {
+      return NextResponse.json(
+        { message: 'Akun guru masih berstatus pending sehingga tidak dapat menghapus schedule.' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     let sessionId = Number(searchParams.get('session_id'));
 

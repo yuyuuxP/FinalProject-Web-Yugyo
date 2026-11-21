@@ -26,12 +26,20 @@ function formatDateKey(dateObj) {
   return `${y}-${m}-${d}`;
 }
 
+function normalizeDateKey(val) {
+  if (!val) return '';
+  const str = String(val).trim();
+  const match = str.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : str;
+}
+
 function parseDateKeyLocal(dateKey) {
-  const parts = String(dateKey || '').split('-').map(Number);
+  const normalized = normalizeDateKey(dateKey);
+  const parts = normalized.split('-').map(Number);
   if (parts.length === 3 && parts.every((n) => Number.isFinite(n) && n > 0)) {
     return new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
   }
-  return new Date(2026, 10, 20, 12, 0, 0);
+  return new Date(2026, 10, 21, 12, 0, 0);
 }
 
 function normalizeSessionStatus(item) {
@@ -40,29 +48,84 @@ function normalizeSessionStatus(item) {
   return 'scheduled';
 }
 
+function filterSessionsByTeacher(list, teacher, courseIdSet) {
+  const numericTeacherId = teacher?.id ? Number(teacher.id) : null;
+  const teacherNameLower = String(teacher?.full_name || '')
+    .trim()
+    .toLowerCase();
+
+  return (Array.isArray(list) ? list : [])
+    .filter((s) => {
+      if (!numericTeacherId && !teacherNameLower) return true;
+      if (s?.instructor_id != null && Number(s.instructor_id) === numericTeacherId) {
+        return true;
+      }
+      if (courseIdSet.has(Number(s?.course_id))) {
+        return true;
+      }
+      const sessionInstructorLower = String(s?.instructor_name || '')
+        .trim()
+        .toLowerCase();
+      if (teacherNameLower && sessionInstructorLower === teacherNameLower) {
+        return true;
+      }
+      return s?.instructor_id == null && !sessionInstructorLower;
+    })
+    .map((s) => ({
+      ...s,
+      session_date: normalizeDateKey(s.session_date),
+      status: normalizeSessionStatus(s),
+    }));
+}
+
+function filterParticipantsByCourses(list, courseIdSet) {
+  return (Array.isArray(list) ? list : []).filter((p) => {
+    if (courseIdSet.size === 0) return true;
+    return courseIdSet.has(Number(p?.course_id));
+  });
+}
+
 export default function TeacherScheduleClient({
   teacher,
+  isPendingAccount = false,
   courses = [],
   initialSessions = [],
   initialParticipants = [],
-  initialToday = '2026-11-20',
+  initialToday = '2026-11-21',
+  initialFilterByDate = false,
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const todayStr = initialToday;
+  const todayStr = normalizeDateKey(initialToday) || '2026-11-21';
 
-  const [sessions, setSessions] = useState(
-    (Array.isArray(initialSessions) ? initialSessions : []).map((s) => ({
-      ...s,
-      status: normalizeSessionStatus(s),
-    }))
+  const teacherCourseIds = useMemo(
+    () =>
+      new Set(
+        [
+          ...(Array.isArray(courses) ? courses : []).map((c) => Number(c.id)),
+          ...(Array.isArray(initialSessions) ? initialSessions : []).map((s) =>
+            Number(s.course_id)
+          ),
+        ].filter((id) => Number.isInteger(id) && id > 0)
+      ),
+    [courses, initialSessions]
   );
-  const [participants, setParticipants] = useState(
-    Array.isArray(initialParticipants) ? initialParticipants : []
+
+  const [sessions, setSessions] = useState(() =>
+    isPendingAccount ? [] : filterSessionsByTeacher(initialSessions, teacher, teacherCourseIds)
   );
-  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [participants, setParticipants] = useState(() =>
+    isPendingAccount ? [] : filterParticipantsByCourses(initialParticipants, teacherCourseIds)
+  );
+
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (isPendingAccount) return todayStr;
+    const filtered = filterSessionsByTeacher(initialSessions, teacher, teacherCourseIds);
+    const hasToday = filtered.some((s) => s.session_date === todayStr);
+    return hasToday ? todayStr : filtered[0]?.session_date || todayStr;
+  });
   const [weekOffset, setWeekOffset] = useState(0);
-  const [filterByDate, setFilterByDate] = useState(true);
+  const [filterByDate, setFilterByDate] = useState(Boolean(initialFilterByDate));
 
   const [busyId, setBusyId] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState('');
@@ -81,7 +144,7 @@ export default function TeacherScheduleClient({
   });
 
   const weekDays = useMemo(() => {
-    const base = parseDateKeyLocal(todayStr);
+    const base = parseDateKeyLocal(selectedDate || todayStr);
     base.setDate(base.getDate() + weekOffset * 7);
     const currentDay = base.getDay();
     const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
@@ -92,7 +155,7 @@ export default function TeacherScheduleClient({
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       const key = formatDateKey(d);
-      const hasSession = sessions.some((s) => s.session_date === key);
+      const hasSession = !isPendingAccount && sessions.some((s) => normalizeDateKey(s.session_date) === key);
       return {
         key,
         dayLabel: DAY_NAMES[d.getDay()],
@@ -102,23 +165,38 @@ export default function TeacherScheduleClient({
         hasSession,
       };
     });
-  }, [todayStr, weekOffset, sessions]);
+  }, [selectedDate, todayStr, weekOffset, sessions, isPendingAccount]);
 
   const activeMonthTitle = useMemo(() => {
     const mid = weekDays[3] || weekDays[0];
     return mid ? `${mid.monthName} ${mid.year}` : 'November 2026';
   }, [weekDays]);
 
-  const activeDate = filterByDate ? selectedDate : todayStr;
+  const activeDate = filterByDate ? normalizeDateKey(selectedDate) : todayStr;
 
   const visibleSessions = useMemo(() => {
+    if (isPendingAccount) return [];
     if (!filterByDate) return sessions;
-    return sessions.filter((s) => s.session_date === selectedDate);
-  }, [sessions, filterByDate, selectedDate]);
+    const target = normalizeDateKey(selectedDate);
+    return sessions.filter((s) => normalizeDateKey(s.session_date) === target);
+  }, [sessions, filterByDate, selectedDate, isPendingAccount]);
 
   const stats = useMemo(() => {
+    if (isPendingAccount) {
+      return {
+        dateSessionsCount: 0,
+        totalAllSessionsCount: 0,
+        totalParticipants: 0,
+        activeStudentsCount: 0,
+        completedStudentsOnDateCount: 0,
+        pendingValidationCount: 0,
+        completedCount: 0,
+      };
+    }
+
+    const targetDate = normalizeDateKey(selectedDate);
     const dateSessions = filterByDate
-      ? sessions.filter((s) => s.session_date === selectedDate)
+      ? sessions.filter((s) => normalizeDateKey(s.session_date) === targetDate)
       : sessions;
 
     const scheduledCourseIds = new Set(
@@ -135,9 +213,11 @@ export default function TeacherScheduleClient({
     ).length;
 
     const completedStudentsOnDateCount = matchingParticipants.filter((p) => {
-      const dates = Array.isArray(p.completed_dates) ? p.completed_dates : [];
+      const dates = (Array.isArray(p.completed_dates) ? p.completed_dates : []).map(
+        normalizeDateKey
+      );
       return filterByDate
-        ? dates.includes(selectedDate)
+        ? dates.includes(targetDate)
         : Number(p.done_classes_count || 0) > 0;
     }).length;
 
@@ -158,15 +238,26 @@ export default function TeacherScheduleClient({
       pendingValidationCount,
       completedCount,
     };
-  }, [sessions, participants, filterByDate, selectedDate]);
+  }, [sessions, participants, filterByDate, selectedDate, isPendingAccount]);
 
   const openCreateModal = (popupMode = false) => {
+    if (isPendingAccount) {
+      setErrorMsg(
+        'Akun pengajar Anda masih berstatus PENDING sehingga tidak dapat membuat atau menerima schedule.'
+      );
+      return;
+    }
+
     setErrorMsg('');
+    const validCourseId = courses.some((c) => String(c.id) === String(formData.course_id))
+      ? formData.course_id
+      : courses[0]?.id || '';
+
     setFormData((prev) => ({
       ...prev,
-      course_id: prev.course_id || courses[0]?.id || '',
+      course_id: validCourseId,
       title: popupMode ? 'Sesi Dadakan / Troubleshooting Kelas' : '',
-      session_date: selectedDate || todayStr,
+      session_date: normalizeDateKey(selectedDate) || todayStr,
       is_popup: popupMode,
     }));
     setIsModalOpen(true);
@@ -174,6 +265,7 @@ export default function TeacherScheduleClient({
 
   const handleCreateSession = async (e) => {
     e.preventDefault();
+    if (isPendingAccount) return;
     setSubmitting(true);
     setErrorMsg('');
     setFeedbackMsg('');
@@ -191,24 +283,26 @@ export default function TeacherScheduleClient({
       }
 
       const matchedCourse = courses.find((c) => String(c.id) === String(formData.course_id));
+      const createdDate = normalizeDateKey(data.session?.session_date || formData.session_date);
       const created = {
         ...(data.session || {}),
         id: data.session?.id || Date.now(),
         course_id: Number(formData.course_id),
+        instructor_id: teacher?.id ? Number(teacher.id) : data.session?.instructor_id,
         title: formData.title,
         notes: formData.notes,
-        session_date: formData.session_date,
+        session_date: createdDate,
         session_time: formData.session_time,
         location_label: formData.location_label,
         is_popup: Boolean(formData.is_popup),
         is_done: false,
         status: 'scheduled',
         course_title: matchedCourse?.title || 'Kursus Atelier',
+        instructor_name: teacher?.full_name || '',
       };
 
       setSessions((prev) => [created, ...prev]);
-      setSelectedDate(formData.session_date);
-      setFilterByDate(true);
+      setSelectedDate(createdDate);
       setIsModalOpen(false);
       setFeedbackMsg(
         formData.is_popup
@@ -227,7 +321,7 @@ export default function TeacherScheduleClient({
 
   const handleCancelSession = async (sessionItem) => {
     const currentStatus = normalizeSessionStatus(sessionItem);
-    if (!sessionItem?.id || busyId || currentStatus !== 'scheduled') return;
+    if (!sessionItem?.id || busyId || currentStatus !== 'scheduled' || isPendingAccount) return;
 
     const confirmed = window.confirm(
       `Batalkan kelas "${sessionItem.title}"? Status akan berubah menjadi Dibatalkan (canceled) dan tidak bisa di-Mark as Done.`
@@ -268,7 +362,7 @@ export default function TeacherScheduleClient({
 
   const handleToggleMarkAsDone = async (sessionItem) => {
     const currentStatus = normalizeSessionStatus(sessionItem);
-    if (!sessionItem?.id || busyId || currentStatus === 'canceled') return;
+    if (!sessionItem?.id || busyId || currentStatus === 'canceled' || isPendingAccount) return;
 
     const isCurrentlyCompleted = currentStatus === 'completed';
     const nextAction = isCurrentlyCompleted ? 'unmark_done' : 'mark_done';
@@ -301,9 +395,9 @@ export default function TeacherScheduleClient({
             if (Number(p.course_id) !== Number(sessionItem.course_id)) return p;
             const nextDone = Math.max(0, Number(p.done_classes_count || 0) - 1);
             const total = Math.max(Number(p.total_classes_count || 1), 1);
-            const nextDates = (Array.isArray(p.completed_dates) ? p.completed_dates : []).filter(
-              (d) => d !== sessionItem.session_date
-            );
+            const nextDates = (Array.isArray(p.completed_dates) ? p.completed_dates : [])
+              .map(normalizeDateKey)
+              .filter((d) => d !== normalizeDateKey(sessionItem.session_date));
             return {
               ...p,
               done_classes_count: nextDone,
@@ -331,10 +425,13 @@ export default function TeacherScheduleClient({
               Number(p.done_classes_count || 0) + 1
             );
             const total = Math.max(Number(p.total_classes_count || 1), 1);
-            const prevDates = Array.isArray(p.completed_dates) ? p.completed_dates : [];
-            const nextDates = prevDates.includes(sessionItem.session_date)
+            const prevDates = (Array.isArray(p.completed_dates) ? p.completed_dates : []).map(
+              normalizeDateKey
+            );
+            const sessDate = normalizeDateKey(sessionItem.session_date);
+            const nextDates = prevDates.includes(sessDate)
               ? prevDates
-              : [...prevDates, sessionItem.session_date];
+              : [...prevDates, sessDate];
             return {
               ...p,
               done_classes_count: nextDone,
@@ -361,7 +458,7 @@ export default function TeacherScheduleClient({
 
   const handleDeleteCanceledSession = async (sessionItem) => {
     const currentStatus = normalizeSessionStatus(sessionItem);
-    if (!sessionItem?.id || busyId || currentStatus !== 'canceled') return;
+    if (!sessionItem?.id || busyId || currentStatus !== 'canceled' || isPendingAccount) return;
 
     const confirmed = window.confirm(
       `Hapus permanen kelas yang dibatalkan "${sessionItem.title}"?`
@@ -412,13 +509,20 @@ export default function TeacherScheduleClient({
 
         <button
           type="button"
+          disabled={isPendingAccount}
           onClick={() => openCreateModal(false)}
-          className="self-start sm:self-auto rounded-2xl bg-[#802924] hover:bg-[#661F1B] px-5 py-3 text-xs sm:text-sm font-bold text-[#F9DDBB] shadow-md transition inline-flex items-center gap-2 cursor-pointer"
+          className="self-start sm:self-auto rounded-2xl bg-[#802924] hover:bg-[#661F1B] px-5 py-3 text-xs sm:text-sm font-bold text-[#F9DDBB] shadow-md transition inline-flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span>+</span>
           <span>Buat</span>
         </button>
       </div>
+
+      {isPendingAccount && (
+        <div className="rounded-2xl border border-amber-700/30 bg-[#F9DDBB]/80 px-4 py-3 text-xs font-bold text-[#802924]">
+          Akun pengajar Anda masih berstatus PENDING. Anda belum dapat menerima atau mengelola schedule maupun chat dari siswa sampai disetujui oleh Admin.
+        </div>
+      )}
 
       {feedbackMsg && (
         <div className="rounded-2xl border border-[#341D17]/20 bg-[#F9DDBB]/60 px-4 py-3 text-xs font-bold text-[#341D17]">
@@ -575,8 +679,9 @@ export default function TeacherScheduleClient({
           </p>
           <button
             type="button"
+            disabled={isPendingAccount}
             onClick={() => openCreateModal(true)}
-            className="self-start sm:self-auto text-xs font-extrabold text-[#802924] hover:underline cursor-pointer whitespace-nowrap"
+            className="self-start sm:self-auto text-xs font-extrabold text-[#802924] hover:underline cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
           >
             + Pop-up Sesi
           </button>
@@ -599,7 +704,11 @@ export default function TeacherScheduleClient({
           </span>
         </div>
 
-        {visibleSessions.length === 0 ? (
+        {isPendingAccount ? (
+          <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-6 text-center text-xs text-[#341D17]/70">
+            Akun masih berstatus PENDING. Jadwal tidak dapat diterima sebelum diaktifkan oleh Admin.
+          </div>
+        ) : visibleSessions.length === 0 ? (
           <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-6 text-center text-xs text-[#341D17]/70">
             Belum ada sesi kelas untuk pilihan tanggal ini. Klik <strong>+ Buat</strong> atau <strong>+ Pop-up Sesi</strong> untuk menambahkan.
           </div>
@@ -749,7 +858,9 @@ export default function TeacherScheduleClient({
 
         {participants.length === 0 ? (
           <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-6 text-center text-xs text-[#341D17]/70">
-            Belum ada partisipan siswa yang terdaftar pada kursus Anda.
+            {isPendingAccount
+              ? 'Akun masih berstatus PENDING. Daftar partisipan belum tersedia.'
+              : 'Belum ada partisipan siswa yang terdaftar pada kursus Anda.'}
           </div>
         ) : (
           <div className="space-y-3.5">
@@ -821,7 +932,7 @@ export default function TeacherScheduleClient({
       </div>
 
       {/* MODAL BUAT SESI / KELAS DADAKAN */}
-      {isModalOpen && (
+      {isModalOpen && !isPendingAccount && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-xs">
           <div className="w-full max-w-lg rounded-3xl border border-[#341D17]/20 bg-[#FFFDF9] p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[#341D17]/10 pb-3">
