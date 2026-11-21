@@ -128,24 +128,24 @@ export default function StudentChatsClient({
       return grouped;
     }
 
-    for (const row of initialMessages) {
+    initialMessages.forEach((row, index) => {
       const isFromStudent = Number(row.sender_id) === Number(student?.id);
       const partnerId = String(isFromStudent ? row.receiver_id : row.sender_id);
-      if (!partnerId) continue;
+      if (!partnerId) return;
 
       if (!grouped[partnerId]) grouped[partnerId] = [];
       grouped[partnerId].push({
-        id: row.id || `db-${Math.random()}`,
+        id: row.id ?? `db-${partnerId}-${index}`,
         senderRole: isFromStudent ? 'student' : 'instructor',
         senderName: isFromStudent ? studentName : 'Chef Instruktur',
         timeLabel: formatTimeLabel(row.created_at),
         text: row.message_text || '',
         attachmentUrl: row.attachment_url || '',
-        attachmentName: row.attachment_url ? 'lampiran-adonan.jpg' : '',
+        attachmentName: row.attachment_name || (row.attachment_url ? 'lampiran-adonan.jpg' : ''),
         showParameterCard: false,
         statusLabel: 'Terkirim',
       });
-    }
+    });
     return grouped;
   });
 
@@ -153,6 +153,7 @@ export default function StudentChatsClient({
   const [attachedPreview, setAttachedPreview] = useState(null);
   const [sending, setSending] = useState(false);
   const fileInputRef = useRef(null);
+  const localMsgCounterRef = useRef(0);
 
   const activeKey = String(selectedInstructor?.id ?? 'default');
 
@@ -181,13 +182,16 @@ export default function StudentChatsClient({
     }
 
     setSending(true);
+    localMsgCounterRef.current += 1;
+    const localId = `local-${activeKey}-${localMsgCounterRef.current}`;
+
     const nowTime = new Date().toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit',
     });
 
     const newMsg = {
-      id: `local-${Date.now()}`,
+      id: localId,
       senderRole: 'student',
       senderName: studentName,
       timeLabel: nowTime,
@@ -217,6 +221,7 @@ export default function StudentChatsClient({
             receiver_id: Number(selectedInstructor.id),
             message_text: newMsg.text,
             attachment_url: newMsg.attachmentUrl || null,
+            attachment_name: newMsg.attachmentName || null,
           }),
         });
       }
@@ -485,7 +490,11 @@ export default function StudentChatsClient({
               </button>
               <button
                 type="button"
-                onClick={() => handleSendMessage('Mohon evaluasi formula resep sesi ini ya Chef.')}
+                onClick={() =>
+                  handleSendMessage(
+                    'Mohon evaluasi formula resep sesi ini ya Chef.'
+                  )
+                }
                 aria-label="Sisipkan catatan formula"
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-sm text-[#341D17]/70 hover:bg-[#FAF6F0] transition cursor-pointer"
               >
