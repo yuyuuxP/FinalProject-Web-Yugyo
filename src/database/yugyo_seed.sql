@@ -283,3 +283,22 @@ END
 WHERE thumbnail_url IS NULL;
 
 
+-- Isi instructor_id pada chat_threads berdasarkan nama guru yang disebut di last_preview / course_title
+UPDATE chat_threads ct
+SET instructor_id = u.id
+FROM users u
+WHERE u.role = 'teacher'
+  AND u.status = 'active'
+  AND ct.instructor_id IS NULL
+  AND (
+    COALESCE(ct.last_preview, '') || ' ' || COALESCE(ct.course_title, '')
+  ) ILIKE '%' || u.full_name || '%';
+
+-- Jika masih ada thread NULL dan terkait kategori/topik Ayu (id = 6: French Patisserie / Kue Lapis / Lamination / Croissant)
+UPDATE chat_threads
+SET instructor_id = 6
+WHERE instructor_id IS NULL
+  AND (
+    COALESCE(last_preview, '') || ' ' || COALESCE(course_title, '')
+  ) ILIKE ANY (ARRAY['%ayu%', '%kue lapis%', '%lapis%', '%lamination%', '%croissant%']);
+

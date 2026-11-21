@@ -289,4 +289,3 @@ WHERE status IS NULL OR status = '';
 -- Tambah Kolom di Tabel Chat dan Masssage
 ALTER TABLE chat_threads ADD COLUMN IF NOT EXISTS instructor_id INTEGER REFERENCES users(id);
 ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS message TEXT;
-
