@@ -158,6 +158,23 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 14. TABEL INSTRUCTOR PROFILES (Profil khusus per akun instruktur/guru)
+CREATE TABLE IF NOT EXISTS instructor_profiles (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  display_name_title VARCHAR(180) NOT NULL DEFAULT '',
+  academic_email VARCHAR(160) NOT NULL DEFAULT '',
+  whatsapp_number VARCHAR(50) NOT NULL DEFAULT '+62 812-3456-7890',
+  account_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (account_status IN ('ACTIVE', 'PENDING')),
+  badge_role_label VARCHAR(120) NOT NULL DEFAULT 'Atelier Master Instructor',
+  avatar_url TEXT,
+  specialties JSONB NOT NULL DEFAULT '["Viennoiserie", "Laminated Dough", "Artisan Sourdough"]'::jsonb,
+  credentials_text TEXT NOT NULL DEFAULT 'Sertifikasi Patisserie & Boulangerie Atelier',
+  bio_text TEXT NOT NULL DEFAULT '',
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+
 
 -- ==========================================
 -- DATABASE INDEXING (OPTIMASI PERFORMA QUERY)
@@ -203,7 +220,7 @@ CREATE INDEX IF NOT EXISTS idx_course_sessions_is_done ON course_sessions(is_don
 CREATE INDEX IF NOT EXISTS idx_course_sessions_status ON course_sessions(status);
 
 -- Index untuk Tabel session_student_completions
-CREATE INDEX IF NOT EXISTS idx_session_completions_sess	ion_id ON session_student_completions(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_completions_session_id ON session_student_completions(session_id);
 CREATE INDEX IF NOT EXISTS idx_session_completions_student_id ON session_student_completions(student_id);
 
 -- Index Opsional untuk thumbnail_url di courses (bila sering difilter/dicek)
@@ -240,6 +257,10 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_thread_created_at
 CREATE INDEX IF NOT EXISTS idx_chat_messages_unread
   ON chat_messages (thread_id, is_read)
   WHERE is_read = FALSE;
+
+-- Index untuk Tabel instructor_profile
+CREATE INDEX IF NOT EXISTS idx_instructor_profiles_user_id
+  ON instructor_profiles(user_id);
 
 -- ==========================================
 -- PENAMBAHAN KOLOM/QUERY
