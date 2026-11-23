@@ -174,7 +174,18 @@ CREATE TABLE IF NOT EXISTS instructor_profiles (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-
+-- 15. Tabel Messages (Menyimpan riwayat chat student dan teacher)
+CREATE TABLE IF NOT EXISTS messages (
+  id SERIAL PRIMARY KEY,
+  sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+  message_text TEXT NOT NULL,
+  attachment_url TEXT,
+  attachment_name VARCHAR(255),
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
 -- ==========================================
 -- DATABASE INDEXING (OPTIMASI PERFORMA QUERY)
@@ -261,6 +272,15 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_unread
 -- Index untuk Tabel instructor_profile
 CREATE INDEX IF NOT EXISTS idx_instructor_profiles_user_id
   ON instructor_profiles(user_id);
+
+-- Indexing untuk mengoptimalkan query riwayat chat dan urutan waktu
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages (sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_receiver_id ON messages (receiver_id);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_pair
+  ON messages (LEAST(sender_id, receiver_id), GREATEST(sender_id, receiver_id), created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_messages_unread_receiver
+  ON messages (receiver_id, is_read) WHERE is_read = FALSE;
+  
 
 -- ==========================================
 -- PENAMBAHAN KOLOM/QUERY
