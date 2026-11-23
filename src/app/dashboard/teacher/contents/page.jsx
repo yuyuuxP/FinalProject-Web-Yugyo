@@ -83,8 +83,6 @@ function isVideoRelevantToCourse(courseTitle, fileName) {
 
   const coreKeywords = getCoreKeywords(courseTitle);
   if (coreKeywords.length === 0) return false;
-
-  // Setiap kata inti (misal: "croissant") harus ada di nama file video
   return coreKeywords.every((kw) => normFile.includes(kw));
 }
 
@@ -181,22 +179,24 @@ export default async function TeacherContentsPage({ searchParams }) {
         courses.find((c) => Number(c.id) === requestedCourseId) || courses[0];
 
       const contentsRes = await pool.query(
-        `SELECT
-          id,
-          course_id,
-          title,
-          content_type,
-          duration_label,
-          media_url,
-          summary,
-          sort_order
-        FROM course_contents
-        WHERE course_id = $1
-        ORDER BY sort_order ASC NULLS LAST, id ASC;`,
+        `SELECT *
+         FROM course_contents
+         WHERE course_id = $1
+         ORDER BY order_index ASC NULLS LAST, id ASC;`,
         [selectedCourse.id]
       );
 
-      courseContents = contentsRes.rows || [];
+      courseContents = (contentsRes.rows || []).map((row, idx) => ({
+        ...row,
+        description: row.description ?? row.summary ?? '',
+        summary: row.description ?? row.summary ?? '',
+        video_url: row.video_url ?? row.media_url ?? null,
+        media_url: row.video_url ?? row.media_url ?? null,
+        order_index: row.order_index ?? row.sort_order ?? idx + 1,
+        sort_order: row.order_index ?? row.sort_order ?? idx + 1,
+        status: row.status ?? 'published',
+      }));
+
       matchedVideos = await findMatchedVideosForCourse(selectedCourse.title);
     }
   }
