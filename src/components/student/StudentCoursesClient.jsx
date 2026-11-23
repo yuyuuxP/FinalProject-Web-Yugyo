@@ -1,616 +1,660 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 
-const FILTER_TABS = [
-  { key: 'all', label: 'Semua Materi', icon: '✦' },
-  { key: 'video', label: 'Video Tutorial HD', icon: '▶' },
-  { key: 'formula', label: 'Buku Formula Resep', icon: '📘' },
-  { key: 'unfinished', label: 'Belum Selesai', icon: '⏳' },
+const CATEGORY_TABS = [
+  'Bread & Yeast Goods',
+  'Cake Decorating',
+  'Cookies & Small Bites',
+  'French Patisserie & Pastry',
+  'Traditional Indonesian Cakes',
 ];
 
-const FALLBACK_MODULES = [
+const DEFAULT_COURSES = [
   {
-    id: 'mod-1',
-    course_id: null,
-    title: 'Pengenalan Tepung Terigu Protein Tinggi (W-Index > 320)',
-    content_type: 'video',
-    duration_label: '18 Menit',
-    media_url: '',
-    summary: 'Kuis Lulus (Score 100) • Catatan Tersimpan',
-    sort_order: 1,
-    course_title: 'French Croissant & Lamination Masterclass',
+    id: 'dasar-fermentasi-ragi-roti',
+    title: 'Dasar Fermentasi Ragi Roti',
+    category: 'Bread & Yeast Goods',
+    instructor: 'Chef Firah',
+    progress: 75,
+    completedLessons: 9,
+    totalLessons: 12,
+    remainingDays: 180,
+    badge: 'Masterclass',
+    videoUrl: '',
+    videoTitle: 'Dasar Fermentasi Ragi Roti',
   },
   {
-    id: 'mod-2',
-    course_id: null,
-    title: "Formula Baker's Percentage & Hidrasi Adonan Dingin",
-    content_type: 'formula',
-    duration_label: '16 Halaman',
-    media_url: '',
-    summary: 'Diverifikasi • Formula Tersinkronisasi',
-    sort_order: 2,
-    course_title: 'French Croissant & Lamination Masterclass',
+    id: 'mastering-sourdough-starter',
+    title: 'Mastering Sourdough Starter',
+    category: 'Bread & Yeast Goods',
+    instructor: 'Chef Firah',
+    progress: 50,
+    completedLessons: 5,
+    totalLessons: 10,
+    remainingDays: 180,
+    badge: 'Artisan Bread',
+    videoUrl: '',
+    videoTitle: 'Mastering Sourdough Starter',
   },
   {
-    id: 'mod-3',
-    course_id: null,
-    title: 'Teknik Sheeting Mentega Tourage 84% & Arsitektur Laminasi',
-    content_type: 'video',
-    duration_label: '32 Menit',
-    media_url: '',
-    summary: 'Disertai Diagram Suhu Ideal (14°C - 16°C)',
-    sort_order: 3,
-    course_title: 'French Croissant & Lamination Masterclass',
+    id: 'teknik-buttercream-korean-floral',
+    title: 'Teknik Buttercream & Korean Floral Piping',
+    category: 'Cake Decorating',
+    instructor: 'Chef Fadhiyah',
+    progress: 40,
+    completedLessons: 4,
+    totalLessons: 10,
+    remainingDays: 180,
+    badge: 'Atelier Studio',
+    videoUrl: '',
+    videoTitle: 'Teknik Buttercream & Korean Floral Piping',
   },
   {
-    id: 'mod-4',
-    course_id: null,
-    title: 'Lipatan Single Turn & Double Turn: Membentuk 27 Lapisan Mentega',
-    content_type: 'video',
-    duration_label: '40 Menit',
-    media_url: '/pictures/courses/french_pastry/croissant.png',
-    summary: 'Resting Time: 30 Menit di Chiller • Posisi Terakhir: Menit 14:22',
-    sort_order: 4,
-    course_title: 'French Croissant & Lamination Masterclass',
+    id: 'nastar-selai-nanas-premium',
+    title: 'Nastar Selai Nanas Premium & Soft Cookies',
+    category: 'Cookies & Small Bites',
+    instructor: 'Chef Diva',
+    progress: 60,
+    completedLessons: 6,
+    totalLessons: 10,
+    remainingDays: 180,
+    badge: 'Signature',
+    videoUrl: '',
+    videoTitle: 'Nastar Selai Nanas Premium & Soft Cookies',
   },
   {
-    id: 'mod-5',
-    course_id: null,
-    title: 'Buku Catatan Studio: Panduan Suhu Proofer & Waktu Fermentasi',
-    content_type: 'formula',
-    duration_label: '8 Halaman',
-    media_url: '',
-    summary: 'Panduan suhu proofing & kelembapan adonan laminasi',
-    sort_order: 5,
-    course_title: 'French Croissant & Lamination Masterclass',
+    id: 'madeleine-lemon-cake',
+    title: 'Madeleine Lemon Cake',
+    category: 'French Patisserie & Pastry',
+    instructor: 'Chef Ayu',
+    progress: 30,
+    completedLessons: 3,
+    totalLessons: 10,
+    remainingDays: 180,
+    badge: 'Patisserie',
+    videoUrl: '',
+    videoTitle: 'Madeleine Lemon Cake',
   },
   {
-    id: 'mod-6',
-    course_id: null,
-    title: 'Baking Curve & Oven Steam Injection untuk Warna Keemasan Karamel',
-    content_type: 'video',
-    duration_label: '28 Menit',
-    media_url: '',
-    summary: 'Evaluasi pemanggangan deck oven & karamelisasi kulit luar',
-    sort_order: 6,
-    course_title: 'French Croissant & Lamination Masterclass',
+    id: 'kue-lapis-legit-bika-ambon',
+    title: 'Lapis Legit Rempah & Bika Ambon Bersarang',
+    category: 'Traditional Indonesian Cakes',
+    instructor: 'Chef Rasyah',
+    progress: 25,
+    completedLessons: 2,
+    totalLessons: 8,
+    remainingDays: 180,
+    badge: 'Nusantara',
+    videoUrl: '',
+    videoTitle: 'Lapis Legit Rempah & Bika Ambon Bersarang',
   },
 ];
 
-function normalizeMaterialKind(item) {
-  const raw = `${item?.content_type || ''} ${item?.title || ''}`.toLowerCase();
-  if (
-    raw.includes('pdf') ||
-    raw.includes('formula') ||
-    raw.includes('buku') ||
-    raw.includes('ebook') ||
-    raw.includes('resep')
-  ) {
-    return 'formula';
+function cleanUrl(val) {
+  const s = String(val || '').trim();
+  if (!s || s.toLowerCase() === 'null' || s.toLowerCase() === 'undefined') {
+    return '';
   }
-  return 'video';
+  return s;
+}
+
+function normalizeCategory(rawCat) {
+  const lower = String(rawCat || '').toLowerCase();
+  if (
+    lower.includes('bread') ||
+    lower.includes('yeast') ||
+    lower.includes('roti') ||
+    lower.includes('sourdough')
+  ) {
+    return 'Bread & Yeast Goods';
+  }
+  if (
+    lower.includes('cake') &&
+    (lower.includes('decor') ||
+      lower.includes('buttercream') ||
+      lower.includes('glaze'))
+  ) {
+    return 'Cake Decorating';
+  }
+  if (
+    lower.includes('cookie') ||
+    lower.includes('small bite') ||
+    lower.includes('macaron') ||
+    lower.includes('nastar')
+  ) {
+    return 'Cookies & Small Bites';
+  }
+  if (
+    lower.includes('french') ||
+    lower.includes('patisserie') ||
+    lower.includes('pastry') ||
+    lower.includes('croissant') ||
+    lower.includes('madeleine')
+  ) {
+    return 'French Patisserie & Pastry';
+  }
+  if (
+    lower.includes('traditional') ||
+    lower.includes('indonesian') ||
+    lower.includes('nusantara') ||
+    lower.includes('lapis') ||
+    lower.includes('bika')
+  ) {
+    return 'Traditional Indonesian Cakes';
+  }
+  return 'Bread & Yeast Goods';
+}
+
+function mapCourseItem(row, idx = 0) {
+  const title = String(
+    row?.title || row?.course_title || row?.name || `Kursus #${idx + 1}`
+  ).trim();
+  const id = String(
+    row?.id ||
+      row?.course_id ||
+      row?.slug ||
+      title.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  ).trim();
+
+  return {
+    id,
+    title,
+    category: normalizeCategory(row?.category || row?.category_name),
+    instructor: String(
+      row?.instructor ||
+        row?.instructor_name ||
+        row?.teacher_name ||
+        'Chef Yugyo'
+    ).trim(),
+    progress: Number(row?.progress ?? 40),
+    completedLessons: Number(
+      row?.completedLessons ?? row?.completed_lessons ?? 4
+    ),
+    totalLessons: Number(row?.totalLessons ?? row?.total_lessons ?? 10),
+    remainingDays: Number(row?.remainingDays ?? row?.remaining_days ?? 180),
+    badge: String(row?.badge || row?.tag || 'Kelas Atelier').trim(),
+    videoUrl: cleanUrl(
+      row?.videoUrl || row?.video_url || row?.media_url || row?.file_url || ''
+    ),
+    videoTitle: String(row?.videoTitle || title).trim(),
+  };
+}
+
+function mapContentItem(row, idx = 0) {
+  const title = String(
+    row?.title ||
+      row?.content_title ||
+      row?.module_title ||
+      row?.lesson_title ||
+      row?.name ||
+      `Materi #${idx + 1}`
+  ).trim();
+
+  const mediaUrl = cleanUrl(
+    row?.mediaUrl || row?.video_url || row?.file_url || row?.url || ''
+  );
+
+  const textContent = String(
+    row?.textContent ||
+      row?.content_text ||
+      row?.body ||
+      row?.text ||
+      row?.description ||
+      row?.summary ||
+      row?.notes ||
+      ''
+  ).trim();
+
+  const rawType = String(row?.type || row?.content_type || '')
+    .trim()
+    .toUpperCase();
+
+  const isVideo =
+    Boolean(mediaUrl) ||
+    rawType.includes('VIDEO') ||
+    rawType.includes('MP4') ||
+    rawType.includes('WEBM');
+
+  return {
+    id: String(row?.id || row?.content_id || `content-${idx + 1}`),
+    courseId: String(
+      row?.courseId || row?.course_id || row?.parent_course_id || ''
+    ).trim(),
+    courseTitle: String(
+      row?.courseTitle || row?.course_title || row?.course_name || ''
+    ).trim(),
+    title,
+    textContent:
+      textContent ||
+      (!isVideo
+        ? `Catatan modul untuk ${title}. Silakan lengkapi isi teks modul pada content management.`
+        : ''),
+    type: isVideo ? 'VIDEO' : 'TEKS',
+    mediaUrl: isVideo ? mediaUrl : '',
+  };
 }
 
 export default function StudentCoursesClient({
-  courses = [],
-  contents = [],
+  initialCourses = [],
+  initialContents = [],
 }) {
-  const [selectedCourseId, setSelectedCourseId] = useState(
-    courses?.[0]?.id ?? null
+  const courses = useMemo(
+    () =>
+      Array.isArray(initialCourses) && initialCourses.length > 0
+        ? initialCourses.map((row, idx) => mapCourseItem(row, idx))
+        : DEFAULT_COURSES,
+    [initialCourses]
   );
-  const [showAllCourseButtons, setShowAllCourseButtons] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all');
-  const [sortAsc, setSortAsc] = useState(true);
-  const [completedIds, setCompletedIds] = useState(() => ['mod-1', 'mod-2', 'mod-3']);
-  const [activePreviewId, setActivePreviewId] = useState(null);
-  const [statusBanner, setStatusBanner] = useState('');
 
-  const featuredCourse = useMemo(() => {
-    if (courses.length === 0) return null;
-    if (selectedCourseId != null) {
-      return (
-        courses.find((c) => Number(c.id) === Number(selectedCourseId)) || courses[0]
-      );
-    }
-    return courses[0];
-  }, [courses, selectedCourseId]);
+  const contents = useMemo(
+    () =>
+      Array.isArray(initialContents)
+        ? initialContents.map((row, idx) => mapContentItem(row, idx))
+        : [],
+    [initialContents]
+  );
 
-  const visibleCourseButtons = useMemo(() => {
-    if (showAllCourseButtons) return courses;
-    return courses.slice(0, 4);
-  }, [courses, showAllCourseButtons]);
+  const [selectedCategory, setSelectedCategory] = useState('Bread & Yeast Goods');
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [openItemId, setOpenItemId] = useState('');
+  const [isCourseListOpen, setIsCourseListOpen] = useState(false);
+  const [searchMaterial, setSearchMaterial] = useState('');
+  const videoRef = useRef(null);
 
-  const baseModules = useMemo(() => {
-    const source =
-      Array.isArray(contents) && contents.length > 0 ? contents : FALLBACK_MODULES;
-
-    if (!featuredCourse?.id) return source;
-    const forCourse = source.filter(
-      (m) => Number(m.course_id) === Number(featuredCourse.id)
+  const filteredCourses = useMemo(() => {
+    return courses.filter(
+      (c) => normalizeCategory(c.category) === selectedCategory
     );
-    return forCourse.length > 0 ? forCourse : source;
-  }, [contents, featuredCourse]);
+  }, [courses, selectedCategory]);
 
-  const currentProgress = Number(featuredCourse?.progress_percentage ?? 75);
-  const totalMaterialsCount = Math.max(baseModules.length, 12);
-  const completedMaterialsCount = Math.min(
-    totalMaterialsCount,
-    Math.max(
-      completedIds.length,
-      Math.round((currentProgress / 100) * totalMaterialsCount)
-    )
-  );
+  const activeCourse =
+    filteredCourses.find((c) => String(c.id) === String(selectedCourseId)) ||
+    filteredCourses[0] ||
+    courses[0];
 
-  const filteredModules = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-
-    const list = baseModules.filter((mod, idx) => {
-      const idKey = String(mod.id ?? idx);
-      const isDone =
-        completedIds.includes(idKey) ||
-        (baseModules.length >= 3 && idx < 2 && activeFilter !== 'unfinished');
-      const kind = normalizeMaterialKind(mod);
-
-      if (activeFilter === 'video' && kind !== 'video') return false;
-      if (activeFilter === 'formula' && kind !== 'formula') return false;
-      if (activeFilter === 'unfinished' && isDone) return false;
-
-      if (q) {
-        const hay = `${mod.title || ''} ${mod.summary || ''} ${
-          mod.course_title || ''
-        }`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-
-      return true;
-    });
-
-    return [...list].sort((a, b) => {
-      const orderA = Number(a.sort_order ?? a.id ?? 0);
-      const orderB = Number(b.sort_order ?? b.id ?? 0);
-      if (Number.isFinite(orderA) && Number.isFinite(orderB)) {
-        return sortAsc ? orderA - orderB : orderB - orderA;
-      }
-      return 0;
-    });
-  }, [baseModules, searchQuery, activeFilter, sortAsc, completedIds]);
-
-  const toggleModuleDone = (idKey, title) => {
-    setCompletedIds((prev) => {
-      const exists = prev.includes(idKey);
-      const next = exists ? prev.filter((x) => x !== idKey) : [...prev, idKey];
-      setStatusBanner(
-        exists
-          ? `Status "${title}" diubah menjadi sedang dipelajari.`
-          : `Materi "${title}" ditandai selesai.`
-      );
-      return next;
-    });
+  const handleSelectCategory = (cat) => {
+    setSelectedCategory(cat);
+    const matching = courses.filter(
+      (c) => normalizeCategory(c.category) === cat
+    );
+    if (matching.length > 0) {
+      setSelectedCourseId(String(matching[0].id));
+      setOpenItemId('');
+    }
   };
 
-  const handleDownloadWorksheets = () => {
-    const contentText = [
-      `YUGYO ATELIER - WORKSHEET KURIKULUM`,
-      `Kelas: ${featuredCourse?.title || 'Masterclass Baking'}`,
-      `Instruktur: Chef ${featuredCourse?.instructor_name || 'Atelier'}`,
-      `----------------------------------------`,
-      ...baseModules.map(
-        (m, i) =>
-          `#${String(i + 1).padStart(2, '0')} ${m.title} (${
-            m.duration_label || 'Modul'
-          })`
-      ),
-    ].join('\n');
+  const handleSelectCourse = (course) => {
+    setSelectedCourseId(String(course.id));
+    setOpenItemId('');
+    setIsCourseListOpen(false);
+  };
 
-    const blob = new Blob([contentText], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Worksheet-${
-      (featuredCourse?.title || 'Yugyo-Atelier')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-    }.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setStatusBanner('Worksheet modul berhasil diunduh.');
+  const courseContents = useMemo(() => {
+    if (!activeCourse) return [];
+    const activeId = String(activeCourse.id).toLowerCase();
+    const activeTitle = String(activeCourse.title).toLowerCase();
+
+    const matched = contents.filter((item) => {
+      const itemCourseId = String(item.courseId || '').toLowerCase();
+      const itemCourseTitle = String(item.courseTitle || '').toLowerCase();
+      return (
+        (itemCourseId && itemCourseId === activeId) ||
+        (itemCourseTitle && itemCourseTitle === activeTitle)
+      );
+    });
+
+    if (matched.length === 0 && activeCourse.videoUrl) {
+      return [
+        {
+          id: `course-video-${activeCourse.id}`,
+          courseId: activeCourse.id,
+          courseTitle: activeCourse.title,
+          title: activeCourse.videoTitle || activeCourse.title,
+          textContent: '',
+          type: 'VIDEO',
+          mediaUrl: activeCourse.videoUrl,
+        },
+      ];
+    }
+
+    return matched;
+  }, [contents, activeCourse]);
+
+  const visibleModules = useMemo(() => {
+    const q = searchMaterial.trim().toLowerCase();
+    return courseContents.filter(
+      (m) =>
+        !q ||
+        m.title.toLowerCase().includes(q) ||
+        m.textContent.toLowerCase().includes(q)
+    );
+  }, [courseContents, searchMaterial]);
+
+  const handleToggleItem = (mod) => {
+    const isVideo = mod.type === 'VIDEO' && Boolean(mod.mediaUrl);
+    const hasText = Boolean(mod.textContent);
+    if (!isVideo && !hasText) return;
+
+    setOpenItemId((prev) => {
+      const nextId = String(prev) === String(mod.id) ? '' : String(mod.id);
+      if (nextId && isVideo) {
+        window.requestAnimationFrame(() => {
+          const playPromise = videoRef.current?.play?.();
+          if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(() => {});
+          }
+        });
+      }
+      return nextId;
+    });
   };
 
   return (
-    <div className="space-y-6">
-      {/* BADGE SEMESTER & JUDUL HALAMAN */}
-      <section className="space-y-1.5">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#802924]/25 bg-[#F9DDBB]/55 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
-          <span>🎓 Semester Aktif • Yugyo Atelier</span>
+    <div className="space-y-6 text-[#341D17] pb-12">
+      <div className="space-y-3">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F9DDBB]/85 border border-[#802924]/15 px-3 py-1 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
+          <span>&#9670;</span>
+          <span>SEMESTER AKTIF &bull; YUGYO ATELIER</span>
         </span>
 
-        <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
-          Materi Pembelajaran Saya
-        </h1>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="space-y-1">
+            <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
+              Materi Pembelajaran Saya
+            </h1>
+            <p className="text-xs sm:text-sm text-[#341D17]/65">
+              Eksplorasi silabus pastry, video teknik, dan modul formula resep terdaftar dengan standar atelier profesional.
+            </p>
+          </div>
 
-        <p className="text-xs sm:text-sm text-[#341D17]/75 max-w-2xl">
-          Eksplorasi silabus pastry, video teknik, dan modul formula resep terdaftar dengan standar atelier profesional.
-        </p>
-      </section>
+          <Link
+            href="/dashboard/student/catalog"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#FAF6F0] hover:bg-[#F9DDBB]/70 border border-[#341D17]/15 px-3.5 py-2 text-xs font-bold text-[#341D17] transition shrink-0"
+          >
+            <span>+ Tambah Kursus</span>
+          </Link>
+        </div>
 
-      {/* TOMBOL PILIHAN NAMA KELAS */}
-      {courses.length > 1 && (
-        <div className="flex flex-wrap items-center gap-2">
-          {visibleCourseButtons.map((c) => {
-            const active =
-              featuredCourse && Number(c.id) === Number(featuredCourse.id);
+        {/* Filter 5 Kategori Utama */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          {CATEGORY_TABS.map((cat) => {
+            const isActive = selectedCategory === cat;
             return (
               <button
-                key={c.id}
+                key={cat}
                 type="button"
-                onClick={() => setSelectedCourseId(c.id)}
-                className={`rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer ${
-                  active
-                    ? 'bg-[#802924] text-[#FFFDF9] shadow-2xs'
-                    : 'border border-[#341D17]/15 bg-[#FFFDF9] text-[#341D17] hover:bg-[#FAF6F0]'
+                onClick={() => handleSelectCategory(cat)}
+                className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition cursor-pointer border ${
+                  isActive
+                    ? 'bg-[#802924] text-[#FFFDF9] border-[#802924]'
+                    : 'bg-[#FFFDF9] text-[#341D17]/80 hover:bg-[#F9DDBB]/55 border-[#341D17]/15'
                 }`}
               >
-                {c.title}
+                {cat}
               </button>
             );
           })}
-
-          {courses.length > 4 && (
-            <button
-              type="button"
-              onClick={() => setShowAllCourseButtons((prev) => !prev)}
-              className="rounded-xl border border-[#802924]/30 bg-[#F9DDBB]/45 hover:bg-[#F9DDBB]/75 px-3 py-2 text-xs font-bold text-[#802924] transition cursor-pointer"
-            >
-              {showAllCourseButtons ? 'Ringkas' : `+${courses.length - 4} Kelas`}
-            </button>
-          )}
         </div>
-      )}
+      </div>
 
-      {/* KARTU KURSUS UTAMA TERDAFTAR */}
-      {featuredCourse && (
-        <section className="rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] p-4 sm:p-6 shadow-2xs space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+      {/* Kartu Kursus Aktif */}
+      {activeCourse && (
+        <section className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 sm:p-6 shadow-2xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
             <div className="flex items-center gap-2">
-              <span className="rounded-md bg-[#F9DDBB] px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-[#802924]">
+              <span className="font-extrabold uppercase tracking-wider text-[#802924]">
                 KURSUS AKTIF
               </span>
-              <span className="text-[#341D17]/65 font-medium">
-                {featuredCourse.category_name || 'Modul Atelier'}
+              <span className="font-semibold text-[#341D17]/75">
+                {activeCourse.category}
               </span>
             </div>
-
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#341D17]/75">
-              <span className="text-[#802924]">✓</span>
-              <span>Terakreditasi Yugyo Atelier</span>
+            <span className="text-[#4E7A4E] font-semibold">
+              &#10003; Terakreditasi Yugyo Atelier
             </span>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="relative h-24 w-full sm:w-32 shrink-0 overflow-hidden rounded-2xl border border-[#341D17]/10 bg-[#FAF6F0]">
-              <img
-                src={
-                  featuredCourse.thumbnail_url ||
-                  '/pictures/courses/french_pastry/croissant.png'
-                }
-                alt={featuredCourse.title}
-                className="h-full w-full object-cover"
-              />
-              <span className="absolute bottom-1.5 left-1.5 rounded-md bg-[#341D17]/80 px-2 py-0.5 text-[9px] font-bold text-[#FFFDF9]">
-                Masterclass
-              </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="w-24 h-20 rounded-2xl bg-[#F9DDBB] border border-[#341D17]/10 flex items-center justify-center text-xs font-bold text-[#802924] shrink-0 text-center px-2">
+                {activeCourse.badge}
+              </div>
+              <div className="space-y-1">
+                <h2 className="font-editorial text-xl font-bold text-[#341D17]">
+                  {activeCourse.title}
+                </h2>
+                <p className="text-xs text-[#341D17]/65">
+                  &#128104;&#8205;&#127859; {activeCourse.instructor} &bull;{' '}
+                  {activeCourse.category}
+                </p>
+              </div>
             </div>
 
-            <div className="min-w-0 flex-1 space-y-1">
-              <h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17]">
-                {featuredCourse.title}
-              </h2>
-              <p className="text-xs text-[#341D17]/70">
-                &#128104;&#8205;&#127859; Chef {featuredCourse.instructor_name} &bull;{' '}
-                {featuredCourse.instructor_specialty}
-              </p>
-            </div>
+            {filteredCourses.length > 1 && (
+              <select
+                aria-label="Pilih kursus dalam kategori"
+                value={activeCourse.id}
+                onChange={(e) => {
+                  const chosen = filteredCourses.find(
+                    (c) => String(c.id) === String(e.target.value)
+                  );
+                  if (chosen) handleSelectCourse(chosen);
+                }}
+                className="rounded-xl border border-[#341D17]/15 bg-[#FAF6F0] px-3 py-2 text-xs font-semibold text-[#341D17] focus:border-[#802924] focus:outline-none"
+              >
+                {filteredCourses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-              <span className="font-semibold text-[#341D17]">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-[#341D17]/75">
                 Progres Pembelajaran
               </span>
               <span className="font-bold text-[#341D17]">
-                <strong className="text-[#802924]">{currentProgress}%</strong>{' '}
-                Selesai &bull; {completedMaterialsCount}/{totalMaterialsCount} Materi
+                {activeCourse.progress}% Selesai &bull;{' '}
+                {visibleModules.length} Konten
               </span>
             </div>
-
-            <div className="h-2 w-full rounded-full bg-[#F9DDBB] overflow-hidden">
+            <div className="h-2.5 w-full rounded-full bg-[#F9DDBB]/70 overflow-hidden">
               <div
                 className="h-full rounded-full bg-[#802924] transition-all"
-                style={{ width: `${Math.min(100, Math.max(0, currentProgress))}%` }}
+                style={{ width: `${activeCourse.progress}%` }}
               />
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <span className="text-xs text-[#341D17]/65 inline-flex items-center gap-1.5">
-              <span>&#128336;</span>
-              <span>Sisa Waktu Akses: 180 Hari</span>
+          <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs text-[#341D17]/60">
+              &#9200; Sisa Waktu Akses: {activeCourse.remainingDays} Hari
             </span>
-
-            <Link
-              href={`/dashboard/student/courses/${featuredCourse.id}`}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-5 py-2.5 text-xs font-bold text-[#FFFDF9] transition"
+            <a
+              href="#silabus-kurikulum"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition"
             >
               <span>Lanjutkan Belajar</span>
               <span>&rarr;</span>
-            </Link>
+            </a>
           </div>
         </section>
       )}
 
-      {/* PENCARIAN & FILTER KATEGORI */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-3 rounded-2xl border border-[#341D17]/12 bg-[#FFFDF9] px-4 py-2.5 shadow-2xs">
-          <span className="text-sm text-[#341D17]/50">&#128269;</span>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari materi atau topik resep..."
-            className="w-full bg-transparent text-xs sm:text-sm text-[#341D17] placeholder:text-[#341D17]/45 focus:outline-none"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="text-xs font-bold text-[#802924] cursor-pointer"
-            >
-              Reset
-            </button>
-          )}
-        </div>
+      {/* Pencarian Materi & Tombol Nama Kursus (Dropdown Vertikal per Kategori) */}
+      <div className="space-y-3">
+        <input
+          type="text"
+          value={searchMaterial}
+          onChange={(e) => setSearchMaterial(e.target.value)}
+          placeholder="Cari materi atau topik resep..."
+          className="w-full rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-4 py-2.5 text-xs sm:text-sm text-[#341D17] placeholder:text-[#341D17]/45 focus:border-[#802924] focus:outline-none"
+        />
 
-        <div className="flex flex-wrap items-center gap-2">
-          {FILTER_TABS.map((tab) => {
-            const active = activeFilter === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveFilter(tab.key)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
-                  active
-                    ? 'bg-[#802924] text-[#FFFDF9] shadow-2xs'
-                    : 'border border-[#341D17]/12 bg-[#FFFDF9] text-[#341D17]/80 hover:bg-[#FAF6F0]'
-                }`}
-              >
-                <span className="text-[11px]">{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {statusBanner && (
-        <div className="rounded-2xl border border-[#341D17]/15 bg-[#F9DDBB]/55 px-4 py-2.5 text-xs font-bold text-[#341D17]">
-          {statusBanner}
-        </div>
-      )}
-
-      {/* SILABUS KURIKULUM */}
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
-              Silabus Kurikulum
-            </h2>
-            <span className="rounded-full border border-[#341D17]/12 bg-[#FFFDF9] px-3 py-0.5 text-[11px] font-semibold text-[#341D17]/70">
-              {filteredModules.length} Modul
-            </span>
-          </div>
-
+        <div className="space-y-2">
           <button
             type="button"
-            onClick={() => setSortAsc((prev) => !prev)}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-[#802924] hover:underline cursor-pointer"
+            onClick={() => setIsCourseListOpen((prev) => !prev)}
+            className="w-full sm:w-auto inline-flex items-center justify-between gap-3 rounded-xl bg-[#FFFDF9] hover:bg-[#F9DDBB]/45 border border-[#341D17]/15 px-4 py-2.5 text-xs font-bold text-[#341D17] transition cursor-pointer"
           >
-            <span>Sortir Modul</span>
-            <span>{sortAsc ? '↑↓' : '↓↑'}</span>
+            <span>
+              {activeCourse?.title || `Pilih Kursus (${selectedCategory})`}
+            </span>
+            <span className="text-[#802924]">
+              {isCourseListOpen ? '▲' : '▼'}
+            </span>
           </button>
+
+          {isCourseListOpen && (
+            <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-2 space-y-1.5 max-w-xl">
+              {filteredCourses.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-[#341D17]/60">
+                  Belum ada kursus pada kategori {selectedCategory}.
+                </p>
+              ) : (
+                filteredCourses.map((course) => {
+                  const isSelected =
+                    String(activeCourse?.id) === String(course.id);
+                  return (
+                    <button
+                      key={course.id}
+                      type="button"
+                      onClick={() => handleSelectCourse(course)}
+                      className={`w-full text-left rounded-xl px-3.5 py-2.5 text-xs transition cursor-pointer flex items-center justify-between gap-3 ${
+                        isSelected
+                          ? 'bg-[#F9DDBB] text-[#802924] font-extrabold'
+                          : 'hover:bg-[#FAF6F0] text-[#341D17] font-semibold'
+                      }`}
+                    >
+                      <span className="truncate">{course.title}</span>
+                      <span className="text-[11px] opacity-70 shrink-0">
+                        {course.instructor}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Silabus Kurikulum */}
+      <section id="silabus-kurikulum" className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h2 className="font-editorial text-lg font-bold text-[#341D17]">
+            Silabus Kurikulum{' '}
+            <span className="ml-1.5 rounded-full bg-[#F9DDBB]/75 px-2.5 py-0.5 text-[11px] font-bold text-[#802924]">
+              {visibleModules.length} Konten
+            </span>
+          </h2>
         </div>
 
-        {filteredModules.length === 0 ? (
-          <div className="rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] p-6 text-center text-xs text-[#341D17]/70">
-            Tidak ada modul yang cocok dengan pencarian atau filter yang dipilih.
+        {visibleModules.length === 0 ? (
+          <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 text-xs text-[#341D17]/65">
+            Belum ada konten atau file video di folder{' '}
+            <code className="font-semibold">public/videos</code> untuk kursus
+            &ldquo;{activeCourse?.title}&rdquo;.
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredModules.map((mod, idx) => {
-              const idKey = String(mod.id ?? idx);
-              const kind = normalizeMaterialKind(mod);
-              const isDone =
-                completedIds.includes(idKey) ||
-                (baseModules.length >= 3 && idx < 2 && activeFilter !== 'unfinished');
-              const isCurrentStudio = !isDone && idx === 3;
-              const isPreviewOpen = activePreviewId === idKey;
+            {visibleModules.map((mod, index) => {
+              const isVideo = mod.type === 'VIDEO' && Boolean(mod.mediaUrl);
+              const hasText = Boolean(mod.textContent);
+              const isInteractive = isVideo || hasText;
+              const isOpen = String(openItemId) === String(mod.id);
+              const orderLabel = String(index + 1).padStart(2, '0');
+              const typeLabel = isVideo ? 'VIDEO' : 'TEKS';
+
+              const actionLabel = isVideo
+                ? isOpen
+                  ? 'Tutup Video'
+                  : 'Putar Video'
+                : isOpen
+                  ? 'Tutup Teks'
+                  : 'Baca Teks';
 
               return (
                 <div
-                  key={idKey}
-                  className={`rounded-3xl border p-4 sm:p-5 shadow-2xs transition space-y-3 ${
-                    isCurrentStudio
-                      ? 'border-[#802924]/35 bg-[#FFFDF9]'
-                      : 'border-[#341D17]/12 bg-[#FFFDF9]'
-                  }`}
+                  key={mod.id}
+                  className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 transition overflow-hidden"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0 flex-1">
-                      <span
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-extrabold ${
-                          isCurrentStudio
-                            ? 'bg-[#802924] text-[#FFFDF9]'
-                            : 'bg-[#FAF6F0] text-[#341D17]/75 border border-[#341D17]/10'
-                        }`}
-                      >
-                        #{String(mod.sort_order || idx + 1).padStart(2, '0')}
-                      </span>
-
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#341D17]/65">
-                          <span className="text-[#802924]">
-                            {kind === 'formula' ? '📘 FORMULA / PDF' : '▶ VIDEO HD'}
-                          </span>
-                          <span>&bull;</span>
-                          <span>{mod.duration_label || '20 Menit'}</span>
-                        </div>
-
-                        <h3 className="text-sm sm:text-base font-bold text-[#341D17]">
-                          {mod.title}
-                        </h3>
-                      </div>
+                  <div
+                    role={isInteractive ? 'button' : undefined}
+                    tabIndex={isInteractive ? 0 : undefined}
+                    onClick={() => handleToggleItem(mod)}
+                    onKeyDown={(e) => {
+                      if (
+                        isInteractive &&
+                        (e.key === 'Enter' || e.key === ' ')
+                      ) {
+                        e.preventDefault();
+                        handleToggleItem(mod);
+                      }
+                    }}
+                    className={`px-5 py-4 flex items-center justify-between gap-4 ${
+                      isInteractive ? 'cursor-pointer hover:bg-[#FAF6F0]/80' : ''
+                    }`}
+                  >
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
+                        URUTAN #{orderLabel} &bull; {typeLabel}
+                      </p>
+                      <p className="text-sm font-bold text-[#341D17] truncate">
+                        {mod.title}
+                      </p>
+                      {isVideo ? (
+                        <p className="text-xs text-[#341D17]/55 truncate">
+                          {decodeURIComponent(mod.mediaUrl)}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-[#341D17]/55 truncate">
+                          {isOpen ? 'Klik untuk menutup teks modul' : 'Klik untuk membaca isi teks modul'}
+                        </p>
+                      )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => toggleModuleDone(idKey, mod.title)}
-                      className={`rounded-full px-3 py-1 text-[11px] font-bold transition cursor-pointer shrink-0 ${
-                        isDone
-                          ? 'bg-[#ECFDF3] text-[#027A48] border border-[#027A48]/20'
-                          : isCurrentStudio
-                          ? 'bg-[#F9DDBB] text-[#802924]'
-                          : 'bg-[#FAF6F0] text-[#341D17]/70 border border-[#341D17]/12'
-                      }`}
-                    >
-                      {isDone
-                        ? '✓ Selesai'
-                        : isCurrentStudio
-                        ? '↻ Sedang Belajar'
-                        : 'Tandai Selesai'}
-                    </button>
+                    {isInteractive && (
+                      <span className="rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] px-3 py-1.5 text-[11px] font-bold text-[#802924] shrink-0">
+                        {actionLabel}
+                      </span>
+                    )}
                   </div>
 
-                  {(isCurrentStudio || isPreviewOpen) && (
-                    <div className="space-y-3 pt-1">
-                      {mod.media_url ? (
-                        <div className="relative overflow-hidden rounded-2xl border border-[#341D17]/10 bg-[#FAF6F0]">
-                          <img
-                            src={mod.media_url}
-                            alt={mod.title}
-                            className="h-44 sm:h-52 w-full object-cover"
-                          />
-                          <span className="absolute bottom-2.5 left-2.5 rounded-lg bg-[#341D17]/85 px-2.5 py-1 text-[10px] font-bold text-[#FFFDF9]">
-                            Modul Atelier &bull; {mod.duration_label || 'Video'}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="rounded-2xl border border-[#341D17]/10 bg-[#FAF6F0] p-3.5 text-xs text-[#341D17]/80">
-                          {mod.summary ||
-                            'Ringkasan teknik praktik dan panduan suhu adonan untuk modul ini.'}
-                        </div>
-                      )}
+                  {isOpen && isVideo && (
+                    <div className="px-5 pb-5 pt-1">
+                      <div className="overflow-hidden rounded-xl border border-[#341D17]/12 bg-[#0B0B0C]">
+                        <video
+                          ref={videoRef}
+                          key={mod.mediaUrl}
+                          src={mod.mediaUrl}
+                          controls
+                          preload="metadata"
+                          className="w-full max-h-[420px] object-contain bg-[#0B0B0C]"
+                        >
+                          Browser Anda tidak mendukung pemutar video HTML5.
+                        </video>
+                      </div>
                     </div>
                   )}
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-[#341D17]/8 text-xs">
-                    <span className="text-[11px] text-[#341D17]/65 truncate">
-                      {mod.summary ||
-                        (kind === 'formula'
-                          ? 'Lembar resep & takaran terverifikasi'
-                          : 'Demonstrasi teknik langkah demi langkah')}
-                    </span>
-
-                    {isCurrentStudio ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setActivePreviewId((prev) =>
-                            prev === idKey ? null : idKey
-                          )
-                        }
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition cursor-pointer"
-                      >
-                        <span>Lanjutkan Belajar</span>
-                        <span>&rarr;</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setActivePreviewId((prev) =>
-                            prev === idKey ? null : idKey
-                          )
-                        }
-                        className="inline-flex items-center gap-1 font-bold text-[#341D17]/80 hover:text-[#802924] transition cursor-pointer"
-                      >
-                        <span>
-                          {kind === 'formula'
-                            ? isPreviewOpen
-                              ? 'Tutup Dokumen'
-                              : 'Buka Dokumen'
-                            : isPreviewOpen
-                            ? 'Tutup Pratinjau'
-                            : 'Putar Ulang'}
-                        </span>
-                        <span>{kind === 'formula' ? '↗' : '↻'}</span>
-                      </button>
-                    )}
-                  </div>
+                  {isOpen && !isVideo && hasText && (
+                    <div className="px-5 pb-5 pt-1">
+                      <div className="rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] p-4 text-xs sm:text-sm text-[#341D17]/85 whitespace-pre-line leading-relaxed">
+                        {mod.textContent}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
-      </section>
-
-      {/* TOMBOL AKSI WORKSHEET & SERTIFIKAT */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={handleDownloadWorksheets}
-          className="flex items-center justify-center gap-2 rounded-2xl border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#FAF6F0] py-3 px-4 text-xs font-bold text-[#341D17] shadow-2xs transition cursor-pointer"
-        >
-          <span>&#128196;</span>
-          <span>Unduh Semua Worksheet</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() =>
-            setStatusBanner(
-              `Sertifikat sementara untuk "${
-                featuredCourse?.title || 'Kursus Atelier'
-              }" siap diverifikasi setelah seluruh modul selesai.`
-            )
-          }
-          className="flex items-center justify-center gap-2 rounded-2xl border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#FAF6F0] py-3 px-4 text-xs font-bold text-[#341D17] shadow-2xs transition cursor-pointer"
-        >
-          <span>&#127942;</span>
-          <span>Lihat Sertifikat Sementara</span>
-        </button>
-      </section>
-
-      {/* KUTIPAN CATATAN INSTRUKTUR */}
-      <section className="rounded-3xl border border-[#F3D2B3] bg-[#FAF6F0] p-5 sm:p-6 shadow-2xs space-y-2">
-        <div className="flex items-start gap-3">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F9DDBB] text-xs font-extrabold text-[#802924]">
-            &ldquo;&rdquo;
-          </span>
-          <div className="space-y-1.5">
-            <p className="font-editorial italic text-sm sm:text-base text-[#341D17] leading-relaxed">
-              &ldquo;Kesabaran dalam proses fermentasi dingin adalah kunci laminasi
-              berongga sarang lebah yang sempurna.&rdquo;
-            </p>
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/60">
-              CATATAN CHEF{' '}
-              {(featuredCourse?.instructor_name || 'ATELIER').toUpperCase()} &bull;
-              YUGYO ATELIER
-            </p>
-          </div>
-        </div>
       </section>
     </div>
   );
