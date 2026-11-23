@@ -5,12 +5,12 @@ import { usePathname, useRouter } from 'next/navigation';
 
 const NAV_ITEMS = [
   { href: '/dashboard/student', label: 'Dashboard', icon: '&#128202;' },
-  { href: '/dashboard/student/courses', label: 'Course', icon: '&#128218;' },
   {
     href: '/dashboard/student/catalog',
     label: 'Course Catalog',
     icon: '&#127856;',
   },
+  { href: '/dashboard/student/courses', label: 'Course', icon: '&#128218;' },
   { href: '/dashboard/student/schedule', label: 'Schedule', icon: '&#128197;' },
   {
     href: '/dashboard/student/chats',
