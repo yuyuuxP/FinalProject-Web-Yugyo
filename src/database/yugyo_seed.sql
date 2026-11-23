@@ -302,3 +302,46 @@ WHERE instructor_id IS NULL
     COALESCE(last_preview, '') || ' ' || COALESCE(course_title, '')
   ) ILIKE ANY (ARRAY['%ayu%', '%kue lapis%', '%lapis%', '%lamination%', '%croissant%']);
 
+
+-- Sampel reports
+INSERT INTO reports (
+  student_id,
+  course_id,
+  title,
+  content,
+  category,
+  status,
+  image_proof,
+  created_at
+)
+VALUES
+(
+  (SELECT id FROM users WHERE full_name = 'Antasari' AND role = 'student' LIMIT 1),
+  2,
+  'Tautan Live Session Hilang',
+  'Saya belum menerima link zoom live session untuk sesi tanya jawab starter ragi liar besok pagi jam 08:30 WIT.',
+  'complaint',
+  'Belum Dibaca',
+  NULL,
+  NOW() - INTERVAL '15 minutes'
+),
+(
+  (SELECT id FROM users WHERE full_name = 'Tania' AND role = 'student' LIMIT 1),
+  1,
+  'Permintaan Ubah Jadwal Sesi Sourdough',
+  'Halo Chef, apakah saya bisa memindahkan jadwal pembuktian adonan ke akhir pekan karena ada kendala mendadak?',
+  'schedule',
+  'Selesai',
+  NULL,
+  NOW() - INTERVAL '1 day'
+),
+(
+  (SELECT id FROM users WHERE full_name = 'Dimas' AND role = 'student' LIMIT 1),
+  1,
+  'Konsultasi Rasio Tepung Protein Tinggi',
+  'Terima kasih atas tanggapan cepatnya kemarin, rasio air pada adonan viennoiserie saya sekarang sudah jauh lebih stabil.',
+  'complaint',
+  'Selesai',
+  NULL,
+  NOW() - INTERVAL '3 days'
+);

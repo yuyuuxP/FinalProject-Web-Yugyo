@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 const FEATURE_OPTIONS = [
@@ -18,42 +18,6 @@ const SEVERITY_OPTIONS = [
   { value: 'critical', label: 'Kritis • Halaman Error / Terblokir' },
 ];
 
-const DEFAULT_REPORT_HISTORY = [
-  {
-    id: 'rep-video-1',
-    title: 'Video pemutaran sempat berhenti saat pindah resolusi',
-    featureArea: 'Course & Video Player',
-    severity: 'Sedang',
-    reportedAt: '18 Nov 2026',
-    status: 'Ditinjau',
-    description:
-      'Saat mengganti kualitas video di tengah modul praktik, pemutar sempat loading cukup lama sebelum kembali berjalan normal.',
-    photoLabel: 'Screenshot Pemutar Video',
-    photoCount: 1,
-    photoUrl: '',
-    adminReply: {
-      name: 'Tim Teknis Yugyo',
-      initials: 'YT',
-      message:
-        'Terima kasih atas laporannya. Buffering saat perpindahan stream video sedang kami optimalkan.',
-    },
-  },
-  {
-    id: 'rep-schedule-2',
-    title: 'Konfirmasi jadwal kelas tampil dua kali setelah klik cepat',
-    featureArea: 'Schedule & Booking',
-    severity: 'Tinggi',
-    reportedAt: '12 Nov 2026',
-    status: 'Selesai',
-    description:
-      'Ketika tombol simpan jadwal ditekan berulang kali dengan cepat, notifikasi status muncul ganda pada tampilan jadwal.',
-    photoLabel: 'Bukti Tampilan Jadwal',
-    photoCount: 0,
-    photoUrl: '',
-    adminReply: null,
-  },
-];
-
 function extractList(source, keys) {
   if (Array.isArray(source)) return source;
   if (source && typeof source === 'object') {
@@ -68,13 +32,21 @@ export default function StudentReviewsClient(props = {}) {
   const router = useRouter();
   const fileInputRef = useRef(null);
 
+  const studentUsername = useMemo(() => {
+    return (
+      props.username ||
+      props.currentUser?.username ||
+      props.user?.username ||
+      'Salwa'
+    );
+  }, [props]);
+
   const initialReports = useMemo(() => {
-    const raw = extractList(props.reports ?? props.reviews ?? props, [
+    return extractList(props.reports ?? props.reviews ?? props, [
       'reports',
       'reviews',
       'history',
     ]);
-    return raw.length > 0 ? raw : DEFAULT_REPORT_HISTORY;
   }, [props]);
 
   const [activeTab, setActiveTab] = useState('new');
@@ -85,6 +57,20 @@ export default function StudentReviewsClient(props = {}) {
   const [reports, setReports] = useState(initialReports);
   const [submitting, setSubmitting] = useState(false);
   const [feedbackBanner, setFeedbackBanner] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/student/reports', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data || !Array.isArray(data.reports)) return;
+        setReports(data.reports);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleRemovePhoto = (photoId) => {
     setPhotos((prev) => prev.filter((p) => p.id !== photoId));
@@ -137,8 +123,10 @@ export default function StudentReviewsClient(props = {}) {
 
     const payload = {
       type: 'bug_report',
+      username: studentUsername,
       featureArea,
       severity,
+      severityLabel,
       description: trimmed,
       photos,
     };
@@ -151,31 +139,34 @@ export default function StudentReviewsClient(props = {}) {
       }).catch(() => null);
 
       const data = res && res.ok ? await res.json().catch(() => null) : null;
-      const savedList = Array.isArray(data?.savedPhotos) ? data.savedPhotos : [];
-      const resolvedPhotoUrl =
-        savedList[0]?.url || data?.photoUrl || photos[0]?.url || '';
-      const resolvedPhotoLabel =
-        savedList[0]?.caption || photos[0]?.caption || 'Gambar Bukti Error';
+      const serverReport = data?.report;
 
-      const newReportItem = {
-        id: `rep-${Date.now()}`,
-        title: `Keluhan pada ${featureArea}`,
-        featureArea,
-        severity: severityLabel,
-        reportedAt: '23 Nov 2026',
-        status: 'Baru Dikirim',
-        description: trimmed,
-        photoLabel: resolvedPhotoLabel,
-        photoCount: savedList.length > 0 ? savedList.length : photos.length,
-        photoUrl: resolvedPhotoUrl,
-        adminReply: null,
-      };
+      if (serverReport) {
+        setReports((prev) => [serverReport, ...prev]);
+      } else {
+        setReports((prev) => [
+          {
+            id: `rep-${Date.now()}`,
+            username: studentUsername,
+            title: `Keluhan pada ${featureArea}`,
+            featureArea,
+            severity: severityLabel,
+            reportedAt: '23 Nov 2026',
+            status: 'Baru Dikirim',
+            description: trimmed,
+            photoLabel: photos[0]?.caption || 'Gambar Bukti Error',
+            photoCount: photos.length,
+            photoUrl: photos[0]?.url || '',
+            adminReply: null,
+          },
+          ...prev,
+        ]);
+      }
 
-      setReports((prev) => [newReportItem, ...prev]);
       setReportText('');
       setPhotos([]);
       setFeedbackBanner(
-        'Report error/bug berhasil dikirim dan foto disimpan ke folder public/pictures/reports.'
+        'Report error/bug berhasil dikirim ke halaman report admin dan foto disimpan ke folder public/pictures/reports.'
       );
       router.refresh();
     } finally {
@@ -257,12 +248,11 @@ export default function StudentReviewsClient(props = {}) {
               <span>Laporan Kendala Sistem</span>
             </span>
 
-            <span className="text-[11px] font-semibold text-[#341D17]/55">
-              Student Portal • Yugyo Atelier
+            <span className="text-[11px] font-semibold text-[#341D17]/60">
+              Pengirim: <strong>{studentUsername}</strong>
             </span>
           </div>
 
-          {/* PILIH BAGIAN / FITUR WEBSITE */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs sm:text-sm font-bold text-[#341D17]">
@@ -294,7 +284,6 @@ export default function StudentReviewsClient(props = {}) {
             </div>
           </div>
 
-          {/* TINGKAT KEPARAHAN ERROR */}
           <div className="space-y-2">
             <label
               htmlFor="bug-severity-select"
@@ -316,7 +305,6 @@ export default function StudentReviewsClient(props = {}) {
             </select>
           </div>
 
-          {/* DESKRIPSI KELUHAN ERROR / BUG */}
           <div className="space-y-2">
             <label
               htmlFor="student-bug-textarea"
@@ -342,7 +330,6 @@ export default function StudentReviewsClient(props = {}) {
             </div>
           </div>
 
-          {/* UPLOAD GAMBAR ERROR / BUG */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs sm:text-sm font-bold text-[#341D17]">
@@ -401,7 +388,6 @@ export default function StudentReviewsClient(props = {}) {
             </div>
           </div>
 
-          {/* TOMBOL KIRIM REPORT */}
           <div className="space-y-2 pt-1">
             <button
               type="submit"
@@ -412,7 +398,7 @@ export default function StudentReviewsClient(props = {}) {
               <span>{submitting ? 'Mengirim Report...' : 'Kirim Report Error'}</span>
             </button>
             <p className="text-center text-[11px] text-[#341D17]/50">
-              Laporan beserta gambar bukti error akan disimpan ke folder public/pictures/reports.
+              Laporan beserta gambar bukti error akan disimpan ke folder public/pictures/reports dan muncul di halaman report admin.
             </p>
           </div>
         </form>
@@ -444,8 +430,7 @@ export default function StudentReviewsClient(props = {}) {
                       {item.title}
                     </h3>
                     <p className="text-xs text-[#341D17]/55">
-                      {item.featureArea} &bull; Prioritas {item.severity} &bull;{' '}
-                      {item.reportedAt}
+                      Pengirim: <strong>{item.username || studentUsername}</strong> &bull; {item.featureArea} &bull; Prioritas {item.severity} &bull; {item.reportedAt}
                     </p>
                   </div>
 
