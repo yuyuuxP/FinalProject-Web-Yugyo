@@ -1,91 +1,104 @@
-import Link from 'next/link';
+import pool from '@/lib/db';
+import CreateCategoryModal from '@/components/admin/CreateCategoryModal';
 
-export default function CreateCategoryPage() {
-  return (
-    <div className="fixed inset-0 z-50 bg-[#341D17]/45 backdrop-blur-xs overflow-y-auto flex items-start justify-center px-4 py-6 sm:py-10">
-      <div className="w-full max-w-xl bg-[#FFFDF9] rounded-3xl shadow-2xl border border-[#341D17]/20 overflow-hidden my-auto">
-        
-        {/* HEADER MODAL */}
-        <div className="px-6 py-4 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-extrabold tracking-[0.18em] uppercase text-[#802924]">
-              🥐 ATELIER TAXONOMY • TAMBAH
-            </span>
-            <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
-              Buat Kategori Baru
-            </h2>
-          </div>
+export const dynamic = 'force-dynamic';
 
-          <Link
-            href="/dashboard/admin/categories"
-            aria-label="Tutup"
-            className="w-8 h-8 rounded-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] flex items-center justify-center text-xs font-bold transition shadow-xs"
-          >
-            ✕
-          </Link>
-        </div>
-
-        {/* BODY FORM (Menggunakan encType multipart/form-data) */}
-        <form 
-          action="/api/admin/categories" 
-          method="POST" 
-          encType="multipart/form-data"
-          className="p-6 sm:p-8 space-y-5 bg-[#FFFDF9]"
-        >
-          {/* Nama Kategori */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-              Nama Kategori
-            </label>
-            <input
-              type="text"
-              name="name"
-              required
-              placeholder="Contoh: French Viennoiserie"
-              className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
-            />
-          </div>
-
-          {/* Upload Foto Profil Kategori */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-              Foto Profil / Ikon Kategori
-            </label>
-            <input
-              type="file"
-              name="image_file"
-              accept="image/*"
-              className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-3 py-2 text-xs text-[#341D17] file:mr-3 file:py-1 file:px-2.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#802924] file:text-[#F9DDBB] hover:file:bg-[#661F1B] transition shadow-2xs cursor-pointer"
-            />
-          </div>
-
-          {/* Deskripsi Taksonomi */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-              Deskripsi Taksonomi
-            </label>
-            <textarea
-              name="description"
-              rows={3}
-              placeholder="Tuliskan penjelasan singkat mengenai taksonomi kategori ini..."
-              className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs resize-none"
-            />
-          </div>
-
-          {/* Submit Button */}
-          <div className="pt-2">
-            <button
-              type="submit"
-              className="w-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-sm py-3.5 px-6 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>＋</span>
-              <span>Simpan Kategori Baru</span>
-            </button>
-          </div>
-
-        </form>
-
-      </div>
-    </div>
+async function getTableColumns(tableName) {
+  const res = await pool.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = $1;`,
+    [tableName]
   );
+  return new Set((res.rows || []).map((r) => r.column_name));
+}
+
+export default async function CreateCategoryPage() {
+  const userCols = await getTableColumns('users');
+  const categoryCols = await getTableColumns('categories');
+  const courseCols = await getTableColumns('courses');
+
+  const specialtyExpr = userCols.has('specialty')
+    ? 'u.specialty'
+    : 'NULL::text AS specialty';
+  const statusExpr = userCols.has('status')
+    ? 'u.status'
+    : "'active'::text AS status";
+  const statusFilter = userCols.has('status')
+    ? "AND LOWER(COALESCE(u.status, 'active')) <> 'pending'"
+    : '';
+
+  const teachersRes = await pool.query(
+    `SELECT
+      u.id,
+      u.full_name,
+      ${specialtyExpr},
+      u.role,
+      ${statusExpr}
+    FROM users u
+    WHERE LOWER(COALESCE(u.role, '')) IN ('teacher', 'instructor', 'guru')
+      ${statusFilter}
+    ORDER BY u.full_name ASC;`
+  );
+
+  const assignedMap = {};
+
+  if (categoryCols.size > 0) {
+    const teacherLinkCols = [
+      'lead_instructor_id',
+      'instructor_id',
+      'teacher_id',
+      'user_id',
+    ].filter((col) => categoryCols.has(col));
+
+    if (teacherLinkCols.length > 0) {
+      const selectCols = ['id', 'name', ...teacherLinkCols].join(', ');
+      const catRes = await pool.query(`SELECT ${selectCols} FROM categories;`);
+
+      for (const row of catRes.rows || []) {
+        for (const col of teacherLinkCols) {
+          const val = row[col];
+          if (val !== null && val !== undefined && val !== '') {
+            assignedMap[String(val)] = row.name || 'Kategori lain';
+          }
+        }
+      }
+    }
+
+    if (
+      Object.keys(assignedMap).length === 0 &&
+      courseCols.has('category_id') &&
+      courseCols.has('instructor_id')
+    ) {
+      const relRes = await pool.query(
+        `SELECT DISTINCT
+          c.instructor_id,
+          cat.name AS category_name
+         FROM courses c
+         INNER JOIN categories cat ON cat.id = c.category_id
+         WHERE c.instructor_id IS NOT NULL;`
+      );
+
+      for (const r of relRes.rows || []) {
+        if (r.instructor_id) {
+          assignedMap[String(r.instructor_id)] =
+            r.category_name || 'Kategori lain';
+        }
+      }
+    }
+  }
+
+  const teachers = (teachersRes.rows || [])
+    .filter((t) => String(t.status || '').toLowerCase() !== 'pending')
+    .map((t) => {
+      const assignedCategoryName = assignedMap[String(t.id)] || null;
+      return {
+        ...t,
+        assigned_category_name: assignedCategoryName,
+        is_assigned: Boolean(assignedCategoryName),
+      };
+    });
+
+  return <CreateCategoryModal teachers={teachers} />;
 }
