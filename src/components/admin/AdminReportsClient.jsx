@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+const AUTO_REPLY_MESSAGE =
+  'Terima kasih telah melaporkan! Laporanmu telah kami tanggapi dan atasi.';
+
 const DEFAULT_KELUHAN_ITEMS = [
   {
     id: 'adm-keluhan-1003',
@@ -24,7 +27,7 @@ const DEFAULT_KELUHAN_ITEMS = [
     code: '#STU-1001',
     title: 'Permintaan Ubah Jadwal Sesi Sourdough',
     reportedAt: 'Baru saja',
-    status: 'SELESAI',
+    status: 'Selesai',
     description:
       'Halo Chef, apakah saya bisa memindahkan jadwal pembuktian adonan ke akhir pekan karena ada kendala mendadak?',
     photoUrl: '',
@@ -38,7 +41,7 @@ const DEFAULT_KELUHAN_ITEMS = [
     code: '#STU-1002',
     title: 'Konsultasi Rasio Tepung Protein Tinggi',
     reportedAt: 'Baru saja',
-    status: 'SELESAI',
+    status: 'Selesai',
     description:
       'Terima kasih atas tanggapan cepatnya kemarin, rasio air pada adonan viennoiserie saya sekarang sudah jauh lebih stabil.',
     photoUrl: '',
@@ -56,6 +59,10 @@ function getInitials(name) {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
   return clean.slice(0, 2).toUpperCase();
+}
+
+function isCompletedStatus(status) {
+  return String(status || '').trim().toLowerCase() === 'selesai';
 }
 
 function extractReportsFromStorage() {
@@ -121,8 +128,6 @@ export default function AdminReportsClient(props = {}) {
   const [studentSubmittedReports, setStudentSubmittedReports] =
     useState(seedReports);
   const [searchQuery, setSearchQuery] = useState('');
-  const [replyingId, setReplyingId] = useState(null);
-  const [replyDraft, setReplyDraft] = useState('');
   const [customReplies, setCustomReplies] = useState({});
   const [customStatuses, setCustomStatuses] = useState({});
   const [savingId, setSavingId] = useState(null);
@@ -181,10 +186,14 @@ export default function AdminReportsClient(props = {}) {
 
       const rawStatus = String(
         customStatuses[id] || item.status || 'BELUM DIBACA'
-      ).toUpperCase();
+      ).trim();
 
       const normalizedStatus =
-        rawStatus === 'BARU DIKIRIM' ? 'BELUM DIBACA' : rawStatus;
+        rawStatus.toUpperCase() === 'BARU DIKIRIM'
+          ? 'BELUM DIBACA'
+          : isCompletedStatus(rawStatus)
+            ? 'Selesai'
+            : rawStatus.toUpperCase();
 
       mappedFresh.push({
         id,
@@ -205,11 +214,16 @@ export default function AdminReportsClient(props = {}) {
       });
     });
 
-    const mappedSeed = DEFAULT_KELUHAN_ITEMS.map((item) => ({
-      ...item,
-      status: String(customStatuses[item.id] || item.status).toUpperCase(),
-      adminReply: customReplies[item.id] || item.adminReply || null,
-    }));
+    const mappedSeed = DEFAULT_KELUHAN_ITEMS.map((item) => {
+      const nextStatus = customStatuses[item.id] || item.status;
+      return {
+        ...item,
+        status: isCompletedStatus(nextStatus)
+          ? 'Selesai'
+          : String(nextStatus || '').toUpperCase(),
+        adminReply: customReplies[item.id] || item.adminReply || null,
+      };
+    });
 
     return [...mappedFresh, ...mappedSeed];
   }, [studentSubmittedReports, customStatuses, customReplies]);
@@ -220,17 +234,14 @@ export default function AdminReportsClient(props = {}) {
   );
 
   const openKeluhanCount = useMemo(
-    () =>
-      allKeluhan.filter(
-        (k) => String(k.status || '').toUpperCase() === 'BELUM DIBACA'
-      ).length,
+    () => allKeluhan.filter((k) => !isCompletedStatus(k.status)).length,
     [allKeluhan]
   );
 
   const completionRate = useMemo(() => {
     if (allKeluhan.length === 0) return '0.0%';
-    const doneCount = allKeluhan.filter(
-      (k) => String(k.status || '').toUpperCase() === 'SELESAI'
+    const doneCount = allKeluhan.filter((k) =>
+      isCompletedStatus(k.status)
     ).length;
     return `${((doneCount / allKeluhan.length) * 100).toFixed(1)}%`;
   }, [allKeluhan]);
@@ -254,51 +265,31 @@ export default function AdminReportsClient(props = {}) {
     );
   }, [allKeluhan, searchQuery]);
 
-  const handleSaveReply = async (itemId, senderRole = 'Admin Yugyo') => {
-    const cleanText = replyDraft.trim();
-    if (!cleanText || savingId) return;
+  const handleTanggapiReport = async (itemId) => {
+    if (savingId === itemId) return;
     setSavingId(itemId);
+
+    setCustomReplies((prev) => ({
+      ...prev,
+      [itemId]: {
+        name: 'Admin Yugyo Atelier',
+        message: AUTO_REPLY_MESSAGE,
+      },
+    }));
+    setCustomStatuses((prev) => ({
+      ...prev,
+      [itemId]: 'Selesai',
+    }));
 
     try {
       await fetch(`/api/admin/reports/${itemId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          replyMessage: cleanText,
-          status: 'SELESAI',
+          replyMessage: AUTO_REPLY_MESSAGE,
+          status: 'Selesai',
         }),
       }).catch(() => null);
-
-      setCustomReplies((prev) => ({
-        ...prev,
-        [itemId]: { name: senderRole, message: cleanText },
-      }));
-      setCustomStatuses((prev) => ({
-        ...prev,
-        [itemId]: 'SELESAI',
-      }));
-      setReplyingId(null);
-      setReplyDraft('');
-      router.refresh();
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  const handleEscalateTech = async (itemId) => {
-    if (savingId) return;
-    setSavingId(itemId);
-    try {
-      await fetch(`/api/admin/reports/${itemId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'TIM TEKNIS' }),
-      }).catch(() => null);
-
-      setCustomStatuses((prev) => ({
-        ...prev,
-        [itemId]: 'TIM TEKNIS',
-      }));
       router.refresh();
     } finally {
       setSavingId(null);
@@ -419,8 +410,10 @@ export default function AdminReportsClient(props = {}) {
         <div className="space-y-3.5">
           {filteredKeluhan.map((item) => {
             const senderUsername = item.username || 'Salwa';
-            const isUnread =
-              String(item.status || '').toUpperCase() === 'BELUM DIBACA';
+            const isDone = isCompletedStatus(item.status);
+            const statusLabel = isDone
+              ? 'Selesai'
+              : String(item.status || 'BELUM DIBACA').toUpperCase();
 
             return (
               <div
@@ -452,13 +445,13 @@ export default function AdminReportsClient(props = {}) {
 
                   <div className="flex items-center gap-2 shrink-0">
                     <span
-                      className={`rounded px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${
-                        isUnread
-                          ? 'bg-[#F9DDBB]/85 text-[#802924]'
-                          : 'bg-[#FAF6F0] text-[#4E7A4E]'
+                      className={`rounded px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${
+                        isDone
+                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                          : 'bg-[#F9DDBB]/85 text-[#802924]'
                       }`}
                     >
-                      {String(item.status || 'BELUM DIBACA').toUpperCase()}
+                      {statusLabel}
                     </span>
                     <span className="text-[11px] text-[#341D17]/45">
                       {item.reportedAt || 'Baru saja'}
@@ -489,55 +482,25 @@ export default function AdminReportsClient(props = {}) {
                 )}
 
                 {item.adminReply && (
-                  <div className="rounded-2xl bg-[#FAF6F0] border-l-2 border-[#802924] px-4 py-2.5 text-xs text-[#341D17]/80">
+                  <div className="rounded-2xl bg-emerald-50/70 border-l-2 border-emerald-600 px-4 py-2.5 text-xs text-[#341D17]/85">
                     <strong>{item.adminReply.name}:</strong> &ldquo;
                     {item.adminReply.message}&rdquo;
                   </div>
                 )}
 
-                {replyingId === item.id && (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={replyDraft}
-                      onChange={(e) => setReplyDraft(e.target.value)}
-                      placeholder={`Tulis tanggapan untuk ${senderUsername}...`}
-                      className="flex-1 rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3 py-2 text-xs text-[#341D17] focus:border-[#802924] focus:outline-none"
-                    />
+                {!isDone && (
+                  <div className="pt-1">
                     <button
                       type="button"
                       disabled={savingId === item.id}
-                      onClick={() => handleSaveReply(item.id, 'Admin Yugyo')}
-                      className="rounded-xl bg-[#802924] hover:bg-[#661F1B] px-3.5 py-2 text-xs font-bold text-[#FFFDF9] cursor-pointer disabled:opacity-60"
+                      onClick={() => handleTanggapiReport(item.id)}
+                      className="w-full rounded-xl bg-[#802924] hover:bg-[#661F1B] py-2.5 px-4 text-xs sm:text-sm font-bold text-[#FFFDF9] flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-60"
                     >
-                      Kirim
+                      <span>&#128172;</span>
+                      <span>Tanggapi Report</span>
                     </button>
                   </div>
                 )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReplyingId(replyingId === item.id ? null : item.id);
-                      setReplyDraft('');
-                    }}
-                    className="rounded-xl bg-[#802924] hover:bg-[#661F1B] py-2.5 px-4 text-xs sm:text-sm font-bold text-[#FFFDF9] flex items-center justify-center gap-2 transition cursor-pointer"
-                  >
-                    <span>&#128172;</span>
-                    <span>Tanggapi Siswa</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={savingId === item.id}
-                    onClick={() => handleEscalateTech(item.id)}
-                    className="rounded-xl bg-[#F9DDBB]/65 hover:bg-[#F9DDBB] py-2.5 px-4 text-xs sm:text-sm font-bold text-[#802924] flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-60"
-                  >
-                    <span>&#128736;</span>
-                    <span>Tim Teknis</span>
-                  </button>
-                </div>
               </div>
             );
           })}

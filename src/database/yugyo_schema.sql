@@ -317,3 +317,11 @@ ADD COLUMN IF NOT EXISTS image_proof VARCHAR(255);
 ALTER TABLE reports
 ADD COLUMN IF NOT EXISTS admin_reply TEXT;
 
+-- Tambahkan kolom pendukung untuk menyimpan report student secara permanen
+ALTER TABLE reports
+ADD COLUMN IF NOT EXISTS severity VARCHAR(50) DEFAULT 'Tinggi · Fitur Tidak Berfungsi',
+ADD COLUMN IF NOT EXISTS image_proof TEXT,
+ADD COLUMN IF NOT EXISTS admin_reply TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_reports_created_at_desc ON reports (created_at DESC, id DESC);
+
