@@ -18,6 +18,25 @@ const SEVERITY_OPTIONS = [
   { value: 'critical', label: 'Kritis • Halaman Error / Terblokir' },
 ];
 
+const BLOCKED_LABELS = new Set([
+  'yugyo',
+  'yugyo atelier',
+  'student portal',
+  'student baker atelier',
+  'lihat katalog guest',
+  'dashboard',
+  'course',
+  'schedule',
+  'chat instructor',
+  'ulasan',
+  'log out',
+  'logout',
+  'laporan kendala sistem',
+  'pengirim',
+  'buat report baru',
+  'riwayat report',
+]);
+
 function extractList(source, keys) {
   if (Array.isArray(source)) return source;
   if (source && typeof source === 'object') {
@@ -28,17 +47,215 @@ function extractList(source, keys) {
   return [];
 }
 
+function isBlockedName(value) {
+  const clean = String(value || '').trim();
+  if (!clean) return true;
+  const lower = clean.toLowerCase();
+  if (BLOCKED_LABELS.has(lower)) return true;
+  if (lower.includes('admin') || lower.includes('teacher') || lower.includes('instructor')) {
+    return true;
+  }
+  if (clean.length > 40 || /\s{2,}/.test(clean)) return true;
+  return false;
+}
+
+function pickNameFromObj(obj) {
+  if (!obj || typeof obj !== 'object') return '';
+  const candidates = [
+    obj.username,
+    obj.user_name,
+    obj.userName,
+    obj.full_name,
+    obj.fullName,
+    obj.name,
+  ];
+  for (const raw of candidates) {
+    const clean = String(raw || '').trim();
+    if (!isBlockedName(clean)) return clean;
+  }
+  return '';
+}
+
+function scanStorageForUser(storage) {
+  if (!storage) return '';
+  try {
+    for (let i = 0; i < storage.length; i += 1) {
+      const key = storage.key(i) || '';
+      const raw = storage.getItem(key);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') continue;
+
+        const role = String(
+          parsed.role ||
+            parsed.user?.role ||
+            parsed.currentUser?.role ||
+            parsed.data?.role ||
+            ''
+        ).toLowerCase();
+        if (role === 'admin' || role === 'teacher' || role === 'instructor') {
+          continue;
+        }
+
+        const found =
+          pickNameFromObj(parsed) ||
+          pickNameFromObj(parsed.user) ||
+          pickNameFromObj(parsed.currentUser) ||
+          pickNameFromObj(parsed.data) ||
+          pickNameFromObj(parsed.data?.user);
+
+        if (found) return found;
+      } catch {
+        // Abaikan nilai non-JSON
+      }
+    }
+  } catch {
+    // Abaikan error akses storage
+  }
+  return '';
+}
+
+function scanCookiesForUser() {
+  if (typeof document === 'undefined' || !document.cookie) return '';
+  try {
+    const parts = document.cookie.split(';');
+    for (const part of parts) {
+      const idx = part.indexOf('=');
+      if (idx === -1) continue;
+      const rawVal = decodeURIComponent(part.slice(idx + 1).trim());
+      if (!rawVal) continue;
+      try {
+        const parsed = JSON.parse(rawVal);
+        const role = String(
+          parsed?.role || parsed?.user?.role || ''
+        ).toLowerCase();
+        if (role === 'admin' || role === 'teacher' || role === 'instructor') {
+          continue;
+        }
+        const found = pickNameFromObj(parsed) || pickNameFromObj(parsed?.user);
+        if (found) return found;
+      } catch {
+        // Abaikan cookie non-JSON
+      }
+    }
+  } catch {
+    // Abaikan error cookie
+  }
+  return '';
+}
+
+function detectLoggedInUsernameFromDom() {
+  if (typeof document === 'undefined') return '';
+  try {
+    const nodes = document.querySelectorAll('aside p, aside span, aside div, header p, header span, header div');
+    for (const el of nodes) {
+      if (el.children.length > 0) continue;
+      const text = String(el.textContent || '').trim();
+      if (!text || text.length < 2 || text.length > 24) continue;
+      if (isBlockedName(text)) continue;
+
+      const parentText = String(el.parentElement?.textContent || '').toLowerCase();
+      if (
+        parentText.includes('student baker atelier') ||
+        parentText.includes('student')
+      ) {
+        return text;
+      }
+    }
+  } catch {
+    // Abaikan error baca DOM
+  }
+  return '';
+}
+
+function getInitialUsername(props) {
+  const fromProps =
+    String(props.username || '').trim() ||
+    pickNameFromObj(props.currentUser) ||
+    pickNameFromObj(props.user);
+
+  if (fromProps && !isBlockedName(fromProps)) return fromProps;
+  return 'Student';
+}
+
+function resolveActiveUsername(props) {
+  const fromProps =
+    String(props.username || '').trim() ||
+    pickNameFromObj(props.currentUser) ||
+    pickNameFromObj(props.user);
+
+  if (fromProps && !isBlockedName(fromProps)) return fromProps;
+
+  if (typeof window !== 'undefined') {
+    const fromLocal = scanStorageForUser(window.localStorage);
+    if (fromLocal) return fromLocal;
+
+    const fromSession = scanStorageForUser(window.sessionStorage);
+    if (fromSession) return fromSession;
+
+    const fromCookie = scanCookiesForUser();
+    if (fromCookie) return fromCookie;
+
+    const fromDom = detectLoggedInUsernameFromDom();
+    if (fromDom) return fromDom;
+  }
+
+  return 'Student';
+}
+
 export default function StudentReviewsClient(props = {}) {
   const router = useRouter();
   const fileInputRef = useRef(null);
 
-  const studentUsername = useMemo(() => {
-    return (
-      props.username ||
-      props.currentUser?.username ||
-      props.user?.username ||
-      'Salwa'
-    );
+  const [studentUsername, setStudentUsername] = useState(() =>
+    getInitialUsername(props)
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncUsername = () => {
+      const detected = resolveActiveUsername(props);
+      if (!cancelled && detected) {
+        setStudentUsername(detected);
+      }
+    };
+
+    const timer = setTimeout(syncUsername, 0);
+
+    const sessionEndpoints = [
+      '/api/auth/session',
+      '/api/auth/me',
+      '/api/session',
+    ];
+
+    Promise.all(
+      sessionEndpoints.map((url) =>
+        fetch(url, { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json().catch(() => null) : null))
+          .catch(() => null)
+      )
+    ).then((results) => {
+      if (cancelled) return;
+      for (const data of results) {
+        if (!data || typeof data !== 'object') continue;
+        const found =
+          pickNameFromObj(data) ||
+          pickNameFromObj(data.user) ||
+          pickNameFromObj(data.session?.user) ||
+          pickNameFromObj(data.data?.user);
+        if (found) {
+          setStudentUsername(found);
+          return;
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [props]);
 
   const initialReports = useMemo(() => {
@@ -56,6 +273,7 @@ export default function StudentReviewsClient(props = {}) {
   const [photos, setPhotos] = useState([]);
   const [reports, setReports] = useState(initialReports);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [feedbackBanner, setFeedbackBanner] = useState('');
 
   useEffect(() => {
@@ -102,6 +320,31 @@ export default function StudentReviewsClient(props = {}) {
     e.target.value = '';
   };
 
+  const handleDeleteHistoryItem = async (reportId) => {
+    if (deletingId === reportId) return;
+    setDeletingId(reportId);
+    setFeedbackBanner('');
+
+    setReports((prev) => prev.filter((r) => String(r.id) !== String(reportId)));
+
+    try {
+      const res = await fetch(`/api/student/reports/${reportId}`, {
+        method: 'DELETE',
+      }).catch(() => null);
+
+      if (!res || !res.ok) {
+        await fetch(`/api/admin/reports/${reportId}`, {
+          method: 'DELETE',
+        }).catch(() => null);
+      }
+
+      setFeedbackBanner('Riwayat report berhasil dihapus.');
+      router.refresh();
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const handleSubmitReport = async (e) => {
     e.preventDefault();
     if (submitting) return;
@@ -117,13 +360,17 @@ export default function StudentReviewsClient(props = {}) {
     setSubmitting(true);
     setFeedbackBanner('');
 
+    const activeSender = resolveActiveUsername(props) || studentUsername;
+    setStudentUsername(activeSender);
+
     const severityLabel =
       SEVERITY_OPTIONS.find((item) => item.value === severity)?.label.split(' • ')[0] ||
       'Sedang';
 
     const payload = {
       type: 'bug_report',
-      username: studentUsername,
+      username: activeSender,
+      student_name: activeSender,
       featureArea,
       severity,
       severityLabel,
@@ -142,16 +389,20 @@ export default function StudentReviewsClient(props = {}) {
       const serverReport = data?.report;
 
       if (serverReport) {
-        setReports((prev) => [serverReport, ...prev]);
+        const normalizedReport = {
+          ...serverReport,
+          username: serverReport.username || activeSender,
+        };
+        setReports((prev) => [normalizedReport, ...prev]);
       } else {
         setReports((prev) => [
           {
             id: `rep-${Date.now()}`,
-            username: studentUsername,
+            username: activeSender,
             title: `Keluhan pada ${featureArea}`,
             featureArea,
             severity: severityLabel,
-            reportedAt: '23 Nov 2026',
+            reportedAt: '24 Nov 2026',
             status: 'Baru Dikirim',
             description: trimmed,
             photoLabel: photos[0]?.caption || 'Gambar Bukti Error',
@@ -166,7 +417,7 @@ export default function StudentReviewsClient(props = {}) {
       setReportText('');
       setPhotos([]);
       setFeedbackBanner(
-        'Report error/bug berhasil dikirim ke halaman report admin dan foto disimpan ke folder public/pictures/reports.'
+        `Report error/bug atas nama ${activeSender} berhasil dikirim ke halaman report admin.`
       );
       router.refresh();
     } finally {
@@ -176,7 +427,6 @@ export default function StudentReviewsClient(props = {}) {
 
   return (
     <div className="space-y-6 text-[#341D17] pb-8">
-      {/* HEADER HALAMAN REPORT */}
       <div className="space-y-2">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F9DDBB]/75 border border-[#802924]/15 px-3 py-1 text-[11px] font-bold text-[#802924]">
           <span>&#9888;</span>
@@ -191,7 +441,6 @@ export default function StudentReviewsClient(props = {}) {
         </p>
       </div>
 
-      {/* SWITCH MODE: BUAT REPORT BARU & RIWAYAT REPORT */}
       <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-1.5 grid grid-cols-2 gap-1.5 shadow-2xs">
         <button
           type="button"
@@ -236,7 +485,6 @@ export default function StudentReviewsClient(props = {}) {
         </div>
       )}
 
-      {/* MODE 1: FORM REPORT ERROR / BUG */}
       {activeTab === 'new' && (
         <form
           onSubmit={handleSubmitReport}
@@ -249,7 +497,7 @@ export default function StudentReviewsClient(props = {}) {
             </span>
 
             <span className="text-[11px] font-semibold text-[#341D17]/60">
-              Pengirim: <strong>{studentUsername}</strong>
+              Pengirim: <strong suppressHydrationWarning>{studentUsername}</strong>
             </span>
           </div>
 
@@ -404,7 +652,6 @@ export default function StudentReviewsClient(props = {}) {
         </form>
       )}
 
-      {/* MODE 2: RIWAYAT REPORT SAYA */}
       {activeTab === 'history' && (
         <div className="space-y-3.5">
           <div className="flex items-center justify-between gap-3">
@@ -418,70 +665,87 @@ export default function StudentReviewsClient(props = {}) {
             </div>
           </div>
 
-          <div className="space-y-3.5">
-            {reports.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 space-y-3.5 shadow-2xs"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <h3 className="text-sm sm:text-base font-bold text-[#341D17]">
-                      {item.title}
-                    </h3>
-                    <p className="text-xs text-[#341D17]/55">
-                      Pengirim: <strong>{item.username || studentUsername}</strong> &bull; {item.featureArea} &bull; Prioritas {item.severity} &bull; {item.reportedAt}
-                    </p>
+          {reports.length === 0 ? (
+            <div className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-6 text-center text-xs sm:text-sm text-[#341D17]/60">
+              Belum ada riwayat report pada akun {studentUsername}.
+            </div>
+          ) : (
+            <div className="space-y-3.5">
+              {reports.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 space-y-3.5 shadow-2xs"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <h3 className="text-sm sm:text-base font-bold text-[#341D17]">
+                        {item.title}
+                      </h3>
+                      <p className="text-xs text-[#341D17]/55">
+                        Pengirim: <strong suppressHydrationWarning>{item.username || studentUsername}</strong> &bull; {item.featureArea} &bull; Prioritas {item.severity} &bull; {item.reportedAt}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#F9DDBB]/80 border border-[#802924]/20 px-2.5 py-1 text-[11px] font-bold text-[#802924]">
+                        <span>{item.status || 'Tercatat'}</span>
+                      </span>
+
+                      <button
+                        type="button"
+                        disabled={deletingId === item.id}
+                        onClick={() => handleDeleteHistoryItem(item.id)}
+                        className="rounded-full border border-[#802924]/25 bg-[#FAF6F0] hover:bg-[#802924] hover:text-[#FFFDF9] px-2.5 py-1 text-[11px] font-bold text-[#802924] transition cursor-pointer disabled:opacity-50"
+                      >
+                        {deletingId === item.id ? 'Menghapus...' : 'Hapus'}
+                      </button>
+                    </div>
                   </div>
 
-                  <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[#F9DDBB]/80 border border-[#802924]/20 px-2.5 py-1 text-[11px] font-bold text-[#802924]">
-                    <span>{item.status || 'Tercatat'}</span>
-                  </span>
+                  <p className="text-xs sm:text-sm leading-relaxed text-[#341D17]/80">
+                    {item.description}
+                  </p>
+
+                  {item.photoUrl && (
+                    <div className="rounded-2xl bg-[#FAF6F0] border border-[#341D17]/8 p-2.5 flex items-center gap-3">
+                      <img
+                        src={item.photoUrl}
+                        alt={item.photoLabel || 'Bukti gambar error'}
+                        className="w-12 h-12 rounded-xl object-cover shrink-0 border border-[#341D17]/10"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-[#341D17] truncate">
+                          {item.photoLabel || 'Bukti Gambar Error'}
+                        </p>
+                        <p className="text-[11px] text-[#341D17]/55">
+                          {item.photoCount || 1} Gambar error dilampirkan
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {item.adminReply && (
+                    <div className="rounded-2xl bg-[#FAF6F0] border-l-2 border-[#802924] p-3.5 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-[#802924] text-white text-[10px] font-extrabold flex items-center justify-center shrink-0">
+                          {item.adminReply.initials || 'YT'}
+                        </span>
+                        <span className="text-xs font-bold text-[#341D17]">
+                          {item.adminReply.name}
+                        </span>
+                        <span className="rounded bg-[#F9DDBB] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-[#802924]">
+                          RESPON
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#341D17]/75 pl-8">
+                        &ldquo;{item.adminReply.message}&rdquo;
+                      </p>
+                    </div>
+                  )}
                 </div>
-
-                <p className="text-xs sm:text-sm leading-relaxed text-[#341D17]/80">
-                  {item.description}
-                </p>
-
-                {item.photoUrl && (
-                  <div className="rounded-2xl bg-[#FAF6F0] border border-[#341D17]/8 p-2.5 flex items-center gap-3">
-                    <img
-                      src={item.photoUrl}
-                      alt={item.photoLabel || 'Bukti gambar error'}
-                      className="w-12 h-12 rounded-xl object-cover shrink-0 border border-[#341D17]/10"
-                    />
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-[#341D17] truncate">
-                        {item.photoLabel || 'Bukti Gambar Error'}
-                      </p>
-                      <p className="text-[11px] text-[#341D17]/55">
-                        {item.photoCount || 1} Gambar error dilampirkan
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {item.adminReply && (
-                  <div className="rounded-2xl bg-[#FAF6F0] border-l-2 border-[#802924] p-3.5 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-[#802924] text-white text-[10px] font-extrabold flex items-center justify-center shrink-0">
-                        {item.adminReply.initials || 'YT'}
-                      </span>
-                      <span className="text-xs font-bold text-[#341D17]">
-                        {item.adminReply.name}
-                      </span>
-                      <span className="rounded bg-[#F9DDBB] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-[#802924]">
-                        RESPON
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#341D17]/75 pl-8">
-                      &ldquo;{item.adminReply.message}&rdquo;
-                    </p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

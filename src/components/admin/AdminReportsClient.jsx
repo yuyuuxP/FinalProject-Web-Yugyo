@@ -182,7 +182,7 @@ export default function AdminReportsClient(props = {}) {
         item.student_name ||
         item.studentName ||
         item.full_name ||
-        'Salwa';
+        'Student';
 
       const rawStatus = String(
         customStatuses[id] || item.status || 'BELUM DIBACA'
@@ -298,7 +298,6 @@ export default function AdminReportsClient(props = {}) {
 
   return (
     <div className="space-y-5 text-[#341D17] pb-8">
-      {/* HEADER ATELIER QUALITY ASSURANCE */}
       <div className="space-y-1">
         <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
           <span>&#9888;</span>
@@ -312,7 +311,6 @@ export default function AdminReportsClient(props = {}) {
         </p>
       </div>
 
-      {/* 4 KARTU STATISTIK */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/10 p-4 space-y-2 shadow-2xs">
           <div className="flex items-center justify-between">
@@ -385,7 +383,6 @@ export default function AdminReportsClient(props = {}) {
         </div>
       </div>
 
-      {/* PENCARIAN */}
       <div>
         <input
           type="text"
@@ -396,7 +393,6 @@ export default function AdminReportsClient(props = {}) {
         />
       </div>
 
-      {/* TINDAKAN MENDESAK (KELUHAN SISWA) */}
       <div className="space-y-3.5 pt-1">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-editorial text-lg font-bold text-[#341D17]">
@@ -409,7 +405,7 @@ export default function AdminReportsClient(props = {}) {
 
         <div className="space-y-3.5">
           {filteredKeluhan.map((item) => {
-            const senderUsername = item.username || 'Salwa';
+            const senderUsername = item.username || 'Student';
             const isDone = isCompletedStatus(item.status);
             const statusLabel = isDone
               ? 'Selesai'
