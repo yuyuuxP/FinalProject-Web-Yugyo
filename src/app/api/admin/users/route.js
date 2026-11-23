@@ -9,7 +9,53 @@ async function getTableColumns(tableName) {
        AND table_name = $1;`,
     [tableName]
   );
-  return new Set((res.rows || []).map((r) => r.column_name));
+  return new Set((res.rows || []).map((r) => String(r.column_name).toLowerCase()));
+}
+
+export async function GET() {
+  try {
+    const userCols = await getTableColumns('users');
+    const nameExpr = userCols.has('full_name')
+      ? 'u.full_name'
+      : userCols.has('name')
+      ? 'u.name AS full_name'
+      : "split_part(u.email, '@', 1) AS full_name";
+    const statusExpr = userCols.has('status')
+      ? "COALESCE(NULLIF(TRIM(u.status), ''), 'active')"
+      : "'active'";
+    const specialtyExpr = userCols.has('specialty')
+      ? 'u.specialty'
+      : 'NULL::text AS specialty';
+    const createdAtExpr = userCols.has('created_at')
+      ? 'u.created_at'
+      : 'NULL::timestamp AS created_at';
+
+    const result = await pool.query(
+      `SELECT
+        u.id,
+        ${nameExpr},
+        u.email,
+        COALESCE(NULLIF(TRIM(u.role), ''), 'student') AS role,
+        ${statusExpr} AS status,
+        ${specialtyExpr},
+        ${createdAtExpr}
+      FROM users u
+      WHERE LOWER(COALESCE(u.role, '')) <> 'admin'
+      ORDER BY u.id ASC;`
+    );
+
+    const users = (result.rows || []).filter(
+      (u) => String(u?.role || '').trim().toLowerCase() !== 'admin'
+    );
+
+    return NextResponse.json({ success: true, users }, { status: 200 });
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    return NextResponse.json(
+      { success: false, users: [], message: 'Gagal memuat daftar pengguna.' },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request) {
@@ -136,6 +182,9 @@ export async function POST(request) {
     if (userCols.has('full_name')) {
       insertCols.push('full_name');
       insertVals.push(fullName || email.split('@')[0]);
+    } else if (userCols.has('name')) {
+      insertCols.push('name');
+      insertVals.push(fullName || email.split('@')[0]);
     }
     if (userCols.has('email')) {
       insertCols.push('email');
@@ -167,13 +216,18 @@ export async function POST(request) {
     const createdRes = await pool.query(
       `INSERT INTO users (${insertCols.join(', ')})
        VALUES (${placeholders})
-       RETURNING id, full_name, email, role, status;`,
+       RETURNING id, email, role;`,
       insertVals
     );
 
     const createdUser = createdRes.rows[0];
 
-    if (role === 'teacher' && status !== 'pending' && selectedCategory && createdUser?.id) {
+    if (
+      role === 'teacher' &&
+      status !== 'pending' &&
+      selectedCategory &&
+      createdUser?.id
+    ) {
       const teacherLinkCols = [
         'lead_instructor_id',
         'instructor_id',
@@ -197,7 +251,11 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: true,
-        user: createdUser,
+        user: {
+          ...createdUser,
+          full_name: fullName || email.split('@')[0],
+          status,
+        },
         message: 'Pengguna baru berhasil didaftarkan.',
       },
       { status: 201 }

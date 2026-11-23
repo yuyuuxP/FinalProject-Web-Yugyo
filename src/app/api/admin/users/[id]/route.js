@@ -1,56 +1,209 @@
+import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
-// POST / PUT: Mengubah data user berdasarkan ID
-export async function POST(request, { params }) {
+async function getTableColumns(tableName) {
+  const res = await pool.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = $1;`,
+    [tableName]
+  );
+  return new Set((res.rows || []).map((r) => String(r.column_name).toLowerCase()));
+}
+
+function hashPassword(plainPassword) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derived = crypto.scryptSync(plainPassword, salt, 64).toString('hex');
+  return `${salt}:${derived}`;
+}
+
+export async function PATCH(request, { params }) {
   try {
     const { id } = await params;
-    const formData = await request.formData();
-    
-    const full_name = formData.get('full_name');
-    const email = formData.get('email');
-    const password = formData.get('password');
-    const role = formData.get('role');
-    const status = formData.get('status') || 'active';
-    const specialty = formData.get('specialty');
+    const numericId = Number(id);
 
-    if (!full_name || !email) {
-      return NextResponse.json({ error: 'Nama dan email wajib diisi' }, { status: 400 });
-    }
-
-    if (password && password.trim() !== '') {
-      await pool.query(
-        `UPDATE users 
-         SET full_name = $1, email = $2, password = crypt($3, gen_salt('bf')), role = $4, status = $5, specialty = $6 
-         WHERE id = $7;`,
-        [full_name, email, password, role, status, specialty, id]
-      );
-    } else {
-      await pool.query(
-        `UPDATE users 
-         SET full_name = $1, email = $2, role = $3, status = $4, specialty = $5 
-         WHERE id = $6;`,
-        [full_name, email, role, status, specialty, id]
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      return NextResponse.json(
+        { success: false, message: 'ID pengguna tidak valid.' },
+        { status: 400 }
       );
     }
 
-    return NextResponse.redirect(new URL('/dashboard/admin/users', request.url), 303);
+    const existingRes = await pool.query(
+      `SELECT * FROM users WHERE id = $1 LIMIT 1;`,
+      [numericId]
+    );
+
+    if (existingRes.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, message: 'Pengguna tidak ditemukan.' },
+        { status: 404 }
+      );
+    }
+
+    const existingUser = existingRes.rows[0];
+    if (String(existingUser?.role || '').trim().toLowerCase() === 'admin') {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Akun admin hanya boleh diedit melalui halaman Profile.',
+        },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const userCols = await getTableColumns('users');
+
+    const updates = [];
+    const values = [];
+
+    const nextUsername =
+      body.username !== undefined
+        ? String(body.username).trim()
+        : body.full_name !== undefined
+          ? String(body.full_name).trim()
+          : body.name !== undefined
+            ? String(body.name).trim()
+            : undefined;
+
+    if (nextUsername !== undefined && nextUsername.length > 0) {
+      if (userCols.has('username')) {
+        updates.push(`username = $${values.length + 1}`);
+        values.push(nextUsername);
+      }
+      if (userCols.has('full_name')) {
+        updates.push(`full_name = $${values.length + 1}`);
+        values.push(nextUsername);
+      } else if (userCols.has('name')) {
+        updates.push(`name = $${values.length + 1}`);
+        values.push(nextUsername);
+      }
+    }
+
+    if (body.email !== undefined && userCols.has('email')) {
+      const nextEmail = String(body.email).trim();
+      if (nextEmail.length > 0) {
+        updates.push(`email = $${values.length + 1}`);
+        values.push(nextEmail);
+      }
+    }
+
+    if (body.password !== undefined && String(body.password).trim().length > 0) {
+      const rawPass = String(body.password).trim();
+      const hashed = hashPassword(rawPass);
+      if (userCols.has('password_hash')) {
+        updates.push(`password_hash = $${values.length + 1}`);
+        values.push(hashed);
+      }
+      if (userCols.has('password')) {
+        updates.push(`password = $${values.length + 1}`);
+        values.push(hashed);
+      }
+    }
+
+    if (body.role !== undefined && userCols.has('role')) {
+      const nextRole = String(body.role).trim().toLowerCase();
+      if (nextRole === 'admin') {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Tidak dapat mengubah peran pengguna menjadi admin.',
+          },
+          { status: 400 }
+        );
+      }
+      updates.push(`role = $${values.length + 1}`);
+      values.push(nextRole);
+    }
+
+    if (body.status !== undefined && userCols.has('status')) {
+      const nextStatus = String(body.status).trim().toLowerCase();
+      updates.push(`status = $${values.length + 1}`);
+      values.push(nextStatus === 'pending' ? 'pending' : 'active');
+    }
+
+    if (body.specialty !== undefined && userCols.has('specialty')) {
+      updates.push(`specialty = $${values.length + 1}`);
+      values.push(String(body.specialty).trim() || null);
+    }
+
+    if (updates.length === 0) {
+      return NextResponse.json(
+        { success: true, user: existingUser },
+        { status: 200 }
+      );
+    }
+
+    values.push(numericId);
+    const updatedRes = await pool.query(
+      `UPDATE users
+       SET ${updates.join(', ')}
+       WHERE id = $${values.length}
+       RETURNING id, email, role;`,
+      values
+    );
+
+    return NextResponse.json(
+      { success: true, user: updatedRes.rows[0] },
+      { status: 200 }
+    );
   } catch (err) {
-    console.error('API Update User Error:', err);
-    return NextResponse.json({ error: 'Gagal memperbarui pengguna' }, { status: 500 });
+    console.error('Error updating user:', err);
+    return NextResponse.json(
+      { success: false, message: 'Gagal memperbarui pengguna.' },
+      { status: 500 }
+    );
   }
 }
 
-// DELETE: Menghapus pengguna berdasarkan ID
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
+    const numericId = Number(id);
 
-    await pool.query('DELETE FROM users WHERE id = $1;', [id]);
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      return NextResponse.json(
+        { success: false, message: 'ID pengguna tidak valid.' },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json({ success: true }, { status: 200 });
+    const existingRes = await pool.query(
+      `SELECT id, role FROM users WHERE id = $1 LIMIT 1;`,
+      [numericId]
+    );
+
+    if (existingRes.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, message: 'Pengguna tidak ditemukan.' },
+        { status: 404 }
+      );
+    }
+
+    if (String(existingRes.rows[0]?.role || '').trim().toLowerCase() === 'admin') {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Akun admin tidak dapat dihapus dari Users Management.',
+        },
+        { status: 403 }
+      );
+    }
+
+    await pool.query(`DELETE FROM users WHERE id = $1;`, [numericId]);
+
+    return NextResponse.json(
+      { success: true, message: 'Pengguna berhasil dihapus.' },
+      { status: 200 }
+    );
   } catch (err) {
-    console.error('API Delete User Error:', err);
-    return NextResponse.json({ error: 'Gagal menghapus pengguna dari database' }, { status: 500 });
+    console.error('Error deleting user:', err);
+    return NextResponse.json(
+      { success: false, message: 'Gagal menghapus pengguna.' },
+      { status: 500 }
+    );
   }
 }
