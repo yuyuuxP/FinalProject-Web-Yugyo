@@ -4,6 +4,59 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+function formatTitleCase(text) {
+  return String(text || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ''))
+    .join(' ');
+}
+
+function buildLoginSessionPayload(data, rawIdentifier) {
+  const cleanId = String(rawIdentifier || '').trim();
+  const userObj =
+    data?.user && typeof data.user === 'object'
+      ? data.user
+      : data?.session?.user && typeof data.session.user === 'object'
+        ? data.session.user
+        : {};
+
+  const emailFromId = cleanId.includes('@') ? cleanId : '';
+  const email = String(userObj.email || data?.email || emailFromId || '').trim();
+
+  const nameFromId = !cleanId.includes('@')
+    ? formatTitleCase(cleanId)
+    : formatTitleCase(
+        (cleanId.split('@')[0] || '').replace(/[._-]+/g, ' ')
+      );
+
+  const username = String(
+    userObj.username ||
+      userObj.user_name ||
+      userObj.full_name ||
+      userObj.fullName ||
+      userObj.name ||
+      nameFromId ||
+      ''
+  ).trim();
+
+  const role = String(
+    userObj.role || data?.role || 'student'
+  ).toLowerCase();
+
+  return {
+    ...userObj,
+    username: username || 'Student',
+    full_name: userObj.full_name || username || 'Student',
+    email:
+      email ||
+      `${(username || 'student').toLowerCase().replace(/[^a-z0-9]+/g, '.')}@yugyo-atelier.id`,
+    role,
+    loggedInAt: Date.now(),
+  };
+}
+
 export default function LoginModalContent({ backHref = '/' }) {
   const router = useRouter();
   const [identifier, setIdentifier] = useState('');
@@ -32,7 +85,15 @@ export default function LoginModalContent({ backHref = '/' }) {
         return;
       }
 
-      // Arahkan langsung sesuai role dari database (admin -> /dashboard/admin)
+      const sessionUser = buildLoginSessionPayload(data, identifier);
+      try {
+        const serialized = JSON.stringify(sessionUser);
+        window.sessionStorage.setItem('yugyo_auth_user', serialized);
+        window.localStorage.setItem('yugyo_auth_user', serialized);
+      } catch {
+        // Abaikan jika storage diblokir browser
+      }
+
       router.push(data.redirectUrl);
       router.refresh();
     } catch (err) {
@@ -44,7 +105,6 @@ export default function LoginModalContent({ backHref = '/' }) {
   return (
     <div className="fixed inset-0 z-50 bg-[#341D17]/35 backdrop-blur-[2px] overflow-y-auto flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-2xl bg-[#FFFDF9] rounded-3xl shadow-2xl border border-[#341D17]/20 overflow-hidden my-auto">
-        
         {/* 1. TOP BAR DI DALAM CARD */}
         <div className="px-5 sm:px-7 py-3.5 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -53,8 +113,18 @@ export default function LoginModalContent({ backHref = '/' }) {
               aria-label="Kembali"
               className="w-8 h-8 rounded-full hover:bg-[#F9DDBB]/60 flex items-center justify-center text-[#341D17] transition"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 19l-7-7 7-7"
+                />
               </svg>
             </Link>
 
@@ -66,7 +136,9 @@ export default function LoginModalContent({ backHref = '/' }) {
                 <p className="text-[9px] font-extrabold tracking-[0.2em] uppercase text-[#802924] leading-none">
                   YUGYO
                 </p>
-                <p className="text-xs font-bold text-[#341D17] leading-tight">Sign In</p>
+                <p className="text-xs font-bold text-[#341D17] leading-tight">
+                  Sign In
+                </p>
               </div>
             </div>
           </div>
@@ -74,7 +146,6 @@ export default function LoginModalContent({ backHref = '/' }) {
 
         {/* 2. BODY CONTENT DI DALAM CARD */}
         <div className="p-5 sm:p-7 space-y-5">
-          
           {/* Sub-header */}
           <div className="flex items-center justify-between gap-2">
             <Link
@@ -82,7 +153,11 @@ export default function LoginModalContent({ backHref = '/' }) {
               className="inline-flex items-center gap-1.5 text-xs font-bold text-[#341D17] hover:text-[#802924] transition"
             >
               <span>←</span>
-              <span>{backHref === '/courses' ? 'Kembali ke Katalog Guest' : 'Kembali ke Beranda'}</span>
+              <span>
+                {backHref === '/courses'
+                  ? 'Kembali ke Katalog Guest'
+                  : 'Kembali ke Beranda'}
+              </span>
             </Link>
 
             <span className="inline-flex items-center gap-1.5 bg-[#82882B]/15 text-[#82882B] px-3 py-1 rounded-full text-[10px] font-extrabold tracking-wider uppercase">
@@ -127,12 +202,24 @@ export default function LoginModalContent({ backHref = '/' }) {
                 <label className="text-xs font-bold text-[#341D17]">
                   Email atau Username
                 </label>
-                <span className="text-[11px] text-[#341D17]/45">contoh@yugyo.com</span>
+                <span className="text-[11px] text-[#341D17]/45">
+                  contoh@yugyo.com
+                </span>
               </div>
               <div className="relative">
                 <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    />
                   </svg>
                 </span>
                 <input
@@ -152,8 +239,18 @@ export default function LoginModalContent({ backHref = '/' }) {
               </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    />
                   </svg>
                 </span>
                 <input
@@ -180,7 +277,10 @@ export default function LoginModalContent({ backHref = '/' }) {
                 <input type="checkbox" className="rounded accent-[#802924]" />
                 <span>Ingat Saya</span>
               </label>
-              <Link href="#" className="font-bold text-[#802924] hover:underline">
+              <Link
+                href="#"
+                className="font-bold text-[#802924] hover:underline"
+              >
                 Lupa Password?
               </Link>
             </div>
@@ -190,19 +290,25 @@ export default function LoginModalContent({ backHref = '/' }) {
               disabled={isLoading}
               className="w-full bg-[#802924] hover:bg-[#661F1B] disabled:opacity-60 text-[#F9DDBB] font-bold text-xs sm:text-sm py-3.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>{isLoading ? 'Memverifikasi Akun...' : 'Masuk ke Dapur Belajar'}</span>
+              <span>
+                {isLoading ? 'Memverifikasi Akun...' : 'Masuk ke Dapur Belajar'}
+              </span>
               <span>🍴</span>
             </button>
 
             <div className="bg-[#F9DDBB]/35 border border-[#341D17]/10 rounded-xl px-3.5 py-2.5 flex items-center gap-2 text-[11px] text-[#341D17]/80">
               <span className="text-[#82882B] shrink-0">🛡️</span>
-              <span>Akses aman terenkripsi untuk masterclass sourdough, viennoiserie, dan cokelat.</span>
+              <span>
+                Akses aman terenkripsi untuk masterclass sourdough, viennoiserie, dan cokelat.
+              </span>
             </div>
           </form>
 
           {/* Guest Mode Card */}
           <div className="bg-[#F9DDBB]/45 border border-[#341D17]/10 rounded-2xl p-4 text-center space-y-1">
-            <p className="text-[11px] text-[#341D17]/70">Belum ingin mendaftar kursus?</p>
+            <p className="text-[11px] text-[#341D17]/70">
+              Belum ingin mendaftar kursus?
+            </p>
             <Link
               href="/courses"
               className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-[#802924] hover:underline"
@@ -243,7 +349,6 @@ export default function LoginModalContent({ backHref = '/' }) {
               </span>
             </div>
           </div>
-
         </div>
       </div>
     </div>

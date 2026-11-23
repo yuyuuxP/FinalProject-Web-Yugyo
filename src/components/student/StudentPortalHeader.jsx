@@ -3,86 +3,99 @@
 import Link from 'next/link';
 
 function getInitials(name) {
-  const parts = String(name || 'Siswa')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length === 0) return 'S';
-  return parts
-    .map((p) => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  const clean = String(name || 'ST').trim();
+  if (!clean) return 'ST';
+  const parts = clean.split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return clean.slice(0, 2).toUpperCase();
 }
 
-export default function StudentPortalHeader({ student, onOpenMobileMenu }) {
-  const studentName = student?.full_name || 'Siswa Atelier';
-  const studentRoleLabel = student?.specialty || 'Student Baker Atelier';
+export default function StudentPortalHeader({
+  studentName = 'Student',
+  avatarUrl = '',
+  onToggleSidebar,
+}) {
+  const displayName = String(studentName || 'Student').trim() || 'Student';
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[#341D17]/10 bg-[#FFFDF9]">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-        {/* SISI KIRI: TOMBOL HAMBURGER (MOBILE) + LOGO YUGYO ATELIER */}
-        <div className="flex items-center gap-3 min-w-0">
-          {typeof onOpenMobileMenu === 'function' && (
-            <button
-              type="button"
-              onClick={onOpenMobileMenu}
-              aria-label="Buka navigasi"
-              className="lg:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#341D17]/15 bg-[#FAF6F0] text-sm font-bold text-[#341D17] hover:bg-[#F9DDBB]/50 transition cursor-pointer"
-            >
-              ☰
-            </button>
-          )}
-
-          <Link
-            href="/dashboard/student"
-            className="flex items-center gap-3 min-w-0"
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-3 bg-[#FFFDF9]/95 backdrop-blur-xs border-b border-[#341D17]/12 px-4 sm:px-6 py-3">
+      <div className="flex items-center gap-3 min-w-0">
+        {typeof onToggleSidebar === 'function' && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            aria-label="Buka atau tutup menu navigasi"
+            className="lg:hidden w-9 h-9 rounded-xl bg-[#FAF6F0] hover:bg-[#F9DDBB]/70 border border-[#341D17]/12 flex items-center justify-center text-[#341D17] text-sm font-bold shrink-0 transition cursor-pointer"
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#802924] font-editorial text-base font-bold text-[#F9DDBB] shadow-2xs">
-              Y
-            </span>
+            &#9776;
+          </button>
+        )}
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-editorial text-lg sm:text-xl font-bold text-[#341D17] leading-none">
-                  Yugyo
-                </span>
-                <span className="rounded-md bg-[#F9DDBB] px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-[#802924]">
-                  ATELIER
-                </span>
-              </div>
-              <span className="mt-1 block text-[9px] font-extrabold uppercase tracking-[0.18em] text-[#341D17]/60 leading-none">
-                STUDENT PORTAL
+        <Link
+          href="/dashboard/student"
+          className="flex items-center gap-2.5 min-w-0"
+        >
+          <span className="w-8 h-8 rounded-lg bg-[#802924] text-[#FFFDF9] font-editorial font-bold text-sm flex items-center justify-center shrink-0">
+            Y
+          </span>
+          <div className="min-w-0">
+            <p className="font-editorial text-sm sm:text-base font-bold leading-tight text-[#802924] truncate">
+              Yugyo{' '}
+              <span className="rounded bg-[#F9DDBB] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-[#802924] align-middle">
+                ATELIER
               </span>
-            </div>
-          </Link>
-        </div>
-
-        {/* SISI KANAN: LIHAT KATALOG GUEST + PILL PROFIL SISWA */}
-        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-          <Link
-            href="/"
-            className="rounded-full border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#FAF6F0] px-4 py-2 text-xs font-bold text-[#341D17] transition whitespace-nowrap"
-          >
-            Lihat Katalog Guest
-          </Link>
-
-          <div className="flex items-center gap-2.5 rounded-full border border-[#341D17]/12 bg-[#FFFDF9] py-1 pl-1.5 pr-3.5 shadow-2xs">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#802924] text-[11px] font-extrabold text-[#FFFDF9]">
-              {getInitials(studentName)}
-            </span>
-
-            <div className="hidden sm:block text-left leading-tight">
-              <p className="text-xs font-bold text-[#341D17]">
-                {studentName}
-              </p>
-              <p className="text-[10px] text-[#341D17]/65">
-                {studentRoleLabel}
-              </p>
-            </div>
+            </p>
+            <p className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/55 truncate">
+              STUDENT PORTAL &bull; USER PROFILE
+            </p>
           </div>
-        </div>
+        </Link>
+      </div>
+
+      <div className="flex items-center gap-2.5 shrink-0">
+        <Link
+          href="/"
+          className="hidden md:inline-flex items-center rounded-xl bg-[#FAF6F0] hover:bg-[#F9DDBB]/65 border border-[#341D17]/12 px-3 py-1.5 text-xs font-bold text-[#341D17] transition"
+        >
+          Lihat Katalog Guest
+        </Link>
+
+        <Link
+          href="/dashboard/student/reviews"
+          aria-label="Notifikasi & Laporan"
+          className="relative w-9 h-9 rounded-full hover:bg-[#FAF6F0] flex items-center justify-center text-[#341D17]/75 transition"
+        >
+          <span className="text-base">&#128276;</span>
+          <span className="w-2 h-2 rounded-full bg-[#802924] absolute top-2 right-2" />
+        </Link>
+
+        <Link
+          href="/dashboard/student/profile"
+          aria-label={`Buka profil ${displayName}`}
+          className="inline-flex items-center gap-2.5 rounded-full bg-[#FAF6F0] hover:bg-[#F9DDBB]/65 border border-[#341D17]/12 pl-1.5 pr-3 py-1 transition cursor-pointer shrink-0"
+        >
+          <span className="w-7 h-7 rounded-full bg-[#802924] text-[#FFFDF9] text-xs font-extrabold flex items-center justify-center overflow-hidden shrink-0">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={displayName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              getInitials(displayName)
+            )}
+          </span>
+          <span className="hidden sm:flex flex-col text-left leading-tight">
+            <span className="text-xs font-bold text-[#341D17] truncate max-w-28">
+              {displayName}
+            </span>
+            <span className="text-[10px] text-[#341D17]/60 truncate">
+              Student Baker Atelier
+            </span>
+          </span>
+        </Link>
       </div>
     </header>
   );

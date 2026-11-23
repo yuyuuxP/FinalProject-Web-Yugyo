@@ -1,8 +1,3 @@
-// =====================================================================
-// YUGYO - Dynamic Context Background Login Page
-// File: src/app/(auth)/login/page.jsx
-// =====================================================================
-
 import YugyoLandingPage from '@/app/page';
 import GuestHomepageCatalog from '@/app/(public)/courses/page';
 import LoginModalContent from '@/components/LoginModalContent';
