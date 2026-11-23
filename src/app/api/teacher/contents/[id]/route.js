@@ -1,5 +1,24 @@
 import { NextResponse } from 'next/server';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import pool from '@/lib/db';
+
+const UPLOAD_DIR = path.join(process.cwd(), 'public', 'videos', 'upload');
+
+async function removeUploadedVideoIfNeeded(videoUrl) {
+  const raw = String(videoUrl || '').trim();
+  if (!raw.startsWith('/videos/upload/')) return;
+
+  const fileName = path.basename(raw);
+  if (!fileName || fileName === '.' || fileName === '..') return;
+
+  const resolvedUploadDir = path.resolve(UPLOAD_DIR);
+  const targetPath = path.resolve(resolvedUploadDir, fileName);
+
+  if (!targetPath.startsWith(resolvedUploadDir + path.sep)) return;
+
+  await fs.unlink(targetPath).catch(() => {});
+}
 
 export async function PATCH(request, { params }) {
   try {
@@ -52,6 +71,14 @@ export async function PATCH(request, { params }) {
       rawVideo !== undefined
         ? String(rawVideo).trim() || null
         : current.video_url ?? null;
+
+    if (
+      current.video_url &&
+      String(current.video_url).startsWith('/videos/upload/') &&
+      String(current.video_url) !== String(nextVideoUrl || '')
+    ) {
+      await removeUploadedVideoIfNeeded(current.video_url);
+    }
 
     const rawOrder = order_index !== undefined ? order_index : sort_order;
     const parsedOrder = Number.parseInt(rawOrder, 10);
@@ -113,9 +140,11 @@ export async function DELETE(request, { params }) {
       );
     }
 
+    await removeUploadedVideoIfNeeded(deleted.rows[0]?.video_url);
+
     return NextResponse.json({
       success: true,
-      message: 'Materi berhasil dihapus.',
+      message: 'Materi dan file video terupload berhasil dihapus.',
     });
   } catch (err) {
     console.error('Error deleting course content:', err);

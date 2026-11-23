@@ -24,6 +24,25 @@ function TrashIcon({ className = 'w-4 h-4' }) {
   );
 }
 
+function UploadIcon({ className = 'w-4 h-4' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
 function cleanUrlString(val) {
   const s = String(val ?? '').trim();
   return !s || s.toLowerCase() === 'null' || s.toLowerCase() === 'undefined'
@@ -44,9 +63,25 @@ function getItemOrder(item, fallbackIdx = 0) {
   return Number.isFinite(n) && n > 0 ? n : fallbackIdx + 1;
 }
 
+function isYouTubeUrl(url) {
+  const s = cleanUrlString(url);
+  return /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i.test(s);
+}
+
+function normalizeExternalUrl(url) {
+  const s = cleanUrlString(url);
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s;
+  return `https://${s}`;
+}
+
 function isVideoPath(url) {
   const clean = cleanUrlString(url);
-  return Boolean(clean) && /\.(mp4|webm|mov|m4v|mkv)$/i.test(clean);
+  if (!clean || isYouTubeUrl(clean)) return false;
+  return (
+    /\.(mp4|webm|mov|m4v|mkv)$/i.test(clean) ||
+    clean.startsWith('/videos/')
+  );
 }
 
 function toPlayableVideoSrc(url) {
@@ -109,20 +144,32 @@ async function createNewModuleInDb({ payload }) {
   return { savedToDb: false, record: payload };
 }
 
-async function deleteModuleInDb({ itemId }) {
+async function deleteModuleInDb({ itemId, videoUrl }) {
   const numericId = Number(itemId);
-  if (!Number.isInteger(numericId) || numericId <= 0) {
-    return false;
+  if (Number.isInteger(numericId) && numericId > 0) {
+    try {
+      const res = await fetch(`/api/teacher/contents/${numericId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) return true;
+    } catch {
+      // Lanjut coba hapus file upload jika ada
+    }
   }
 
-  try {
-    const res = await fetch(`/api/teacher/contents/${numericId}`, {
-      method: 'DELETE',
-    });
-    return res.ok;
-  } catch {
-    return false;
+  if (String(videoUrl || '').startsWith('/videos/upload/')) {
+    try {
+      const res = await fetch(
+        `/api/teacher/contents/upload?file=${encodeURIComponent(videoUrl)}`,
+        { method: 'DELETE' }
+      );
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
+
+  return false;
 }
 
 export default function ContentManagementClient({
@@ -134,6 +181,13 @@ export default function ContentManagementClient({
 }) {
   const router = useRouter();
   const activeVideoRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const localSeqRef = useRef(1);
+
+  const nextLocalId = () => {
+    localSeqRef.current += 1;
+    return `added-${localSeqRef.current}`;
+  };
 
   const safeCourses = useMemo(() => {
     const list = Array.isArray(courses) ? courses : [];
@@ -268,6 +322,7 @@ export default function ContentManagementClient({
   const [sortOrderInput, setSortOrderInput] = useState('1');
   const [videoUrlInput, setVideoUrlInput] = useState('');
   const [descriptionInput, setDescriptionInput] = useState('');
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
 
@@ -277,18 +332,24 @@ export default function ContentManagementClient({
 
   const isEditingVideoModule = useMemo(() => {
     const currentVideo = editingItem ? getItemVideoUrl(editingItem) : '';
-    return isVideoPath(currentVideo) || isVideoPath(videoUrlInput);
+    return (
+      isVideoPath(currentVideo) ||
+      isYouTubeUrl(currentVideo) ||
+      isVideoPath(videoUrlInput) ||
+      isYouTubeUrl(videoUrlInput)
+    );
   }, [editingItem, videoUrlInput]);
 
   const resetEditorFields = (nextOrderValue = '') => {
     setEditingUid(null);
     setEditingItem(null);
     setModuleTitle('');
-    setSortOrderInput(
-      String(nextOrderValue || safeContents.length + 1)
-    );
+    setSortOrderInput(String(nextOrderValue || safeContents.length + 1));
     setVideoUrlInput('');
     setDescriptionInput('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleToggleModule = (item) => {
@@ -296,6 +357,7 @@ export default function ContentManagementClient({
     const willOpen = expandedUid !== uid;
     const vidUrl = getItemVideoUrl(item);
     const itemHasVideo = isVideoPath(vidUrl);
+    const itemIsYouTube = isYouTubeUrl(vidUrl);
 
     setExpandedUid(willOpen ? uid : null);
     setEditingUid(uid);
@@ -306,12 +368,45 @@ export default function ContentManagementClient({
     setDescriptionInput(getItemDescription(item));
     setFeedback('');
 
-    if (willOpen && itemHasVideo) {
+    if (willOpen && itemIsYouTube) {
+      const targetUrl = normalizeExternalUrl(vidUrl);
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    } else if (willOpen && itemHasVideo) {
       setTimeout(() => {
         if (activeVideoRef.current) {
           activeVideoRef.current.play().catch(() => {});
         }
       }, 50);
+    }
+  };
+
+  const handleUploadVideoFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || uploadingVideo) return;
+
+    setUploadingVideo(true);
+    setFeedback('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/teacher/contents/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.success !== false && data?.video_url) {
+        setVideoUrlInput(data.video_url);
+        setFeedback(`Video "${file.name}" berhasil diupload ke folder videos/upload.`);
+      } else {
+        setFeedback(data?.message || 'Gagal mengupload video.');
+      }
+    } catch {
+      setFeedback('Terjadi kesalahan saat mengupload video.');
+    } finally {
+      setUploadingVideo(false);
     }
   };
 
@@ -324,8 +419,12 @@ export default function ContentManagementClient({
   const handleDeleteModule = async (e, item) => {
     e.stopPropagation();
     const uid = item.__uid || String(item.id);
+    const vidUrl = getItemVideoUrl(item);
 
-    const deletedDb = await deleteModuleInDb({ itemId: item.id });
+    const deletedDb = await deleteModuleInDb({
+      itemId: item.id,
+      videoUrl: vidUrl,
+    });
 
     setMutatedByCourse((prev) => {
       const currentState = prev[courseKey] || {
@@ -356,7 +455,7 @@ export default function ContentManagementClient({
 
     setFeedback(
       deletedDb
-        ? `Modul "${item.title}" dihapus permanen dari database.`
+        ? `Modul "${item.title}" dan file video terupload (jika ada) berhasil dihapus.`
         : `Modul "${item.title}" dihapus dari daftar.`
     );
   };
@@ -382,7 +481,7 @@ export default function ContentManagementClient({
     );
 
     if (!trimmedTitle && !trimmedVideo && !trimmedDesc) {
-      setFeedback('Silakan isi judul, video, atau teks isi materi terlebih dahulu.');
+      setFeedback('Silakan isi judul, video/URL YouTube, atau teks isi materi terlebih dahulu.');
       return;
     }
 
@@ -495,7 +594,7 @@ export default function ContentManagementClient({
     }
 
     const { savedToDb, record } = await createNewModuleInDb({ payload });
-    const newId = record?.id ?? `added-${Date.now()}`;
+    const newId = record?.id ?? nextLocalId();
     const newUid = String(newId);
     const createdRecord = {
       ...(record || {}),
@@ -597,7 +696,7 @@ export default function ContentManagementClient({
               Struktur &amp; Urutan Materi
             </h2>
             <span className="text-[11px] text-[#341D17]/55">
-              Klik 1x buka deskripsi, klik lagi tutup
+              Klik 1x buka deskripsi/video/YouTube, klik lagi tutup
             </span>
           </div>
 
@@ -613,6 +712,7 @@ export default function ContentManagementClient({
                 const vidUrl = getItemVideoUrl(item);
                 const descText = getItemDescription(item).trim();
                 const orderNum = getItemOrder(item, idx);
+                const itemIsYouTube = isYouTubeUrl(vidUrl);
                 const hasVideo = isVideoPath(vidUrl);
                 const isExpanded = expandedUid === uid;
                 const hasDescription = Boolean(descText);
@@ -631,12 +731,12 @@ export default function ContentManagementClient({
                       <div className="min-w-0 space-y-0.5">
                         <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
                           URUTAN #{String(orderNum).padStart(2, '0')} &bull;{' '}
-                          {hasVideo ? 'VIDEO' : 'TEKS'}
+                          {itemIsYouTube ? 'YOUTUBE' : hasVideo ? 'VIDEO' : 'TEKS'}
                         </p>
                         <p className="text-sm font-bold text-[#341D17] truncate">
                           {item.title}
                         </p>
-                        {hasVideo && (
+                        {vidUrl && (
                           <p className="text-[11px] text-[#341D17]/60 truncate">
                             {vidUrl}
                           </p>
@@ -659,6 +759,22 @@ export default function ContentManagementClient({
                         onClick={(e) => e.stopPropagation()}
                         className="space-y-2.5 pt-1"
                       >
+                        {itemIsYouTube && (
+                          <div className="rounded-xl border border-[#341D17]/12 bg-[#FFFDF9] p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <span className="font-semibold text-[#341D17]/80 truncate">
+                              Tautan YouTube: {vidUrl}
+                            </span>
+                            <a
+                              href={normalizeExternalUrl(vidUrl)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-lg bg-[#802924] hover:bg-[#661F1B] px-3 py-1.5 text-[11px] font-bold text-[#FFFDF9] transition"
+                            >
+                              Buka di YouTube
+                            </a>
+                          </div>
+                        )}
+
                         {hasVideo && (
                           <div className="overflow-hidden rounded-2xl border border-[#341D17]/15 bg-black">
                             <video
@@ -740,16 +856,37 @@ export default function ContentManagementClient({
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/65">
-            {isEditingVideoModule
-              ? 'GANTI VIDEO MATERI (URL / PATH MP4)'
-              : 'TAMBAHKAN VIDEO KE MODUL TEKS (URL / PATH MP4 - OPSIONAL)'}
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/65">
+              {isEditingVideoModule
+                ? 'GANTI VIDEO MATERI (URL YOUTUBE / PATH MP4 / UPLOAD)'
+                : 'TAMBAHKAN VIDEO / URL YOUTUBE KE MODUL TEKS (OPSIONAL)'}
+            </label>
+
+            <button
+              type="button"
+              disabled={uploadingVideo}
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#341D17]/15 bg-[#FAF6F0] hover:bg-[#F9DDBB]/55 px-2.5 py-1 text-[11px] font-bold text-[#802924] transition cursor-pointer disabled:opacity-60"
+            >
+              <UploadIcon className="w-3.5 h-3.5" />
+              <span>{uploadingVideo ? 'Mengupload...' : 'Upload Video'}</span>
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              onChange={handleUploadVideoFile}
+              className="hidden"
+            />
+          </div>
+
           <input
             type="text"
             value={videoUrlInput}
             onChange={(e) => setVideoUrlInput(e.target.value)}
-            placeholder="/videos/french_pastry/Masterclass Classic Croissant.mp4"
+            placeholder="/videos/upload/nama_video.mp4 atau https://youtu.be/..."
             className="w-full rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3.5 py-2.5 text-xs sm:text-sm text-[#341D17] placeholder:text-[#341D17]/40 focus:border-[#802924] focus:outline-none"
           />
         </div>
@@ -782,7 +919,7 @@ export default function ContentManagementClient({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           <button
             type="button"
-            disabled={saving}
+            disabled={saving || uploadingVideo}
             onClick={() => handleSaveModule(true)}
             className="rounded-2xl border border-[#341D17]/15 bg-[#FAF6F0] hover:bg-[#F9DDBB]/45 py-2.5 px-4 text-xs sm:text-sm font-bold text-[#341D17] transition cursor-pointer disabled:opacity-60"
           >
@@ -791,7 +928,7 @@ export default function ContentManagementClient({
 
           <button
             type="button"
-            disabled={saving}
+            disabled={saving || uploadingVideo}
             onClick={() => handleSaveModule(false)}
             className="rounded-2xl bg-[#802924] hover:bg-[#661F1B] py-2.5 px-4 text-xs sm:text-sm font-bold text-[#FFFDF9] transition cursor-pointer disabled:opacity-60"
           >
