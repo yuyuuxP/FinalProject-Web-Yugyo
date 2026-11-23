@@ -1,154 +1,95 @@
-import Link from 'next/link';
 import pool from '@/lib/db';
+import CreateUserModal from '@/components/admin/CreateUserModal';
+
+export const dynamic = 'force-dynamic';
+
+async function getTableColumns(tableName) {
+  const res = await pool.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = $1;`,
+    [tableName]
+  );
+  return new Set((res.rows || []).map((r) => r.column_name));
+}
 
 export default async function CreateUserPage() {
-  let categories = [];
+  const categoryCols = await getTableColumns('categories');
+  const courseCols = await getTableColumns('courses');
+  const userCols = await getTableColumns('users');
 
-  try {
-    const catRes = await pool.query('SELECT id, name FROM categories ORDER BY name ASC;');
-    categories = catRes.rows;
-  } catch (err) {
-    console.error('Error fetching categories for user create:', err);
+  const teacherLinkCols = [
+    'lead_instructor_id',
+    'instructor_id',
+    'teacher_id',
+    'user_id',
+  ].filter((col) => categoryCols.has(col));
+
+  const selectCols = ['id', 'name', ...teacherLinkCols].join(', ');
+  const catRes = await pool.query(
+    `SELECT ${selectCols}
+     FROM categories
+     ORDER BY name ASC;`
+  );
+
+  const takenCategoryIds = new Set();
+  const takenCategoryNames = new Set();
+
+  for (const row of catRes.rows || []) {
+    const hasTeacherInCat = teacherLinkCols.some(
+      (col) => row[col] !== null && row[col] !== undefined && row[col] !== ''
+    );
+    if (hasTeacherInCat) {
+      takenCategoryIds.add(String(row.id));
+      if (row.name) {
+        takenCategoryNames.add(String(row.name).trim().toLowerCase());
+      }
+    }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 bg-[#341D17]/45 backdrop-blur-xs overflow-y-auto flex items-start justify-center px-4 py-6 sm:py-10">
-      <div className="w-full max-w-xl bg-[#FFFDF9] rounded-3xl shadow-2xl border border-[#341D17]/20 overflow-hidden my-auto">
-        
-        {/* HEADER MODAL */}
-        <div className="px-6 py-4 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-extrabold tracking-[0.18em] uppercase text-[#802924]">
-              🥐 DIREKTORI ATELIER • TAMBAH PENGGUNA
-            </span>
-            <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
-              Daftarkan Pengguna Baru
-            </h2>
-          </div>
+  if (courseCols.has('category_id') && courseCols.has('instructor_id')) {
+    const courseCatRes = await pool.query(
+      `SELECT DISTINCT category_id
+       FROM courses
+       WHERE category_id IS NOT NULL
+         AND instructor_id IS NOT NULL;`
+    );
+    for (const r of courseCatRes.rows || []) {
+      if (r.category_id !== null && r.category_id !== undefined) {
+        takenCategoryIds.add(String(r.category_id));
+      }
+    }
+  }
 
-          <Link
-            href="/dashboard/admin/users"
-            aria-label="Tutup"
-            className="w-8 h-8 rounded-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] flex items-center justify-center text-xs font-bold transition shadow-xs"
-          >
-            ✕
-          </Link>
-        </div>
+  if (userCols.has('specialty')) {
+    const specRes = await pool.query(
+      `SELECT DISTINCT LOWER(TRIM(specialty)) AS spec_name
+       FROM users
+       WHERE LOWER(COALESCE(role, '')) IN ('teacher', 'instructor', 'guru')
+         AND COALESCE(LOWER(status), 'active') <> 'pending'
+         AND specialty IS NOT NULL
+         AND TRIM(specialty) <> '';`
+    );
+    for (const r of specRes.rows || []) {
+      if (r.spec_name) {
+        takenCategoryNames.add(String(r.spec_name));
+      }
+    }
+  }
 
-        {/* BODY FORM TAMBAH PENGGUNA */}
-        <form 
-          action="/api/admin/users" 
-          method="POST" 
-          className="p-6 sm:p-8 space-y-5 bg-[#FFFDF9]"
-        >
-          {/* Nama Lengkap */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-              Nama Lengkap & Gelar (Opsional)
-            </label>
-            <input
-              type="text"
-              name="full_name"
-              required
-              placeholder="Contoh: Chef Pierre Hermé"
-              className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
-            />
-          </div>
+  const categories = (catRes.rows || []).map((cat) => {
+    const normName = String(cat.name || '').trim().toLowerCase();
+    const hasTeacher =
+      takenCategoryIds.has(String(cat.id)) ||
+      (normName && takenCategoryNames.has(normName));
 
-          {/* Email */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-              Alamat Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              required
-              placeholder="Contoh: pierre@yugyo.com"
-              className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
-            />
-          </div>
+    return {
+      id: cat.id,
+      name: cat.name,
+      has_teacher: hasTeacher,
+    };
+  });
 
-          {/* Password */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-              Kata Sandi (Password)
-            </label>
-            <input
-              type="text"
-              name="password"
-              defaultValue="yugyo1234"
-              required
-              className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
-            />
-            <p className="text-[10px] text-[#341D17]/60 pl-1">Default sandi awal: yugyo1234 (disimpan ter-hash di database).</p>
-          </div>
-
-          {/* Role & Status */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-                Peran (Role)
-              </label>
-              <select
-                name="role"
-                defaultValue="student"
-                className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
-              >
-                <option value="student">Siswa (Student)</option>
-                <option value="teacher">Instruktur (Teacher)</option>
-                <option value="admin">Admin Atelier</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-                Status Akun
-              </label>
-              <select
-                name="status"
-                defaultValue="active"
-                className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
-              >
-                <option value="active">Aktif (Active)</option>
-                <option value="pending">Pending (Menunggu Verifikasi)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Spesialisasi (Dropdown dari Category) */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-              Spesialisasi Keahlian (Pilih Kategori Atelier)
-            </label>
-            <select
-              name="specialty"
-              defaultValue=""
-              className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-4 py-3 text-xs text-[#341D17] focus:outline-none focus:ring-2 focus:ring-[#802924] transition shadow-2xs"
-            >
-              <option value="">Pilih Kategori Keahlian...</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.name}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Submit Button */}
-          <div className="pt-2">
-            <button
-              type="submit"
-              className="w-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-sm py-3.5 px-6 rounded-2xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>＋</span>
-              <span>Daftarkan Pengguna Baru</span>
-            </button>
-          </div>
-
-        </form>
-
-      </div>
-    </div>
-  );
+  return <CreateUserModal categories={categories} />;
 }
