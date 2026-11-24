@@ -1,13 +1,65 @@
-// =====================================================================
-// YUGYO - Guest Homepage & Baking Course Catalog (Strict 4-Color Palette)
-// File: src/app/(public)/courses/page.jsx
-// Palette: #F9DDBB (Cream), #802924 (Cocoa Red), #341D17 (Dark Choc), #82882B (Pistachio)
-// =====================================================================
-
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import Link from 'next/link';
 import pool from '@/lib/db';
 
-const BAKERY_COVERS = [
+export const dynamic = 'force-dynamic';
+
+const IMAGE_EXTENSIONS = new Set([
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.avif',
+  '.gif',
+  '.svg',
+]);
+
+const NOISE_WORDS = new Set([
+  'foto',
+  'gambar',
+  'picture',
+  'pic',
+  'img',
+  'image',
+  'cover',
+  'thumb',
+  'thumbnail',
+  'course',
+  'kursus',
+  'kelas',
+  'modul',
+  'masterclass',
+  'classic',
+  'klasik',
+  'modern',
+  'otentik',
+  'authentic',
+  'atelier',
+  'premium',
+  'special',
+  'spesial',
+  'anti',
+  'gagal',
+  'dasar',
+  'lanjutan',
+  'teknik',
+  'resep',
+  'dengan',
+  'untuk',
+  'dan',
+  'yang',
+  'the',
+  'and',
+  'for',
+  'with',
+  'of',
+  'in',
+  'a',
+  'an',
+]);
+
+const FALLBACK_COVERS = [
   'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=1400&q=85',
   'https://images.unsplash.com/photo-1585478259715-876acc5be8eb?auto=format&fit=crop&w=1400&q=85',
   'https://images.unsplash.com/photo-1612203985729-70726954388c?auto=format&fit=crop&w=1400&q=85',
@@ -22,6 +74,192 @@ const BADGE_LABELS = [
   '💫 #4 Favorit Praktik',
   '🥐 #5 Kurasi Atelier',
 ];
+
+function stripImageExtension(fileName) {
+  return String(fileName || '').replace(
+    /\.(jpg|jpeg|png|webp|avif|gif|svg)$/i,
+    ''
+  );
+}
+
+function normalizePhrase(text) {
+  return stripImageExtension(text)
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractKeywords(text) {
+  const words = normalizePhrase(text)
+    .split(' ')
+    .filter((w) => w.length >= 2);
+  const filtered = words.filter((w) => !NOISE_WORDS.has(w));
+  return filtered.length > 0 ? filtered : words;
+}
+
+function normalizeCategoryBucket(raw) {
+  const lower = String(raw || '')
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ');
+  if (!lower) return '';
+  if (lower.includes('bread') || lower.includes('yeast') || lower.includes('roti')) {
+    return 'bread';
+  }
+  if (lower.includes('decor') || lower.includes('cake')) {
+    return 'cakes_decor';
+  }
+  if (lower.includes('cookie') || lower.includes('bite')) {
+    return 'cookies';
+  }
+  if (lower.includes('french') || lower.includes('patisserie') || lower.includes('pastry')) {
+    return 'french_pastry';
+  }
+  if (lower.includes('indo') || lower.includes('traditional') || lower.includes('nusantara')) {
+    return 'indo_cakes';
+  }
+  return '';
+}
+
+async function scanCoursePictures() {
+  const rootDir = path.join(process.cwd(), 'public', 'pictures', 'courses');
+  const pictures = [];
+
+  async function walk(currentDir, relSegments = []) {
+    let entries = [];
+    try {
+      entries = await fs.readdir(currentDir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const fullPath = path.join(currentDir, entry.name);
+      const nextSegments = [...relSegments, entry.name];
+
+      if (entry.isDirectory()) {
+        await walk(fullPath, nextSegments);
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase();
+        if (!IMAGE_EXTENSIONS.has(ext)) continue;
+
+        const baseName = stripImageExtension(entry.name);
+        const normPhrase = normalizePhrase(baseName);
+        const keywords = extractKeywords(baseName);
+        const folderCategory =
+          relSegments.length > 0 ? normalizeCategoryBucket(relSegments[0]) : '';
+
+        const encodedUrl =
+          '/pictures/courses/' +
+          nextSegments.map((seg) => encodeURIComponent(seg)).join('/');
+
+        pictures.push({
+          fileName: entry.name,
+          normPhrase,
+          keywords,
+          folderCategory,
+          url: encodedUrl,
+        });
+      }
+    }
+  }
+
+  await walk(rootDir, []);
+  return pictures;
+}
+
+function scorePictureMatch(courseTitle, courseCategory, pic) {
+  const normTitle = normalizePhrase(courseTitle);
+  if (!normTitle || !pic.normPhrase) return 0;
+
+  const courseCatBucket = normalizeCategoryBucket(courseCategory);
+  let score = 0;
+
+  // 1. Nama file sama persis dengan judul kursus
+  if (pic.normPhrase === normTitle) {
+    score = 1000;
+  }
+  // 2. Frasa nama file terkandung di judul kursus atau sebaliknya (misal: "klepon" -> "Klepon Pandan Lumer")
+  else if (
+    pic.normPhrase.length >= 3 &&
+    (normTitle.includes(pic.normPhrase) || pic.normPhrase.includes(normTitle))
+  ) {
+    score = 800 + Math.min(150, pic.normPhrase.length * 4);
+  }
+  // 3. Pencocokan keyword dari nama file foto terhadap judul kursus
+  else {
+    const titleWords = normTitle.split(' ');
+    const titleKeywords = extractKeywords(courseTitle);
+    const fileKeywords = pic.keywords;
+
+    if (fileKeywords.length === 0 || titleKeywords.length === 0) return 0;
+
+    let matchedCount = 0;
+    for (const fKw of fileKeywords) {
+      const exactHit = titleWords.includes(fKw) || titleKeywords.includes(fKw);
+      const partialHit =
+        !exactHit &&
+        fKw.length >= 4 &&
+        titleKeywords.some(
+          (tKw) =>
+            tKw.length >= 4 && (tKw.includes(fKw) || fKw.includes(tKw))
+        );
+
+      if (exactHit) {
+        matchedCount += 1;
+      } else if (partialHit) {
+        matchedCount += 0.85;
+      }
+    }
+
+    if (matchedCount <= 0) return 0;
+
+    const fileCoverage = matchedCount / fileKeywords.length;
+    const titleCoverage = matchedCount / titleKeywords.length;
+
+    if (fileCoverage >= 0.99) {
+      score = 620 + Math.round(titleCoverage * 150);
+    } else if (fileCoverage >= 0.5 || matchedCount >= 1) {
+      score = Math.round(250 + fileCoverage * 220 + titleCoverage * 120);
+    }
+  }
+
+  if (score > 0 && pic.folderCategory && courseCatBucket) {
+    if (pic.folderCategory === courseCatBucket) {
+      score += 45;
+    } else if (pic.normPhrase !== normTitle) {
+      score -= 80;
+    }
+  }
+
+  return score;
+}
+
+function resolveCourseCover(course, pictures, fallbackIdx) {
+  let bestPic = null;
+  let bestScore = 0;
+
+  for (const pic of pictures) {
+    const sc = scorePictureMatch(course.title, course.category_name, pic);
+    if (sc > bestScore) {
+      bestScore = sc;
+      bestPic = pic;
+    }
+  }
+
+  if (bestScore >= 250 && bestPic) {
+    return bestPic.url;
+  }
+
+  const dbThumb = String(course?.thumbnail_url || '').trim();
+  if (dbThumb) {
+    return dbThumb;
+  }
+
+  return FALLBACK_COVERS[fallbackIdx % FALLBACK_COVERS.length];
+}
 
 function formatScheduleBadge(startVal, endVal) {
   if (!startVal && !endVal) return '∞ Lifetime Access';
@@ -43,16 +281,22 @@ export default async function GuestHomepageCatalog({ searchParams }) {
 
   let categoriesList = [];
   let coursesList = [];
+  let coursePictures = [];
 
   try {
-    const catRes = await pool.query('SELECT id, name FROM categories ORDER BY name ASC;');
+    const [catRes, pictures] = await Promise.all([
+      pool.query('SELECT id, name FROM categories ORDER BY name ASC;'),
+      scanCoursePictures(),
+    ]);
     categoriesList = catRes.rows;
+    coursePictures = pictures;
 
     let query = `
       SELECT 
         c.id,
         c.title,
         c.description,
+        c.thumbnail_url,
         c.start_date,
         c.end_date,
         cat.name AS category_name,
@@ -299,7 +543,7 @@ export default async function GuestHomepageCatalog({ searchParams }) {
           ) : (
             <div className="space-y-5">
               {coursesList.map((course, idx) => {
-                const coverImg = BAKERY_COVERS[idx % BAKERY_COVERS.length];
+                const coverImg = resolveCourseCover(course, coursePictures, idx);
                 const topBadge = BADGE_LABELS[idx % BADGE_LABELS.length];
                 const scheduleText = formatScheduleBadge(course.start_date, course.end_date);
 
@@ -308,7 +552,7 @@ export default async function GuestHomepageCatalog({ searchParams }) {
                     key={course.id}
                     className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition"
                   >
-                    {/* Banner Gambar Kursus */}
+                    {/* Banner Gambar Kursus dari public/pictures/courses */}
                     <div className="relative h-48 sm:h-60 w-full bg-[#341D17]">
                       <img
                         src={coverImg}
