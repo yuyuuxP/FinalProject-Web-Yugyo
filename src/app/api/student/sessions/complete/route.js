@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
+const SESSION_XP_REWARD = 25;
+
 async function getDbPool() {
   const dbModule = await import('@/lib/db').catch(() => null);
   return dbModule?.default?.query
@@ -99,6 +101,16 @@ async function resolveStudentId(pool, explicitId, studentName) {
   return null;
 }
 
+async function ensureColumns(pool) {
+  await pool
+    .query(
+      `ALTER TABLE session_student_completions
+       ADD COLUMN IF NOT EXISTS xp_earned INTEGER NOT NULL DEFAULT 0,
+       ADD COLUMN IF NOT EXISTS notes TEXT;`
+    )
+    .catch(() => null);
+}
+
 export async function GET(request) {
   try {
     const pool = await getDbPool();
@@ -108,6 +120,8 @@ export async function GET(request) {
         { status: 500 }
       );
     }
+
+    await ensureColumns(pool);
 
     const { searchParams } = new URL(request.url);
     const studentId = await resolveStudentId(
@@ -125,7 +139,7 @@ export async function GET(request) {
     }
 
     const res = await pool.query(
-      `SELECT session_id, xp_earned, notes, marked_done_at
+      `SELECT session_id, COALESCE(xp_earned, 0)::int AS xp_earned, notes, marked_done_at
        FROM session_student_completions
        WHERE student_id = $1
        ORDER BY marked_done_at DESC, id DESC`,
@@ -135,7 +149,7 @@ export async function GET(request) {
     const rows = res.rows || [];
     const completedSessionIds = rows.map((r) => Number(r.session_id));
     const totalSessionXp = rows.reduce(
-      (sum, r) => sum + Number(r.xp_earned ?? 25),
+      (sum, r) => sum + Number(r.xp_earned ?? 0),
       0
     );
 
@@ -163,6 +177,8 @@ export async function POST(request) {
       );
     }
 
+    await ensureColumns(pool);
+
     const body = await request.json().catch(() => ({}));
     const sessionId = parseIntOrNull(body?.sessionId ?? body?.session_id);
     if (!sessionId) {
@@ -185,48 +201,113 @@ export async function POST(request) {
       );
     }
 
-    const notes =
-      typeof body?.notes === 'string' && body.notes.trim()
-        ? body.notes.trim()
-        : null;
-    const xpEarned =
-      Number.isInteger(Number(body?.xpEarned)) && Number(body.xpEarned) > 0
-        ? Number(body.xpEarned)
-        : 25;
+    const sessionRes = await pool.query(
+      `SELECT
+         id,
+         (
+           COALESCE(is_done, FALSE)
+           OR LOWER(COALESCE(status, '')) IN ('done', 'completed', 'selesai')
+         ) AS is_teacher_done
+       FROM course_sessions
+       WHERE id = $1
+       LIMIT 1`,
+      [sessionId]
+    );
 
-    const existing = await pool.query(
-      `SELECT id FROM session_student_completions
+    if (sessionRes.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Jadwal sesi tidak ditemukan' },
+        { status: 404 }
+      );
+    }
+
+    const isTeacherDone = Boolean(sessionRes.rows[0].is_teacher_done);
+
+    const existingRes = await pool.query(
+      `SELECT id, COALESCE(xp_earned, 0)::int AS xp_earned
+       FROM session_student_completions
        WHERE session_id = $1 AND student_id = $2
        LIMIT 1`,
       [sessionId, studentId]
     );
 
-    const currentlyDone = existing.rows.length > 0;
-    const nextDone =
-      typeof body?.completed === 'boolean' ? body.completed : !currentlyDone;
+    const existingRow = existingRes.rows[0] || null;
+    const action = String(body?.action || '').trim().toLowerCase();
 
-    if (nextDone && !currentlyDone) {
-      await pool.query(
-        `INSERT INTO session_student_completions (session_id, student_id, xp_earned, notes)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (session_id, student_id)
-         DO UPDATE SET notes = COALESCE(EXCLUDED.notes, session_student_completions.notes)`,
-        [sessionId, studentId, xpEarned, notes]
-      );
-    } else if (nextDone && currentlyDone && notes !== null) {
+    if (action === 'claim_xp') {
+      if (!existingRow) {
+        return NextResponse.json(
+          {
+            error:
+              'Kamu tidak menyelesaikan kelas ini sebelum instruktur menutup sesi, sehingga tidak mendapatkan EXP.',
+          },
+          { status: 403 }
+        );
+      }
+
+      const nextXp =
+        Number(existingRow.xp_earned) > 0
+          ? Number(existingRow.xp_earned)
+          : SESSION_XP_REWARD;
+
       await pool.query(
         `UPDATE session_student_completions
-         SET notes = $1
+         SET xp_earned = $1
          WHERE session_id = $2 AND student_id = $3`,
-        [notes, sessionId, studentId]
+        [nextXp, sessionId, studentId]
       );
-    } else if (!nextDone && currentlyDone) {
+
+      const summaryRes = await pool.query(
+        `SELECT
+           COUNT(*)::int AS completed_count,
+           COALESCE(SUM(xp_earned), 0)::int AS total_session_xp
+         FROM session_student_completions
+         WHERE student_id = $1`,
+        [studentId]
+      );
+
+      return NextResponse.json({
+        studentId,
+        sessionId,
+        isCompleted: true,
+        xpEarned: nextXp,
+        isXpClaimed: true,
+        completedSessionsCount: Number(
+          summaryRes.rows[0]?.completed_count ?? 0
+        ),
+        totalSessionXp: Number(summaryRes.rows[0]?.total_session_xp ?? 0),
+      });
+    }
+
+    // Aksi menandai selesai sebelum kelas ditutup instruktur
+    if (!existingRow && isTeacherDone) {
+      return NextResponse.json(
+        {
+          error:
+            'Kelas ini sudah selesai oleh instruktur. Kamu tidak dapat lagi mengikuti kelas atau mendapatkan EXP.',
+        },
+        { status: 403 }
+      );
+    }
+
+    if (!existingRow) {
       await pool.query(
-        `DELETE FROM session_student_completions
-         WHERE session_id = $1 AND student_id = $2`,
+        `INSERT INTO session_student_completions (session_id, student_id, xp_earned)
+         VALUES ($1, $2, 0)
+         ON CONFLICT (session_id, student_id) DO NOTHING`,
         [sessionId, studentId]
       );
     }
+
+    const updatedRowRes = await pool.query(
+      `SELECT COALESCE(xp_earned, 0)::int AS xp_earned
+       FROM session_student_completions
+       WHERE session_id = $1 AND student_id = $2
+       LIMIT 1`,
+      [sessionId, studentId]
+    );
+
+    const currentXp = Number(updatedRowRes.rows[0]?.xp_earned ?? 0);
 
     const summaryRes = await pool.query(
       `SELECT
@@ -240,7 +321,9 @@ export async function POST(request) {
     return NextResponse.json({
       studentId,
       sessionId,
-      isCompleted: nextDone,
+      isCompleted: true,
+      xpEarned: currentXp,
+      isXpClaimed: currentXp > 0,
       completedSessionsCount: Number(
         summaryRes.rows[0]?.completed_count ?? 0
       ),
