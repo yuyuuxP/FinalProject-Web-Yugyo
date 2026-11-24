@@ -18,10 +18,7 @@ async function getAuthenticatedStudent() {
     }
   }
 
-  const fallback = await pool.query(
-    "SELECT id, full_name, email, role, status, specialty FROM users WHERE role = 'student' ORDER BY id ASC LIMIT 1;"
-  );
-  return fallback.rows[0] || null;
+  return null;
 }
 
 export default async function StudentDashboardPage() {
@@ -57,33 +54,6 @@ export default async function StudentDashboardPage() {
       [student.id]
     );
     enrollments = enrollmentsRes.rows || [];
-
-    // Jika siswa belum punya baris enrollment di DB, ambil kelas aktif agar dashboard tetap terisi data nyata
-    if (enrollments.length === 0) {
-      const fallbackCoursesRes = await pool.query(
-        `SELECT
-          NULL::int AS enrollment_id,
-          75 AS progress_percentage,
-          'active' AS enrollment_status,
-          NOW() AS enrolled_at,
-          c.id AS course_id,
-          c.title,
-          c.description,
-          c.thumbnail_url,
-          c.video_url,
-          c.status AS course_status,
-          cat.name AS category_name,
-          COALESCE(u_inst.full_name, 'Instruktur Atelier') AS instructor_name,
-          COALESCE(u_inst.specialty, cat.name, 'Master Baker Atelier') AS instructor_specialty
-        FROM courses c
-        LEFT JOIN categories cat ON cat.id = c.category_id
-        LEFT JOIN users u_inst ON u_inst.id = c.instructor_id
-        WHERE c.status = 'active'
-        ORDER BY c.id ASC
-        LIMIT 3;`
-      );
-      enrollments = fallbackCoursesRes.rows || [];
-    }
 
     const sessionsRes = await pool.query(
       `SELECT
@@ -123,7 +93,7 @@ export default async function StudentDashboardPage() {
   const indexPercent =
     sessions.length > 0
       ? Math.round((completedSessionsCount / sessions.length) * 100)
-      : 78;
+      : 0;
 
   const avgProgress =
     enrollments.length > 0
@@ -133,11 +103,17 @@ export default async function StudentDashboardPage() {
             0
           ) / enrollments.length
         )
-      : 75;
+      : 0;
 
-  const xpCurrent = Math.min(2000, 950 + avgProgress * 10 + completedSessionsCount * 25);
+  const xpCurrent =
+    enrollments.length > 0
+      ? Math.min(2000, 950 + avgProgress * 10 + completedSessionsCount * 25)
+      : 0;
   const xpTarget = 2000;
-  const focusHours = Number(((avgProgress / 100) * 4.5 + completedSessionsCount * 0.25).toFixed(1));
+  const focusHours =
+    enrollments.length > 0
+      ? Number(((avgProgress / 100) * 4.5 + completedSessionsCount * 0.25).toFixed(1))
+      : 0;
   const readyCertificates = enrollments.filter(
     (e) => Number(e.progress_percentage || 0) >= 75
   ).length;
@@ -147,8 +123,8 @@ export default async function StudentDashboardPage() {
     completedSessions: completedSessionsCount,
     totalSessions: totalSessionsCount,
     indexPercent,
-    focusHours: focusHours > 0 ? focusHours : 3.5,
-    readyCertificates: readyCertificates > 0 ? readyCertificates : 1,
+    focusHours,
+    readyCertificates,
     xpCurrent,
     xpTarget,
     contentsCount,

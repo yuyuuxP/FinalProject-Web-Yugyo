@@ -4,13 +4,22 @@ import StudentCourseCatalogClient from '@/components/student/StudentCourseCatalo
 
 export const dynamic = 'force-dynamic';
 
-const IMAGE_EXTENSIONS = new Set([
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.webp',
-  '.gif',
-  '.avif',
+const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif']);
+const STOP_WORDS = new Set([
+  'dan',
+  'atau',
+  'dengan',
+  'untuk',
+  'yang',
+  'ala',
+  'klasik',
+  'modern',
+  'spesial',
+  'premium',
+  'tradisional',
+  'dasar',
+  'masterclass',
+  'teknik',
 ]);
 
 function pickFirst(obj, keys, fallback = '') {
@@ -19,12 +28,29 @@ function pickFirst(obj, keys, fallback = '') {
       obj &&
       obj[key] !== undefined &&
       obj[key] !== null &&
-      String(obj[key]).trim() !== ''
+      String(obj[key]).trim() !== '' &&
+      String(obj[key]).trim().toLowerCase() !== 'null'
     ) {
       return obj[key];
     }
   }
   return fallback;
+}
+
+function normalizeImageSrc(rawVal) {
+  const s = String(rawVal || '').trim();
+  if (!s || s.toLowerCase() === 'null' || s.toLowerCase() === 'undefined') {
+    return '';
+  }
+  if (
+    s.startsWith('http://') ||
+    s.startsWith('https://') ||
+    s.startsWith('data:image/') ||
+    s.startsWith('/')
+  ) {
+    return s;
+  }
+  return `/${s.replace(/^\.?\//, '')}`;
 }
 
 function normalizeToken(text) {
@@ -35,118 +61,100 @@ function normalizeToken(text) {
     .trim();
 }
 
-function scanCoursePictures() {
-  const pictures = [];
-  const baseDir = path.join(process.cwd(), 'public', 'pictures', 'courses');
+function scanLocalCourseImages() {
+  const images = [];
+  const publicDir = path.join(process.cwd(), 'public');
+  const roots = [
+    path.join(publicDir, 'pictures'),
+    path.join(publicDir, 'images'),
+    path.join(publicDir, 'img'),
+  ];
 
-  function walk(currentDir, relativeParts = []) {
-    if (!fs.existsSync(currentDir)) return;
-    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        walk(path.join(currentDir, entry.name), [...relativeParts, entry.name]);
-      } else if (entry.isFile()) {
-        const ext = path.extname(entry.name).toLowerCase();
-        if (!IMAGE_EXTENSIONS.has(ext)) continue;
-        const baseName = entry.name.slice(0, -ext.length);
-        const relUrlPath = ['/pictures', 'courses', ...relativeParts, entry.name]
-          .map(encodeURIComponent)
-          .join('/');
+  for (const baseDir of roots) {
+    const relBase = path.relative(publicDir, baseDir);
 
-        pictures.push({
-          url: `/${relUrlPath.replace(/^\/+/, '')}`,
-          fileKey: normalizeToken(baseName),
-          folderKey: normalizeToken(relativeParts.join(' ')),
-          fullKey: normalizeToken(`${relativeParts.join(' ')} ${baseName}`),
-        });
+    function walk(currentDir, relativeParts = []) {
+      if (!fs.existsSync(currentDir)) return;
+      const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          walk(path.join(currentDir, entry.name), [...relativeParts, entry.name]);
+        } else if (entry.isFile()) {
+          const ext = path.extname(entry.name).toLowerCase();
+          if (!IMAGE_EXTENSIONS.has(ext)) continue;
+          const baseName = entry.name.slice(0, -ext.length);
+          const urlParts = [
+            ...relBase.split(path.sep).filter(Boolean),
+            ...relativeParts,
+            entry.name,
+          ].map(encodeURIComponent);
+
+          images.push({
+            url: `/${urlParts.join('/')}`,
+            fileKey: normalizeToken(baseName),
+            folderKey: normalizeToken(relativeParts.join(' ')),
+          });
+        }
       }
     }
-  }
 
-  try {
-    walk(baseDir);
-  } catch {
-    return [];
-  }
-
-  return pictures;
-}
-
-function scorePictureMatch(pic, courseTitle, courseCategory) {
-  const titleNorm = normalizeToken(courseTitle);
-  const catNorm = normalizeToken(courseCategory);
-  if (!titleNorm) return 0;
-
-  let score = 0;
-
-  if (pic.fileKey === titleNorm) {
-    score += 100;
-  } else if (
-    pic.fileKey.length >= 3 &&
-    (titleNorm.includes(pic.fileKey) || pic.fileKey.includes(titleNorm))
-  ) {
-    score += 60;
-  }
-
-  const titleWords = titleNorm.split(' ').filter((w) => w.length >= 3);
-  const fileWords = new Set(pic.fileKey.split(' ').filter(Boolean));
-  let matchedWords = 0;
-  for (const w of titleWords) {
-    if (fileWords.has(w)) {
-      matchedWords += 1;
-      score += 15;
-    } else if (pic.fileKey.includes(w)) {
-      matchedWords += 1;
-      score += 8;
+    try {
+      walk(baseDir);
+    } catch {
+      // Abaikan jika folder tidak ada
     }
   }
 
-  if (matchedWords === 0 && score === 0) return 0;
+  return images;
+}
 
-  if (pic.folderKey && catNorm) {
-    const folderTokens = pic.folderKey.split(' ').filter((t) => t.length >= 3);
-    for (const ft of folderTokens) {
-      if (catNorm.includes(ft)) {
+function matchImageForCourse(courseTitle, courseCategory, images) {
+  const titleNorm = normalizeToken(courseTitle);
+  const catNorm = normalizeToken(courseCategory);
+  if (!titleNorm || images.length === 0) return '';
+
+  const titleKeywords = titleNorm
+    .split(' ')
+    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
+
+  let bestUrl = '';
+  let bestScore = 0;
+
+  for (const img of images) {
+    if (!img.fileKey) continue;
+    let score = 0;
+
+    if (img.fileKey === titleNorm) {
+      score += 100;
+    } else if (
+      img.fileKey.length >= 4 &&
+      (titleNorm.includes(img.fileKey) || img.fileKey.includes(titleNorm))
+    ) {
+      score += 80;
+    }
+
+    const fileWords = new Set(img.fileKey.split(' ').filter(Boolean));
+    for (const kw of titleKeywords) {
+      if (fileWords.has(kw)) {
+        score += 20;
+      } else if (img.fileKey.includes(kw)) {
         score += 10;
       }
     }
-  }
 
-  return score;
-}
+    if (img.folderKey && catNorm) {
+      for (const ft of img.folderKey.split(' ').filter((t) => t.length >= 3)) {
+        if (catNorm.includes(ft)) score += 8;
+      }
+    }
 
-function resolveCourseImage(courseTitle, courseCategory, pictures, usedUrls) {
-  let bestPic = null;
-  let bestScore = 0;
-
-  for (const pic of pictures) {
-    const s = scorePictureMatch(pic, courseTitle, courseCategory);
-    if (s > bestScore) {
-      bestScore = s;
-      bestPic = pic;
+    if (score > bestScore) {
+      bestScore = score;
+      bestUrl = img.url;
     }
   }
 
-  if (bestPic && bestScore >= 15) {
-    usedUrls.add(bestPic.url);
-    return bestPic.url;
-  }
-
-  const catNorm = normalizeToken(courseCategory);
-  const folderFallback = pictures.find((pic) => {
-    if (usedUrls.has(pic.url)) return false;
-    if (!pic.folderKey || !catNorm) return false;
-    return pic.folderKey
-      .split(' ')
-      .some((t) => t.length >= 3 && catNorm.includes(t));
-  });
-
-  if (folderFallback) {
-    usedUrls.add(folderFallback.url);
-    return folderFallback.url;
-  }
-
-  return '';
+  return bestScore >= 20 ? bestUrl : '';
 }
 
 async function getExistingPublicTables(pool) {
@@ -164,9 +172,8 @@ async function getExistingPublicTables(pool) {
   return set;
 }
 
-async function fetchCoursesWithPictures() {
-  const pictures = scanCoursePictures();
-  const usedUrls = new Set();
+async function fetchCatalogDataFromDb() {
+  const localImages = scanLocalCourseImages();
 
   try {
     const dbModule = await import('@/lib/db').catch(() => null);
@@ -176,18 +183,18 @@ async function fetchCoursesWithPictures() {
         ? dbModule.pool
         : null;
 
-    if (!pool) return [];
+    if (!pool) return { courses: [], enrolledCourseIds: [] };
 
     const existingTables = await getExistingPublicTables(pool);
-    if (!existingTables.has('courses')) return [];
+    if (!existingTables.has('courses')) {
+      return { courses: [], enrolledCourseIds: [] };
+    }
 
     const courseRes = await pool
       .query('SELECT * FROM courses ORDER BY id ASC')
       .catch(() => null);
 
-    if (!Array.isArray(courseRes?.rows) || courseRes.rows.length === 0) {
-      return [];
-    }
+    const courseRows = Array.isArray(courseRes?.rows) ? courseRes.rows : [];
 
     const categoryById = new Map();
     const catTable = existingTables.has('categories')
@@ -217,7 +224,7 @@ async function fetchCoursesWithPictures() {
     }
 
     const instructorById = new Map();
-    const hasInstructorId = courseRes.rows.some(
+    const hasInstructorId = courseRows.some(
       (r) => pickFirst(r, ['instructor_id', 'teacher_id', 'user_id']) !== ''
     );
     if (hasInstructorId && existingTables.has('users')) {
@@ -238,15 +245,21 @@ async function fetchCoursesWithPictures() {
       }
     }
 
-    return courseRes.rows.map((row, idx) => {
-      const id = String(
-        pickFirst(row, ['id', 'course_id', 'slug'], `course-${idx + 1}`)
-      );
+    const courses = courseRows.map((row, idx) => {
+      const rawId = pickFirst(row, ['id', 'course_id'], idx + 1);
+      const id = Number(rawId) || idx + 1;
       const title = String(
         pickFirst(
           row,
           ['title', 'course_title', 'name'],
           `Kursus #${idx + 1}`
+        )
+      ).trim();
+      const description = String(
+        pickFirst(
+          row,
+          ['description', 'summary', 'short_description'],
+          'Kelas praktik baking & pastry bersama instruktur Yugyo Atelier.'
         )
       ).trim();
 
@@ -257,7 +270,7 @@ async function fetchCoursesWithPictures() {
         pickFirst(
           row,
           ['category', 'category_name'],
-          categoryById.get(rawCatId) || 'French Patisserie & Pastry'
+          categoryById.get(rawCatId) || 'Bread & Yeast Goods'
         )
       ).trim();
 
@@ -272,64 +285,82 @@ async function fetchCoursesWithPictures() {
         )
       ).trim();
 
-      const rating = String(pickFirst(row, ['rating', 'avg_rating'], '4.9'));
-      const studentsCount = Number(
-        pickFirst(
-          row,
-          ['students_count', 'studentsCount', 'enrolled_count'],
-          120
-        )
-      );
-      const badge = String(
-        pickFirst(row, ['badge', 'tag', 'level'], 'Kelas Atelier')
-      ).trim();
-      const accessLabel = String(
-        pickFirst(
-          row,
-          ['access_label', 'accessLabel', 'access_type'],
-          'Akses Terbuka'
-        )
-      ).trim();
-      const summary = String(
-        pickFirst(
-          row,
-          ['summary', 'description', 'short_description'],
-          'Materi praktik kelas baking & pastry di Yugyo Atelier.'
-        )
-      ).trim();
+      const rawThumb = pickFirst(row, [
+        'thumbnail',
+        'thumbnail_url',
+        'image_url',
+        'image',
+        'gambar',
+        'picture',
+        'picture_url',
+        'photo',
+        'photo_url',
+        'cover',
+        'cover_url',
+        'banner',
+        'banner_url',
+        'img_url',
+        'image_path',
+      ]);
 
-      const dbImage = String(
-        pickFirst(row, [
-          'image_url',
-          'thumbnail_url',
-          'photo_url',
-          'cover_url',
-          'image',
-        ])
-      ).trim();
-
-      const matchedImage =
-        resolveCourseImage(title, category, pictures, usedUrls) || dbImage;
+      const thumbnail =
+        normalizeImageSrc(rawThumb) ||
+        matchImageForCourse(title, category, localImages);
 
       return {
         id,
         title,
+        description,
         category,
         instructor,
-        rating,
-        studentsCount: Number.isNaN(studentsCount) ? 0 : studentsCount,
-        badge,
-        accessLabel,
-        summary,
-        imageUrl: matchedImage,
+        rating: String(pickFirst(row, ['rating'], '4.9')).trim(),
+        studentsCount: String(
+          pickFirst(row, ['students_count', 'enrolled_count'], '120')
+        ).trim(),
+        badge: String(pickFirst(row, ['badge', 'tag'], 'KELAS ATELIER')).trim(),
+        thumbnail,
       };
     });
+
+    let enrolledCourseIds = [];
+    if (existingTables.has('student_enrollments')) {
+      const studentRes = await pool
+        .query(
+          "SELECT id FROM users WHERE LOWER(COALESCE(role, '')) IN ('student', 'siswa') ORDER BY id ASC LIMIT 1"
+        )
+        .catch(() => null);
+      const studentId = Number(studentRes?.rows?.[0]?.id) || null;
+
+      const enrollRes = studentId
+        ? await pool
+            .query(
+              'SELECT course_id FROM student_enrollments WHERE student_id = $1',
+              [studentId]
+            )
+            .catch(() => null)
+        : await pool
+            .query('SELECT course_id FROM student_enrollments')
+            .catch(() => null);
+
+      if (Array.isArray(enrollRes?.rows)) {
+        enrolledCourseIds = enrollRes.rows
+          .map((r) => Number(r?.course_id))
+          .filter((n) => Number.isInteger(n) && n > 0);
+      }
+    }
+
+    return { courses, enrolledCourseIds };
   } catch {
-    return [];
+    return { courses: [], enrolledCourseIds: [] };
   }
 }
 
 export default async function StudentCatalogPage() {
-  const initialCourses = await fetchCoursesWithPictures();
-  return <StudentCourseCatalogClient initialCourses={initialCourses} />;
+  const { courses, enrolledCourseIds } = await fetchCatalogDataFromDb();
+  return (
+    <StudentCourseCatalogClient
+      initialCourses={courses}
+      initialEnrolledCourseIds={enrolledCourseIds}
+    />
+  );
 }

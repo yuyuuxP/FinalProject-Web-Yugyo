@@ -280,6 +280,10 @@ CREATE INDEX IF NOT EXISTS idx_messages_conversation_pair
   ON messages (LEAST(sender_id, receiver_id), GREATEST(sender_id, receiver_id), created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_messages_unread_receiver
   ON messages (receiver_id, is_read) WHERE is_read = FALSE;
+
+-- Indexing untuk mencegah student mengikuti kursus yg sama (duplikat id_course)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_student_enrollments_student_course
+ON student_enrollments (student_id, course_id);
   
 
 -- ==========================================

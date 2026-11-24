@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { cookies } from 'next/headers';
 import StudentCoursesClient from '@/components/student/StudentCoursesClient';
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +23,12 @@ const STOP_WORDS = new Set([
   'teknik',
 ]);
 
+function parseIntOrNull(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const num = Number(value);
+  return Number.isInteger(num) && num > 0 ? num : null;
+}
+
 function pickFirst(obj, keys, fallback = '') {
   for (const key of keys) {
     if (
@@ -43,6 +50,92 @@ function normalizeToken(text) {
     .replace(/\.[^.]+$/, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
+}
+
+function extractUserIdFromPayload(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  return parseIntOrNull(
+    payload.id ??
+      payload.userId ??
+      payload.user_id ??
+      payload.studentId ??
+      payload.student_id ??
+      payload.sub ??
+      payload.user?.id ??
+      payload.user?.userId ??
+      payload.user?.user_id
+  );
+}
+
+async function getLoggedInStudentId() {
+  try {
+    const cookieStore = await cookies();
+    for (const c of cookieStore.getAll()) {
+      const name = String(c.name || '').toLowerCase();
+      const rawVal = String(c.value || '').trim();
+      if (!rawVal) continue;
+
+      const directNum = parseIntOrNull(rawVal);
+      if (
+        directNum &&
+        (name.includes('user') ||
+          name.includes('student') ||
+          name.includes('uid') ||
+          name === 'id')
+      ) {
+        return directNum;
+      }
+
+      const candidates = [rawVal];
+      try {
+        const decoded = decodeURIComponent(rawVal);
+        if (decoded !== rawVal) candidates.push(decoded);
+      } catch {
+        // Abaikan jika gagal decodeURIComponent
+      }
+
+      for (const str of candidates) {
+        if (str.startsWith('{') || str.startsWith('[')) {
+          try {
+            const idFromObj = extractUserIdFromPayload(JSON.parse(str));
+            if (idFromObj) return idFromObj;
+          } catch {
+            // Abaikan jika bukan JSON valid
+          }
+        }
+
+        const parts = str.split('.');
+        if (parts.length === 3) {
+          try {
+            const payloadJson = Buffer.from(
+              parts[1].replace(/-/g, '+').replace(/_/g, '/'),
+              'base64'
+            ).toString('utf8');
+            const jwtId = extractUserIdFromPayload(JSON.parse(payloadJson));
+            if (jwtId) return jwtId;
+          } catch {
+            // Abaikan jika bukan JWT valid
+          }
+        }
+
+        try {
+          const b64Json = Buffer.from(
+            str.replace(/-/g, '+').replace(/_/g, '/'),
+            'base64'
+          ).toString('utf8');
+          if (b64Json.trim().startsWith('{')) {
+            const b64Id = extractUserIdFromPayload(JSON.parse(b64Json));
+            if (b64Id) return b64Id;
+          }
+        } catch {
+          // Abaikan jika bukan base64 JSON
+        }
+      }
+    }
+  } catch {
+    // Abaikan jika cookie gagal dibaca
+  }
+  return null;
 }
 
 function scanVideosFolder() {
@@ -151,6 +244,7 @@ async function getExistingPublicTables(pool) {
 
 async function fetchCoursesAndContentsFromDb() {
   const videos = scanVideosFolder();
+  const studentId = await getLoggedInStudentId();
 
   try {
     const dbModule = await import('@/lib/db').catch(() => null);
@@ -160,11 +254,31 @@ async function fetchCoursesAndContentsFromDb() {
         ? dbModule.pool
         : null;
 
-    if (!pool) return { courses: [], contents: [] };
+    if (!pool) {
+      return { courses: [], contents: [], enrolledCourseIds: [], studentId };
+    }
 
     const existingTables = await getExistingPublicTables(pool);
     if (!existingTables.has('courses')) {
-      return { courses: [], contents: [] };
+      return { courses: [], contents: [], enrolledCourseIds: [], studentId };
+    }
+
+    let enrolledCourseIds = [];
+    if (studentId && existingTables.has('student_enrollments')) {
+      const enrollRes = await pool
+        .query(
+          `SELECT course_id
+           FROM student_enrollments
+           WHERE student_id = $1 AND LOWER(COALESCE(status, 'active')) != 'dropped'`,
+          [studentId]
+        )
+        .catch(() => null);
+
+      if (Array.isArray(enrollRes?.rows)) {
+        enrolledCourseIds = enrollRes.rows
+          .map((r) => Number(r?.course_id))
+          .filter((n) => Number.isInteger(n) && n > 0);
+      }
     }
 
     const courseRes = await pool
@@ -173,7 +287,7 @@ async function fetchCoursesAndContentsFromDb() {
 
     const courseRows = Array.isArray(courseRes?.rows) ? courseRes.rows : [];
     if (courseRows.length === 0) {
-      return { courses: [], contents: [] };
+      return { courses: [], contents: [], enrolledCourseIds, studentId };
     }
 
     const categoryById = new Map();
@@ -228,9 +342,9 @@ async function fetchCoursesAndContentsFromDb() {
     const contents = [];
 
     const courses = courseRows.map((row, idx) => {
-      const id = String(
-        pickFirst(row, ['id', 'course_id', 'slug'], `course-${idx + 1}`)
-      );
+      const rawId = pickFirst(row, ['id', 'course_id'], idx + 1);
+      const numericId = Number(rawId) || idx + 1;
+      const id = String(numericId);
       const title = String(
         pickFirst(
           row,
@@ -277,6 +391,7 @@ async function fetchCoursesAndContentsFromDb() {
 
       return {
         id,
+        numericId,
         title,
         category,
         instructor,
@@ -394,18 +509,21 @@ async function fetchCoursesAndContentsFromDb() {
       }
     }
 
-    return { courses, contents };
+    return { courses, contents, enrolledCourseIds, studentId };
   } catch {
-    return { courses: [], contents: [] };
+    return { courses: [], contents: [], enrolledCourseIds: [], studentId: null };
   }
 }
 
 export default async function StudentCoursesPage() {
-  const { courses, contents } = await fetchCoursesAndContentsFromDb();
+  const { courses, contents, enrolledCourseIds, studentId } =
+    await fetchCoursesAndContentsFromDb();
   return (
     <StudentCoursesClient
       initialCourses={courses}
       initialContents={contents}
+      initialEnrolledCourseIds={enrolledCourseIds}
+      currentStudentId={studentId}
     />
   );
 }

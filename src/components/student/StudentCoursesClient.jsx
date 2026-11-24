@@ -1,7 +1,11 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import {
+  getActiveStudentIdentity,
+  saveActiveStudentId,
+} from '@/lib/studentSessionClient';
 
 const CATEGORY_TABS = [
   'Bread & Yeast Goods',
@@ -9,87 +13,6 @@ const CATEGORY_TABS = [
   'Cookies & Small Bites',
   'French Patisserie & Pastry',
   'Traditional Indonesian Cakes',
-];
-
-const DEFAULT_COURSES = [
-  {
-    id: 'dasar-fermentasi-ragi-roti',
-    title: 'Dasar Fermentasi Ragi Roti',
-    category: 'Bread & Yeast Goods',
-    instructor: 'Chef Firah',
-    progress: 75,
-    completedLessons: 9,
-    totalLessons: 12,
-    remainingDays: 180,
-    badge: 'Masterclass',
-    videoUrl: '',
-    videoTitle: 'Dasar Fermentasi Ragi Roti',
-  },
-  {
-    id: 'mastering-sourdough-starter',
-    title: 'Mastering Sourdough Starter',
-    category: 'Bread & Yeast Goods',
-    instructor: 'Chef Firah',
-    progress: 50,
-    completedLessons: 5,
-    totalLessons: 10,
-    remainingDays: 180,
-    badge: 'Artisan Bread',
-    videoUrl: '',
-    videoTitle: 'Mastering Sourdough Starter',
-  },
-  {
-    id: 'teknik-buttercream-korean-floral',
-    title: 'Teknik Buttercream & Korean Floral Piping',
-    category: 'Cake Decorating',
-    instructor: 'Chef Fadhiyah',
-    progress: 40,
-    completedLessons: 4,
-    totalLessons: 10,
-    remainingDays: 180,
-    badge: 'Atelier Studio',
-    videoUrl: '',
-    videoTitle: 'Teknik Buttercream & Korean Floral Piping',
-  },
-  {
-    id: 'nastar-selai-nanas-premium',
-    title: 'Nastar Selai Nanas Premium & Soft Cookies',
-    category: 'Cookies & Small Bites',
-    instructor: 'Chef Diva',
-    progress: 60,
-    completedLessons: 6,
-    totalLessons: 10,
-    remainingDays: 180,
-    badge: 'Signature',
-    videoUrl: '',
-    videoTitle: 'Nastar Selai Nanas Premium & Soft Cookies',
-  },
-  {
-    id: 'madeleine-lemon-cake',
-    title: 'Madeleine Lemon Cake',
-    category: 'French Patisserie & Pastry',
-    instructor: 'Chef Ayu',
-    progress: 30,
-    completedLessons: 3,
-    totalLessons: 10,
-    remainingDays: 180,
-    badge: 'Patisserie',
-    videoUrl: '',
-    videoTitle: 'Madeleine Lemon Cake',
-  },
-  {
-    id: 'kue-lapis-legit-bika-ambon',
-    title: 'Lapis Legit Rempah & Bika Ambon Bersarang',
-    category: 'Traditional Indonesian Cakes',
-    instructor: 'Chef Rasyah',
-    progress: 25,
-    completedLessons: 2,
-    totalLessons: 8,
-    remainingDays: 180,
-    badge: 'Nusantara',
-    videoUrl: '',
-    videoTitle: 'Lapis Legit Rempah & Bika Ambon Bersarang',
-  },
 ];
 
 function cleanUrl(val) {
@@ -106,7 +29,9 @@ function normalizeCategory(rawCat) {
     lower.includes('bread') ||
     lower.includes('yeast') ||
     lower.includes('roti') ||
-    lower.includes('sourdough')
+    lower.includes('sourdough') ||
+    lower.includes('ciabatta') ||
+    lower.includes('brioche')
   ) {
     return 'Bread & Yeast Goods';
   }
@@ -148,18 +73,16 @@ function normalizeCategory(rawCat) {
 }
 
 function mapCourseItem(row, idx = 0) {
+  const rawNum = Number(row?.numericId ?? row?.id ?? row?.course_id);
+  const numericId =
+    Number.isInteger(rawNum) && rawNum > 0 ? rawNum : idx + 1;
   const title = String(
     row?.title || row?.course_title || row?.name || `Kursus #${idx + 1}`
   ).trim();
-  const id = String(
-    row?.id ||
-      row?.course_id ||
-      row?.slug ||
-      title.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-  ).trim();
 
   return {
-    id,
+    id: String(row?.id ?? numericId),
+    numericId,
     title,
     category: normalizeCategory(row?.category || row?.category_name),
     instructor: String(
@@ -240,13 +163,15 @@ export default function StudentCoursesClient({
   initialCourses = [],
   initialContents = [],
 }) {
-  const courses = useMemo(
+  const allCourses = useMemo(
     () =>
-      Array.isArray(initialCourses) && initialCourses.length > 0
+      Array.isArray(initialCourses)
         ? initialCourses.map((row, idx) => mapCourseItem(row, idx))
-        : DEFAULT_COURSES,
+        : [],
     [initialCourses]
   );
+
+  const [enrolledIds, setEnrolledIds] = useState([]);
 
   const contents = useMemo(
     () =>
@@ -256,6 +181,77 @@ export default function StudentCoursesClient({
     [initialContents]
   );
 
+  useEffect(() => {
+    let active = true;
+
+    async function syncEnrollmentsForActiveStudent() {
+      try {
+        const identity = await getActiveStudentIdentity();
+        if (!active) return;
+
+        const params = new URLSearchParams();
+        if (identity.studentId) {
+          params.set('studentId', String(identity.studentId));
+        }
+        if (identity.studentName) {
+          params.set('studentName', identity.studentName);
+        }
+
+        if (!identity.studentId && !identity.studentName) {
+          setEnrolledIds([]);
+          return;
+        }
+
+        const res = await fetch(`/api/student/enrollments?${params.toString()}`, {
+          cache: 'no-store',
+        });
+        if (!active) return;
+
+        if (!res.ok) {
+          setEnrolledIds([]);
+          return;
+        }
+
+        const data = await res.json().catch(() => null);
+        if (!active) return;
+
+        if (!data || !Array.isArray(data.enrollments)) {
+          setEnrolledIds([]);
+          return;
+        }
+
+        if (data.studentId) {
+          saveActiveStudentId(data.studentId, identity.studentName || '');
+        }
+
+        const ids = data.enrollments
+          .filter(
+            (row) =>
+              String(row?.status || 'active').toLowerCase() !== 'dropped'
+          )
+          .map((row) => Number(row?.course_id ?? row?.courseId))
+          .filter((id) => Number.isInteger(id) && id > 0);
+
+        setEnrolledIds(ids);
+      } catch {
+        if (active) setEnrolledIds([]);
+      }
+    }
+
+    syncEnrollmentsForActiveStudent();
+    const timer = setTimeout(syncEnrollmentsForActiveStudent, 200);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, []);
+
+  const enrolledCourses = useMemo(() => {
+    const enrolledSet = new Set(enrolledIds.map(Number));
+    return allCourses.filter((c) => enrolledSet.has(Number(c.numericId)));
+  }, [allCourses, enrolledIds]);
+
   const [selectedCategory, setSelectedCategory] = useState('Bread & Yeast Goods');
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [openItemId, setOpenItemId] = useState('');
@@ -264,25 +260,24 @@ export default function StudentCoursesClient({
   const videoRef = useRef(null);
 
   const filteredCourses = useMemo(() => {
-    return courses.filter(
+    return enrolledCourses.filter(
       (c) => normalizeCategory(c.category) === selectedCategory
     );
-  }, [courses, selectedCategory]);
+  }, [enrolledCourses, selectedCategory]);
 
   const activeCourse =
     filteredCourses.find((c) => String(c.id) === String(selectedCourseId)) ||
     filteredCourses[0] ||
-    courses[0];
+    null;
 
   const handleSelectCategory = (cat) => {
     setSelectedCategory(cat);
-    const matching = courses.filter(
+    const matching = enrolledCourses.filter(
       (c) => normalizeCategory(c.category) === cat
     );
-    if (matching.length > 0) {
-      setSelectedCourseId(String(matching[0].id));
-      setOpenItemId('');
-    }
+    setSelectedCourseId(matching.length > 0 ? String(matching[0].id) : '');
+    setOpenItemId('');
+    setIsCourseListOpen(false);
   };
 
   const handleSelectCourse = (course) => {
@@ -294,13 +289,15 @@ export default function StudentCoursesClient({
   const courseContents = useMemo(() => {
     if (!activeCourse) return [];
     const activeId = String(activeCourse.id).toLowerCase();
+    const activeNumId = String(activeCourse.numericId).toLowerCase();
     const activeTitle = String(activeCourse.title).toLowerCase();
 
     const matched = contents.filter((item) => {
       const itemCourseId = String(item.courseId || '').toLowerCase();
       const itemCourseTitle = String(item.courseTitle || '').toLowerCase();
       return (
-        (itemCourseId && itemCourseId === activeId) ||
+        (itemCourseId &&
+          (itemCourseId === activeId || itemCourseId === activeNumId)) ||
         (itemCourseTitle && itemCourseTitle === activeTitle)
       );
     });
@@ -400,7 +397,7 @@ export default function StudentCoursesClient({
       </div>
 
       {/* Kartu Kursus Aktif */}
-      {activeCourse && (
+      {activeCourse ? (
         <section className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 sm:p-6 shadow-2xs space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
             <div className="flex items-center gap-2">
@@ -431,26 +428,6 @@ export default function StudentCoursesClient({
                 </p>
               </div>
             </div>
-
-            {filteredCourses.length > 1 && (
-              <select
-                aria-label="Pilih kursus dalam kategori"
-                value={activeCourse.id}
-                onChange={(e) => {
-                  const chosen = filteredCourses.find(
-                    (c) => String(c.id) === String(e.target.value)
-                  );
-                  if (chosen) handleSelectCourse(chosen);
-                }}
-                className="rounded-xl border border-[#341D17]/15 bg-[#FAF6F0] px-3 py-2 text-xs font-semibold text-[#341D17] focus:border-[#802924] focus:outline-none"
-              >
-                {filteredCourses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title}
-                  </option>
-                ))}
-              </select>
-            )}
           </div>
 
           <div className="space-y-1.5">
@@ -484,9 +461,26 @@ export default function StudentCoursesClient({
             </a>
           </div>
         </section>
+      ) : (
+        <section className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-6 text-center space-y-3">
+          <p className="text-sm font-bold text-[#341D17]">
+            Belum ada kursus yang diikuti pada kategori {selectedCategory}
+          </p>
+          <p className="text-xs text-[#341D17]/65">
+            Tekan tombol &ldquo;Ikuti Kursus&rdquo; pada halaman Course Catalog agar kursus muncul di sini.
+          </p>
+          <div>
+            <Link
+              href="/dashboard/student/catalog"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition"
+            >
+              <span>Buka Course Catalog</span>
+            </Link>
+          </div>
+        </section>
       )}
 
-      {/* Pencarian Materi & Tombol Nama Kursus (Dropdown Vertikal per Kategori) */}
+      {/* Pencarian Materi & Dropdown Kursus Terdaftar */}
       <div className="space-y-3">
         <input
           type="text"
@@ -503,7 +497,8 @@ export default function StudentCoursesClient({
             className="w-full sm:w-auto inline-flex items-center justify-between gap-3 rounded-xl bg-[#FFFDF9] hover:bg-[#F9DDBB]/45 border border-[#341D17]/15 px-4 py-2.5 text-xs font-bold text-[#341D17] transition cursor-pointer"
           >
             <span>
-              {activeCourse?.title || `Pilih Kursus (${selectedCategory})`}
+              {activeCourse?.title ||
+                `Belum Ada Kursus Diikuti (${selectedCategory})`}
             </span>
             <span className="text-[#802924]">
               {isCourseListOpen ? '▲' : '▼'}
@@ -514,7 +509,7 @@ export default function StudentCoursesClient({
             <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-2 space-y-1.5 max-w-xl">
               {filteredCourses.length === 0 ? (
                 <p className="px-3 py-2 text-xs text-[#341D17]/60">
-                  Belum ada kursus pada kategori {selectedCategory}.
+                  Belum ada kursus yang diikuti pada kategori {selectedCategory}.
                 </p>
               ) : (
                 filteredCourses.map((course) => {
@@ -557,9 +552,9 @@ export default function StudentCoursesClient({
 
         {visibleModules.length === 0 ? (
           <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 text-xs text-[#341D17]/65">
-            Belum ada konten atau file video di folder{' '}
-            <code className="font-semibold">public/videos</code> untuk kursus
-            &ldquo;{activeCourse?.title}&rdquo;.
+            {activeCourse
+              ? `Belum ada konten atau file video di folder public/videos untuk kursus "${activeCourse.title}".`
+              : 'Pilih atau ikuti kursus terlebih dahulu untuk melihat silabus kurikulum.'}
           </div>
         ) : (
           <div className="space-y-3">
@@ -614,7 +609,9 @@ export default function StudentCoursesClient({
                         </p>
                       ) : (
                         <p className="text-xs text-[#341D17]/55 truncate">
-                          {isOpen ? 'Klik untuk menutup teks modul' : 'Klik untuk membaca isi teks modul'}
+                          {isOpen
+                            ? 'Klik untuk menutup teks modul'
+                            : 'Klik untuk membaca isi teks modul'}
                         </p>
                       )}
                     </div>

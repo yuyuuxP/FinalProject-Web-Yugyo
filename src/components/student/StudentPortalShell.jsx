@@ -16,6 +16,7 @@ const BLOCKED_LABELS = new Set([
   'lihat katalog guest',
   'dashboard',
   'course',
+  'course catalog',
   'schedule',
   'chat instructor',
   'ulasan',
@@ -41,12 +42,12 @@ function isBlockedStudentName(value) {
 function pickStudentName(obj) {
   if (!obj || typeof obj !== 'object') return '';
   const candidates = [
-    obj.username,
-    obj.user_name,
-    obj.userName,
     obj.full_name,
     obj.fullName,
     obj.name,
+    obj.username,
+    obj.user_name,
+    obj.userName,
   ];
   for (const raw of candidates) {
     const clean = String(raw || '').trim();
@@ -62,6 +63,7 @@ function detectStudentFromStorage(storage) {
       const key = storage.key(i) || '';
       const raw = storage.getItem(key);
       if (!raw) continue;
+      if (!isBlockedStudentName(raw)) return raw.trim();
       try {
         const parsed = JSON.parse(raw);
         if (!parsed || typeof parsed !== 'object') continue;
@@ -122,62 +124,32 @@ export default function StudentPortalShell({
   const propName = !isBlockedStudentName(studentName)
     ? String(studentName).trim()
     : '';
-  const activeName = clientName || propName || 'Student';
-  const activeAvatar = clientAvatar || avatarUrl || '';
+  const activeName = propName || clientName || 'Student';
+  const activeAvatar = avatarUrl || clientAvatar || '';
 
   useEffect(() => {
     let cancelled = false;
 
-    const resolveAsync = () => {
+    const resolveSync = () => {
       if (typeof window === 'undefined' || cancelled) return;
-      const fromLocal = detectStudentFromStorage(window.localStorage);
-      const fromSession = detectStudentFromStorage(window.sessionStorage);
       const fromGreeting = detectStudentFromGreetingDom();
-      const resolved = fromLocal || fromSession || fromGreeting;
+      const fromSession = detectStudentFromStorage(window.sessionStorage);
+      const fromLocal = detectStudentFromStorage(window.localStorage);
+      const resolved = propName || fromGreeting || fromSession || fromLocal;
       if (resolved) {
         setClientName(resolved);
       }
     };
 
-    const t1 = setTimeout(resolveAsync, 0);
-    const t2 = setTimeout(resolveAsync, 150);
-
-    Promise.all(
-      ['/api/auth/session', '/api/auth/me', '/api/session'].map((url) =>
-        fetch(url, { cache: 'no-store' })
-          .then((r) => (r.ok ? r.json().catch(() => null) : null))
-          .catch(() => null)
-      )
-    ).then((results) => {
-      if (cancelled) return;
-      for (const data of results) {
-        if (!data || typeof data !== 'object') continue;
-        const found =
-          pickStudentName(data) ||
-          pickStudentName(data.user) ||
-          pickStudentName(data.session?.user) ||
-          pickStudentName(data.data?.user);
-        if (found) {
-          setClientName(found);
-          const foundAvatar = String(
-            data.avatarUrl ||
-              data.user?.avatar_url ||
-              data.user?.avatarUrl ||
-              data.session?.user?.avatar_url ||
-              ''
-          ).trim();
-          if (foundAvatar) setClientAvatar(foundAvatar);
-          return;
-        }
-      }
-    });
+    const t1 = setTimeout(resolveSync, 0);
+    const t2 = setTimeout(resolveSync, 150);
 
     return () => {
       cancelled = true;
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, []);
+  }, [propName]);
 
   return (
     <div className="min-h-screen lg:h-screen lg:overflow-hidden bg-[#FAF6F0] text-[#341D17] flex">
