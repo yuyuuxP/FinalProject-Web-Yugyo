@@ -1,325 +1,645 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import {
+  getActiveStudentIdentity,
+  saveActiveStudentId,
+} from '@/lib/studentSessionClient';
 
-function formatDayBadge(dateVal) {
-  if (!dateVal) return { label: 'HARI INI', day: '15' };
-  const d = new Date(dateVal);
-  if (Number.isNaN(d.getTime())) return { label: 'SESI', day: '15' };
-  const now = new Date();
-  const isToday =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate();
+function normalizeCategory(rawCat) {
+  const lower = String(rawCat || '').toLowerCase();
+  if (
+    lower.includes('bread') ||
+    lower.includes('yeast') ||
+    lower.includes('roti') ||
+    lower.includes('sourdough') ||
+    lower.includes('ciabatta') ||
+    lower.includes('brioche')
+  ) {
+    return 'Bread & Yeast Goods';
+  }
+  if (
+    lower.includes('cake') &&
+    (lower.includes('decor') ||
+      lower.includes('buttercream') ||
+      lower.includes('glaze'))
+  ) {
+    return 'Cake Decorating';
+  }
+  if (
+    lower.includes('cookie') ||
+    lower.includes('small bite') ||
+    lower.includes('macaron') ||
+    lower.includes('nastar')
+  ) {
+    return 'Cookies & Small Bites';
+  }
+  if (
+    lower.includes('french') ||
+    lower.includes('patisserie') ||
+    lower.includes('pastry') ||
+    lower.includes('croissant') ||
+    lower.includes('madeleine')
+  ) {
+    return 'French Patisserie & Pastry';
+  }
+  if (
+    lower.includes('traditional') ||
+    lower.includes('indonesian') ||
+    lower.includes('nusantara') ||
+    lower.includes('lapis') ||
+    lower.includes('bika') ||
+    lower.includes('onde') ||
+    lower.includes('klepon')
+  ) {
+    return 'Traditional Indonesian Cakes';
+  }
+  return 'Bread & Yeast Goods';
+}
+
+function formatDateDisplay(isoStr) {
+  const clean = String(isoStr || '').slice(0, 10);
+  const [y, m, d] = clean.split('-');
+  if (!y || !m || !d) return clean;
+  return `${d}-${m}-${y}`;
+}
+
+function buildCourseDetailHref(course) {
+  if (!course || !course.id) return '/dashboard/student/courses';
+  const params = new URLSearchParams();
+  params.set('courseId', String(course.id));
+  if (course.category) {
+    params.set('category', course.category);
+  }
+  return `/dashboard/student/courses?${params.toString()}#silabus-kurikulum`;
+}
+
+function normalizeCourse(row, idx = 0) {
+  const idNum = Number(row?.id ?? row?.course_id ?? idx + 1);
+  const totalModules = Math.max(0, Number(row?.total_modules ?? 0));
+  const completedModules = Math.max(0, Number(row?.completed_modules ?? 0));
+  const rawProgress = Number(row?.progress_percentage ?? row?.progress ?? 0);
+  const computedProgress =
+    totalModules > 0
+      ? Math.min(100, Math.round((completedModules / totalModules) * 100))
+      : Math.min(100, Math.max(0, rawProgress));
 
   return {
-    label: isToday
-      ? 'HARI INI'
-      : d.toLocaleDateString('id-ID', { month: 'short' }).toUpperCase(),
-    day: String(d.getDate()).padStart(2, '0'),
+    id: idNum,
+    title: String(row?.title ?? `Kursus #${idx + 1}`).trim(),
+    description: String(
+      row?.description ??
+        'Praktik teknik pengolahan dan formula resep standar Yugyo Atelier.'
+    ).trim(),
+    thumbnailUrl: String(row?.thumbnail_url ?? row?.thumbnailUrl ?? '').trim(),
+    category: normalizeCategory(row?.category ?? row?.category_name),
+    instructor: String(
+      row?.instructor ?? row?.instructor_name ?? 'Chef Yugyo'
+    ).trim(),
+    totalModules,
+    completedModules,
+    progressPercent: computedProgress,
   };
 }
 
 export default function StudentDashboardClient({
-  student,
-  stats,
-  enrollments = [],
-  sessions = [],
+  student = null,
+  initialAllCourses = [],
+  initialEnrolledCourses = [],
+  initialSessions = [],
+  initialCompletedKeys = [],
+  initialSessionXp = 0,
 }) {
-  const router = useRouter();
-  const [, startTransition] = useTransition();
-
-  const [completedSessionIds, setCompletedSessionIds] = useState(() =>
-    sessions.filter((s) => Boolean(s.is_completed)).map((s) => Number(s.id))
-  );
-  const [markingId, setMarkingId] = useState(null);
-  const [showFormulaModal, setShowFormulaModal] = useState(false);
-
-  const featuredCourse = enrollments[0] || null;
-  const otherCourses = useMemo(
-    () => (enrollments.length > 1 ? enrollments.slice(1) : enrollments),
-    [enrollments]
-  );
-  const upcomingSession = sessions[0] || null;
-
-  const xpPercent = Math.min(
-    100,
-    Math.max(
-      8,
-      Math.round(
-        ((stats?.xpCurrent ?? 1450) / (stats?.xpTarget ?? 2000)) * 100
-      )
-    )
+  const allCourses = useMemo(
+    () =>
+      Array.isArray(initialAllCourses)
+        ? initialAllCourses.map((r, i) => normalizeCourse(r, i))
+        : [],
+    [initialAllCourses]
   );
 
-  const completedCount = useMemo(() => {
-    if (sessions.length === 0) return stats?.completedSessions ?? 14;
-    return sessions.filter(
-      (s) =>
-        Boolean(s.is_completed) || completedSessionIds.includes(Number(s.id))
-    ).length;
-  }, [sessions, completedSessionIds, stats]);
+  const [displayName, setDisplayName] = useState(() =>
+    String(student?.full_name || 'Student').trim()
+  );
+  const [enrolledCourses, setEnrolledCourses] = useState(() =>
+    Array.isArray(initialEnrolledCourses)
+      ? initialEnrolledCourses.map((r, i) => normalizeCourse(r, i))
+      : []
+  );
+  const [sessions, setSessions] = useState(() =>
+    Array.isArray(initialSessions) ? initialSessions : []
+  );
+  const [completedKeys, setCompletedKeys] = useState(() =>
+    Array.isArray(initialCompletedKeys) ? initialCompletedKeys : []
+  );
+  const [sessionXp, setSessionXp] = useState(() =>
+    Number(initialSessionXp || 0)
+  );
+  const [selectedContinueId, setSelectedContinueId] = useState(null);
 
-  const handleMarkSessionDone = async (sessionId) => {
-    if (!sessionId || markingId) return;
-    setMarkingId(sessionId);
+  useEffect(() => {
+    let active = true;
 
-    setCompletedSessionIds((prev) =>
-      prev.includes(Number(sessionId)) ? prev : [...prev, Number(sessionId)]
-    );
+    async function syncDashboardData() {
+      try {
+        const identity = await getActiveStudentIdentity();
+        if (!active) return;
 
-    try {
-      await fetch('/api/student/sessions/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId }),
-      });
-      startTransition(() => {
-        router.refresh();
-      });
-    } catch (err) {
-      console.warn('Session completion sync warning:', err?.message);
-    } finally {
-      setMarkingId(null);
+        const studentId = identity.studentId || student?.id || null;
+        const studentName = identity.studentName || student?.full_name || '';
+
+        if (studentName) {
+          setDisplayName(studentName);
+        }
+
+        if (!studentId && !studentName) return;
+
+        const params = new URLSearchParams();
+        if (studentId) params.set('studentId', String(studentId));
+        if (studentName) params.set('studentName', studentName);
+
+        const [enrollRes, progressRes, scheduleRes, xpRes] = await Promise.all([
+          fetch(`/api/student/enrollments?${params.toString()}`, {
+            cache: 'no-store',
+          }),
+          fetch(`/api/student/module-progress?${params.toString()}`, {
+            cache: 'no-store',
+          }),
+          fetch(`/api/student/schedule?${params.toString()}`, {
+            cache: 'no-store',
+          }),
+          fetch(`/api/student/sessions/complete?${params.toString()}`, {
+            cache: 'no-store',
+          }),
+        ]);
+
+        if (!active) return;
+
+        const enrollData = enrollRes.ok
+          ? await enrollRes.json().catch(() => null)
+          : null;
+        const progressData = progressRes.ok
+          ? await progressRes.json().catch(() => null)
+          : null;
+        const scheduleData = scheduleRes.ok
+          ? await scheduleRes.json().catch(() => null)
+          : null;
+        const xpData = xpRes.ok ? await xpRes.json().catch(() => null) : null;
+
+        if (!active) return;
+
+        const resolvedId =
+          enrollData?.studentId ||
+          progressData?.studentId ||
+          scheduleData?.studentId ||
+          xpData?.studentId;
+        if (resolvedId) {
+          saveActiveStudentId(resolvedId, studentName);
+        }
+
+        if (xpData && typeof xpData.totalSessionXp === 'number') {
+          setSessionXp(xpData.totalSessionXp);
+        }
+
+        const keysList = Array.isArray(progressData?.completedKeys)
+          ? progressData.completedKeys
+          : null;
+        if (keysList) {
+          setCompletedKeys(keysList);
+        }
+
+        const progressMap =
+          progressData?.progressByCourse &&
+          typeof progressData.progressByCourse === 'object'
+            ? progressData.progressByCourse
+            : {};
+
+        if (enrollData && Array.isArray(enrollData.enrollments)) {
+          const activeRows = enrollData.enrollments.filter(
+            (row) =>
+              String(row?.status || 'active').toLowerCase() !== 'dropped'
+          );
+
+          const mapped = activeRows
+            .map((row, idx) => {
+              const cId = Number(row?.course_id ?? row?.courseId);
+              const baseCourse = allCourses.find((c) => c.id === cId);
+              const doneInCourse = (keysList || []).filter((k) =>
+                String(k).startsWith(`${cId}:`)
+              ).length;
+              const totalMods = baseCourse?.totalModules ?? 0;
+              const pctFromMap = progressMap[String(cId)];
+              const pctFromEnroll = Number(row?.progress_percentage ?? 0);
+              const finalPercent =
+                totalMods > 0
+                  ? Math.min(100, Math.round((doneInCourse / totalMods) * 100))
+                  : typeof pctFromMap === 'number'
+                    ? pctFromMap
+                    : pctFromEnroll;
+
+              if (baseCourse) {
+                return {
+                  ...baseCourse,
+                  completedModules: doneInCourse,
+                  progressPercent: finalPercent,
+                };
+              }
+
+              return normalizeCourse(
+                {
+                  id: cId,
+                  title: row?.title || row?.course_title,
+                  category: row?.category || row?.category_name,
+                  instructor: row?.instructor || row?.instructor_name,
+                  progress_percentage: finalPercent,
+                },
+                idx
+              );
+            })
+            .filter((c) => Number.isInteger(c.id) && c.id > 0);
+
+          setEnrolledCourses(mapped);
+        }
+
+        if (scheduleData && Array.isArray(scheduleData.sessions)) {
+          setSessions(scheduleData.sessions);
+        }
+      } catch {
+        // Abaikan jika gagal sinkronisasi jaringan sementara
+      }
     }
-  };
 
-  const badgeInfo = formatDayBadge(upcomingSession?.session_date);
-  const isUpcomingDone = upcomingSession
-    ? Boolean(upcomingSession.is_completed) ||
-      completedSessionIds.includes(Number(upcomingSession.id))
-    : false;
+    syncDashboardData();
+
+    return () => {
+      active = false;
+    };
+  }, [allCourses, student]);
+
+  const firstName = useMemo(() => {
+    const clean = String(displayName || 'Student').trim();
+    return clean.split(/\s+/)[0] || 'Student';
+  }, [displayName]);
+
+  const totalXp = useMemo(
+    () => sessionXp + completedKeys.length * 50,
+    [sessionXp, completedKeys.length]
+  );
+
+  const levelInfo = useMemo(() => {
+    if (totalXp >= 2000) {
+      return {
+        currentLabel: 'Level 3: Maître Sourdough & Pastry',
+        prevLabel: 'Level 2: Artisan Viennoiserie (Lulus)',
+        nextLabel: 'Tingkat Tertinggi Atelier',
+        targetXp: 3000,
+        percent: Math.min(100, Math.round(((totalXp - 2000) / 1000) * 100)),
+      };
+    }
+    if (totalXp >= 500) {
+      return {
+        currentLabel: 'Level 2: Artisan Viennoiserie',
+        prevLabel: 'Level 1: Pâte Sucrée (Lulus)',
+        nextLabel: 'Tingkat Mulia: Sourdough Pastry →',
+        targetXp: 2000,
+        percent: Math.min(100, Math.round((totalXp / 2000) * 100)),
+      };
+    }
+    return {
+      currentLabel: 'Level 1: Pâte Sucrée Apprentice',
+      prevLabel: 'Orientasi Dapur Atelier (Lulus)',
+      nextLabel: 'Level 2: Artisan Viennoiserie →',
+      targetXp: 500,
+      percent: Math.min(100, Math.max(8, Math.round((totalXp / 500) * 100))),
+    };
+  }, [totalXp]);
+
+  const activeLearningCourse = useMemo(() => {
+    if (enrolledCourses.length === 0) return null;
+    if (selectedContinueId !== null) {
+      const picked = enrolledCourses.find(
+        (c) => Number(c.id) === Number(selectedContinueId)
+      );
+      if (picked) return picked;
+    }
+    const inProgress = enrolledCourses.find(
+      (c) => c.progressPercent > 0 && c.progressPercent < 100
+    );
+    return inProgress || enrolledCourses[0];
+  }, [enrolledCourses, selectedContinueId]);
+
+  const otherOngoingCourses = useMemo(() => {
+    if (!activeLearningCourse) return [];
+    return enrolledCourses.filter(
+      (c) => Number(c.id) !== Number(activeLearningCourse.id)
+    );
+  }, [enrolledCourses, activeLearningCourse]);
+
+  const continueCourseHref = useMemo(
+    () => buildCourseDetailHref(activeLearningCourse),
+    [activeLearningCourse]
+  );
+
+  const totalSessionsCount = sessions.length;
+  const completedSessionsCount = useMemo(
+    () =>
+      sessions.filter((s) => Boolean(s?.is_completed ?? s?.isCompleted)).length,
+    [sessions]
+  );
+
+  const sessionIndexPercent = useMemo(
+    () =>
+      totalSessionsCount > 0
+        ? Math.round((completedSessionsCount / totalSessionsCount) * 100)
+        : 0,
+    [completedSessionsCount, totalSessionsCount]
+  );
+
+  const focusHoursNumber = useMemo(() => {
+    const totalUnits = completedKeys.length + completedSessionsCount;
+    return Number((totalUnits * 0.5).toFixed(1));
+  }, [completedKeys.length, completedSessionsCount]);
+
+  const certificatesCount = useMemo(
+    () => enrolledCourses.filter((c) => c.progressPercent >= 100).length,
+    [enrolledCourses]
+  );
+
+  const upcomingSessions = useMemo(() => {
+    const pending = sessions.filter(
+      (s) =>
+        !Boolean(s?.is_completed ?? s?.isCompleted) &&
+        !Boolean(s?.is_teacher_done ?? s?.isTeacherDone)
+    );
+    return (pending.length > 0 ? pending : sessions).slice(0, 3);
+  }, [sessions]);
 
   return (
-    <div className="space-y-5">
-      {/* HEADER & XP LEVEL BAR */}
-      <section className="space-y-3.5">
-        <div className="space-y-1">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#802924]/25 bg-[#F9DDBB]/55 px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
-            <span>🏅 APPRENTICE BAKER • VERIFIED STUDENT</span>
+    <div className="space-y-6 text-[#341D17] pb-12">
+      {/* 1. Sapaan & Level XP */}
+      <section className="space-y-4">
+        <div className="space-y-1.5">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F9DDBB]/85 border border-[#802924]/15 px-3 py-1 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
+            <span>&#10022;</span>
+            <span>APPRENTICE BAKER &bull; VERIFIED STUDENT</span>
           </span>
 
-          <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17] flex items-center gap-2">
-            <span>Halo, {student?.full_name || 'Siswa Atelier'}!</span>
-            <span aria-hidden="true">👩‍🍳</span>
+          <h1 className="font-editorial text-2xl sm:text-4xl font-bold text-[#341D17]">
+            Halo, {firstName}! &#128105;&#8205;&#127859;
           </h1>
 
-          <p className="text-xs sm:text-sm text-[#341D17]/75">
+          <p className="text-xs sm:text-sm text-[#341D17]/65">
             Lanjutkan kreasi aroma butter dan laminasi adonan hari ini. Dapur siap menyambut sentuhan tanganmu.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-[#341D17]/12 bg-[#FAF6F0] px-4 py-3.5 shadow-2xs space-y-2">
+        {/* Kartu Level & XP Bar */}
+        <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 sm:p-5 shadow-2xs space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2 font-bold text-[#341D17]">
-              <span>🥐</span>
-              <span>Level 2: Artisan Viennoiserie</span>
-            </div>
+            <span className="inline-flex items-center gap-1.5 font-extrabold text-[#341D17]">
+              <span className="text-[#802924]">&#127894;</span>
+              <span>{levelInfo.currentLabel}</span>
+            </span>
             <span className="font-extrabold text-[#802924]">
-              {(stats?.xpCurrent ?? 1450).toLocaleString('id-ID')} /{' '}
-              {(stats?.xpTarget ?? 2000).toLocaleString('id-ID')} XP
+              {totalXp.toLocaleString('id-ID')} /{' '}
+              {levelInfo.targetXp.toLocaleString('id-ID')} XP
             </span>
           </div>
 
-          <div className="h-2 w-full rounded-full bg-[#F9DDBB] overflow-hidden">
+          <div className="h-2.5 w-full rounded-full bg-[#F9DDBB]/80 overflow-hidden">
             <div
-              className="h-full rounded-full bg-[#802924] transition-all"
-              style={{ width: `${xpPercent}%` }}
+              className="h-full rounded-full bg-[#802924] transition-all duration-300"
+              style={{ width: `${levelInfo.percent}%` }}
             />
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#341D17]/65">
-            <span>Level 1: Pâte Sablée (Lulus)</span>
-            <Link
-              href="/dashboard/student/courses"
-              className="font-bold text-[#802924] hover:underline"
-            >
-              Tingkat Master: Sourdough Pastry &rarr;
-            </Link>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+            <span className="text-[#341D17]/55">{levelInfo.prevLabel}</span>
+            <span className="font-bold text-[#802924]">
+              {levelInfo.nextLabel}
+            </span>
           </div>
         </div>
       </section>
 
-      {/* GRID 4 KARTU METRIK KECIL & RINGKAS */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="rounded-2xl border border-[#341D17]/12 bg-[#FFFDF9] p-3.5 shadow-2xs flex flex-col justify-between gap-2.5">
+      {/* 2. Statistik 4 Kartu */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Card 1: Kursus Berjalan */}
+        <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 sm:p-5 shadow-2xs space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#F9DDBB]/70 text-xs text-[#802924]">
-              ☕
+            <span className="w-8 h-8 rounded-xl bg-[#F9DDBB]/80 text-[#802924] flex items-center justify-center text-xs font-extrabold">
+              &#9679;
             </span>
-            <span className="rounded-full bg-[#F9DDBB]/70 px-2 py-0.5 text-[9px] font-extrabold uppercase text-[#802924]">
+            <span className="rounded-full bg-[#FAF6F0] border border-[#341D17]/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/75">
               AKTIF
             </span>
           </div>
-          <div>
-            <p className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17] leading-tight">
-              {stats?.activeCourses ?? 0}
+          <div className="space-y-0.5">
+            <p className="text-xl sm:text-2xl font-extrabold text-[#341D17]">
+              {enrolledCourses.length}
             </p>
-            <p className="text-[11px] text-[#341D17]/70 mt-0.5 truncate">
+            <p className="text-xs font-semibold text-[#341D17]/60">
               Kursus Berjalan
             </p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[#341D17]/12 bg-[#FFFDF9] p-3.5 shadow-2xs flex flex-col justify-between gap-2.5">
+        {/* Card 2: Mark as Done */}
+        <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 sm:p-5 shadow-2xs space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#ECFDF3] text-xs text-[#027A48]">
-              ✓
+            <span className="w-8 h-8 rounded-xl bg-[#EEF5EE] text-[#4E7A4E] flex items-center justify-center text-xs font-extrabold">
+              &#10003;
             </span>
-            <span className="text-[10px] font-bold text-[#027A48]">
-              {stats?.indexPercent ?? 78}% Indeks
+            <span className="text-[11px] font-bold text-[#4E7A4E]">
+              {sessionIndexPercent}% Indeks
             </span>
           </div>
-          <div>
-            <p className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17] leading-tight">
-              {completedCount}{' '}
-              <span className="text-xs font-normal text-[#341D17]/60">
-                / {stats?.totalSessions ?? 18} Sesi
+          <div className="space-y-0.5">
+            <p className="text-xl sm:text-2xl font-extrabold text-[#341D17]">
+              {completedSessionsCount}{' '}
+              <span className="text-xs sm:text-sm font-semibold text-[#341D17]/45">
+                / {totalSessionsCount} Sesi
               </span>
             </p>
-            <p className="text-[11px] text-[#341D17]/70 mt-0.5 truncate">
+            <p className="text-xs font-semibold text-[#341D17]/60">
               Mark as Done
             </p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[#341D17]/12 bg-[#FFFDF9] p-3.5 shadow-2xs flex flex-col justify-between gap-2.5">
+        {/* Card 3: Fokus Pekan Ini */}
+        <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 sm:p-5 shadow-2xs space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#FAF6F0] border border-[#341D17]/10 text-xs text-[#341D17]">
-              ⏱
+            <span className="w-8 h-8 rounded-xl bg-[#F9DDBB]/65 text-[#802924] flex items-center justify-center text-xs font-extrabold">
+              &#9200;
             </span>
-            <span className="text-[10px] font-bold text-[#802924]">
-              +1.2 Jam
+            <span className="text-[11px] font-bold text-[#341D17]/55">
+              +{focusHoursNumber.toFixed(1)} Jam
             </span>
           </div>
-          <div>
-            <p className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17] leading-tight">
-              {stats?.focusHours ?? 3.5}{' '}
-              <span className="text-xs font-normal text-[#341D17]/60">Jam</span>
+          <div className="space-y-0.5">
+            <p className="text-xl sm:text-2xl font-extrabold text-[#341D17]">
+              {focusHoursNumber.toFixed(1)}{' '}
+              <span className="text-xs sm:text-sm font-semibold text-[#341D17]/50">
+                Jam
+              </span>
             </p>
-            <p className="text-[11px] text-[#341D17]/70 mt-0.5 truncate">
+            <p className="text-xs font-semibold text-[#341D17]/60">
               Fokus Pekan Ini
             </p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[#F3D2B3] bg-[#F9DDBB]/55 p-3.5 shadow-2xs flex flex-col justify-between gap-2.5">
+        {/* Card 4: Unduh Sertifikat */}
+        <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 sm:p-5 shadow-2xs space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#802924] text-xs text-[#FFFDF9]">
-              🏅
+            <span className="w-8 h-8 rounded-xl bg-[#802924] text-[#FFFDF9] flex items-center justify-center text-xs font-extrabold">
+              &#127894;
             </span>
-            <span className="rounded-full bg-[#FFFDF9] px-2 py-0.5 text-[9px] font-extrabold uppercase text-[#341D17]">
+            <span className="rounded-full bg-[#F9DDBB]/85 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
               SIAP
             </span>
           </div>
-          <div>
-            <p className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17] leading-tight">
-              {stats?.readyCertificates ?? 1}
+          <div className="space-y-0.5">
+            <p className="text-xl sm:text-2xl font-extrabold text-[#341D17]">
+              {certificatesCount}
             </p>
-            <p className="text-[11px] text-[#341D17]/80 mt-0.5 truncate">
+            <Link
+              href={continueCourseHref}
+              className="inline-block text-xs font-bold text-[#802924] hover:underline"
+            >
               Unduh Sertifikat &darr;
-            </p>
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* LANJUTKAN PEMBELAJARAN */}
-      {featuredCourse && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17] inline-flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-[#802924]" />
-              <span>Lanjutkan Pembelajaran</span>
+      {/* 3. Lanjutkan Pembelajaran */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[#802924] text-sm">&#9670;</span>
+            <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
+              Lanjutkan Pembelajaran
             </h2>
-            <Link
-              href="/dashboard/student/courses"
-              className="text-xs font-bold text-[#802924] hover:underline"
-            >
-              Lihat Silabus
-            </Link>
           </div>
 
-          <div className="rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] p-4 sm:p-5 shadow-2xs space-y-4">
-            <div className="relative overflow-hidden rounded-2xl border border-[#341D17]/10 bg-[#FAF6F0]">
-              <img
-                src={
-                  featuredCourse.thumbnail_url ||
-                  '/pictures/courses/french_pastry/croissant.png'
-                }
-                alt={featuredCourse.title}
-                className="h-52 sm:h-64 w-full object-cover"
-              />
-              <div className="absolute left-3 top-3 flex items-center gap-2">
+          <Link
+            href={continueCourseHref}
+            className="text-xs font-bold text-[#802924] hover:underline"
+          >
+            Lihat Silabus
+          </Link>
+        </div>
+
+        {activeLearningCourse ? (
+          <article className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 sm:p-6 shadow-2xs space-y-4">
+            <div className="relative h-48 sm:h-64 w-full rounded-2xl overflow-hidden bg-[#F9DDBB] border border-[#341D17]/10">
+              {activeLearningCourse.thumbnailUrl ? (
+                <img
+                  src={activeLearningCourse.thumbnailUrl}
+                  alt={activeLearningCourse.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#F9DDBB] to-[#EBC49A] text-[#802924] font-editorial text-xl font-bold px-4 text-center">
+                  {activeLearningCourse.title}
+                </div>
+              )}
+
+              <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-[#341D17]/85 px-3 py-1 text-[10px] font-bold text-[#FFFDF9]">
-                  Modul Utama #04
+                  Modul Utama #01
                 </span>
-                <span className="rounded-full bg-[#F9DDBB] px-3 py-1 text-[10px] font-extrabold text-[#802924]">
+                <span className="rounded-full bg-[#802924]/90 px-3 py-1 text-[10px] font-bold text-[#FFFDF9]">
                   &#9654; Video HD
                 </span>
               </div>
+
               <span className="absolute bottom-3 right-3 rounded-lg bg-[#341D17]/85 px-2.5 py-1 text-[10px] font-bold text-[#FFFDF9]">
-                Menit 14:22 / 28:50
+                {activeLearningCourse.completedModules}/
+                {activeLearningCourse.totalModules || 1} Modul
               </span>
             </div>
 
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-[#802924]">
-                &#128104;&#8205;&#127859; Chef {featuredCourse.instructor_name}{' '}
-                &bull; {featuredCourse.instructor_specialty}
+              <p className="text-xs font-semibold text-[#341D17]/70">
+                &#128104;&#8205;&#127859; {activeLearningCourse.instructor}{' '}
+                &bull; {activeLearningCourse.category}
               </p>
               <h3 className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17]">
-                {featuredCourse.title}
+                {activeLearningCourse.title}
               </h3>
-              <p className="text-xs sm:text-sm text-[#341D17]/75">
-                Fokus Materi:{' '}
-                <strong className="font-semibold text-[#341D17]">
-                  {featuredCourse.description ||
-                    'Teknik Lipatan Single Turn & Double Turn (Tourage)'}
-                </strong>
+              <p className="text-xs text-[#341D17]/65">
+                Fokus Materi: {activeLearningCourse.description}
               </p>
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs font-bold">
-                <span className="text-[#341D17]">Kemajuan Modul</span>
-                <span className="text-[#802924]">
-                  {featuredCourse.progress_percentage ?? 75}% Selesai
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-[#341D17]/75">
+                  Kemajuan Modul
+                </span>
+                <span className="font-extrabold text-[#341D17]">
+                  {activeLearningCourse.progressPercent}% Selesai
                 </span>
               </div>
-              <div className="h-2 w-full rounded-full bg-[#F9DDBB] overflow-hidden">
+              <div className="h-2 w-full rounded-full bg-[#F9DDBB]/75 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-[#802924]"
-                  style={{
-                    width: `${featuredCourse.progress_percentage ?? 75}%`,
-                  }}
+                  className="h-full rounded-full bg-[#802924] transition-all duration-300"
+                  style={{ width: `${activeLearningCourse.progressPercent}%` }}
                 />
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-[#341D17]/60">
-                <span>&#128336; Terakhir dibuka 2 jam lalu</span>
-                <span>Tersisa 14 Menit</span>
               </div>
             </div>
 
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#341D17]/55">
+              <span>&#9200; Siap dilanjutkan kapan saja</span>
+              <span>
+                {activeLearningCourse.totalModules > 0
+                  ? `${activeLearningCourse.totalModules} Modul Tersedia`
+                  : 'Kurikulum Atelier'}
+              </span>
+            </div>
+
             <Link
-              href={`/dashboard/student/courses/${featuredCourse.course_id}`}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#802924] hover:bg-[#661F1B] py-3 px-5 text-xs sm:text-sm font-bold text-[#FFFDF9] transition"
+              href={continueCourseHref}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#802924] hover:bg-[#661F1B] px-5 py-3 text-xs sm:text-sm font-bold text-[#FFFDF9] transition shadow-xs"
             >
               <span>Lanjutkan Belajar Sekarang</span>
               <span>&rarr;</span>
             </Link>
+          </article>
+        ) : (
+          <div className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-6 text-center space-y-3">
+            <p className="text-sm font-bold text-[#341D17]">
+              Kamu belum mengikuti kursus apa pun
+            </p>
+            <p className="text-xs text-[#341D17]/65">
+              Pilih kursus pastry favoritmu di Course Catalog untuk mulai belajar.
+            </p>
+            <div>
+              <Link
+                href="/dashboard/student/catalog"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition"
+              >
+                <span>Jelajahi Course Catalog</span>
+              </Link>
+            </div>
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
-      {/* JADWAL KELAS TERDEKAT */}
+      {/* 4. Jadwal Kelas Terdekat */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17] inline-flex items-center gap-2">
-            <span>&#128197;</span>
-            <span>Jadwal Kelas Terdekat</span>
-          </h2>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[#802924] text-sm">&#128197;</span>
+            <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
+              Jadwal Kelas Terdekat
+            </h2>
+          </div>
+
           <Link
             href="/dashboard/student/schedule"
             className="text-xs font-bold text-[#802924] hover:underline"
@@ -328,197 +648,176 @@ export default function StudentDashboardClient({
           </Link>
         </div>
 
-        {upcomingSession ? (
-          <div className="rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] p-4 sm:p-5 shadow-2xs space-y-4">
-            <div className="flex items-start gap-3.5">
-              <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-[#802924] text-[#FFFDF9]">
-                <span className="text-[9px] font-extrabold uppercase tracking-wider text-[#F9DDBB]">
-                  {badgeInfo.label}
-                </span>
-                <span className="font-editorial text-lg font-bold leading-tight">
-                  {badgeInfo.day}
-                </span>
-              </div>
-
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                  <span className="rounded-full bg-[#F9DDBB]/75 px-2.5 py-0.5 font-bold text-[#802924]">
-                    {upcomingSession.location_label || 'Live Atelier'}
-                  </span>
-                  <span className="text-[#341D17]/65">
-                    {upcomingSession.session_time || '15:00 - 16:30 WITA'}
-                  </span>
-                </div>
-
-                <h3 className="font-editorial text-base sm:text-lg font-bold text-[#341D17]">
-                  {upcomingSession.title}
-                </h3>
-
-                <p className="text-xs text-[#341D17]/70 truncate">
-                  Bersama Chef {upcomingSession.instructor_name} &bull;{' '}
-                  {upcomingSession.course_title}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-              <Link
-                href="/dashboard/student/schedule"
-                className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-[#802924] hover:bg-[#661F1B] py-2.5 px-4 text-xs sm:text-sm font-bold text-[#FFFDF9] transition"
-              >
-                <span>&#127909;</span>
-                <span>Masuk Kelas Virtual</span>
-              </Link>
-
-              <button
-                type="button"
-                disabled={isUpcomingDone || markingId === upcomingSession.id}
-                onClick={() => handleMarkSessionDone(upcomingSession.id)}
-                className="flex items-center justify-center gap-2 rounded-2xl border border-[#341D17]/15 bg-[#FAF6F0] hover:bg-[#F9DDBB]/50 py-2.5 px-4 text-xs sm:text-sm font-bold text-[#341D17] transition cursor-pointer disabled:opacity-60"
-              >
-                <span>&#10003;</span>
-                <span>{isUpcomingDone ? 'Selesai' : 'Tandai Selesai'}</span>
-              </button>
-            </div>
+        {upcomingSessions.length === 0 ? (
+          <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 text-xs text-[#341D17]/60">
+            Belum ada jadwal kelas terdekat.
           </div>
         ) : (
-          <div className="rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] p-5 text-xs text-[#341D17]/70">
-            Belum ada jadwal kelas terdekat.
+          <div className="space-y-2.5">
+            {upcomingSessions.map((ses, idx) => (
+              <Link
+                key={ses.id ?? idx}
+                href="/dashboard/student/schedule"
+                className="block rounded-2xl bg-[#FFFDF9] hover:bg-[#FAF6F0] border border-[#341D17]/12 p-4 transition"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="space-y-0.5 min-w-0">
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
+                      {ses.course_title ?? ses.courseTitle} &bull; SESI{' '}
+                      {ses.session_number ?? ses.sessionNumber ?? 1}
+                    </p>
+                    <p className="text-sm font-bold text-[#341D17] truncate">
+                      {ses.title}
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-semibold text-[#341D17]/65 shrink-0">
+                    {formatDateDisplay(ses.session_date ?? ses.sessionDate)}{' '}
+                    &bull; {ses.session_time ?? ses.sessionTime}
+                  </span>
+                </div>
+              </Link>
+            ))}
           </div>
         )}
       </section>
 
-      {/* CATATAN ATELIER HARI INI */}
-      <section className="rounded-3xl border border-[#F3D2B3] bg-[#FAF6F0] p-5 sm:p-6 shadow-2xs space-y-4">
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
-          <span>&#128205; CATATAN ATELIER HARI INI</span>
-        </span>
-
+      {/* 5. Catatan Atelier Hari Ini */}
+      <section className="rounded-3xl bg-[#FAF3EA] border border-[#341D17]/12 p-5 sm:p-6 space-y-4">
         <div className="space-y-1.5">
-          <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
+          <p className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
+            &#10022; CATATAN ATELIER HARI INI
+          </p>
+          <h3 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
             Tips Fermentasi Dingin (Cold Retardation)
-          </h2>
-          <p className="text-xs sm:text-sm text-[#341D17]/80 leading-relaxed">
-            &ldquo;Pertahankan suhu chiller tepat di kisaran{' '}
-            <strong className="text-[#802924]">4&deg;C</strong> agar aktivitas ragi
-            beristirahat stabil, memberi ruang optimal bagi asam laktat membentuk aroma
-            mentega khas Parisian Croissant.&rdquo;
+          </h3>
+          <p className="text-xs sm:text-sm text-[#341D17]/75 italic leading-relaxed">
+            &ldquo;Pertahankan suhu chiller tepat di kisaran 4&deg;C agar aktivitas ragi beristirahat stabil, memberi ruang optimal bagi asam laktat membentuk aroma mentega khas Parisian Croissant.&rdquo;
           </p>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#802924] text-xs font-extrabold text-[#FFFDF9]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-[#802924] text-[#FFFDF9] font-extrabold text-xs flex items-center justify-center shrink-0">
               YA
-            </span>
+            </div>
             <div>
-              <p className="text-xs font-bold text-[#341D17]">
-                Chef {featuredCourse?.instructor_name || 'Ayu'}
-              </p>
-              <p className="text-[11px] text-[#341D17]/65">
-                {featuredCourse?.instructor_specialty || 'Head of Viennoiserie'}
+              <p className="text-xs font-bold text-[#341D17]">Chef Ayu</p>
+              <p className="text-[11px] text-[#341D17]/60">
+                Head of Viennoiserie
               </p>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowFormulaModal((prev) => !prev)}
-            className="rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#F9DDBB]/50 px-3.5 py-2 text-xs font-bold text-[#341D17] transition cursor-pointer inline-flex items-center gap-1.5"
+          <Link
+            href={continueCourseHref}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFFDF9] hover:bg-[#F9DDBB]/65 border border-[#341D17]/12 px-3.5 py-2 text-xs font-bold text-[#341D17] transition"
           >
-            <span>&#128196;</span>
-            <span>Lembar Formula</span>
-          </button>
+            <span>&#128196; Lembar Formula</span>
+          </Link>
         </div>
-
-        {showFormulaModal && (
-          <div className="rounded-2xl border border-[#341D17]/15 bg-[#FFFDF9] p-4 text-xs text-[#341D17]/85 space-y-1">
-            <p className="font-bold text-[#802924]">
-              Acuan Suhu &amp; Fermentasi Atelier
-            </p>
-            <p>
-              Suhu mentega laminasi 14–16&deg;C, suhu adonan 10–12&deg;C, dan cold
-              retardation di chiller 4&deg;C selama 8–12 jam sebelum dipanggang.
-            </p>
-          </div>
-        )}
       </section>
 
-      {/* MATERI BERLANGSUNG LAINNYA */}
+      {/* 6. Materi Berlangsung Lainnya */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
             Materi Berlangsung Lainnya
           </h2>
+
           <Link
-            href="/dashboard/student/courses"
+            href="/dashboard/student/catalog"
             className="text-xs font-bold text-[#802924] hover:underline"
           >
             Katalog Lengkap
           </Link>
         </div>
 
-        <div className="space-y-3">
-          {otherCourses.map((course) => {
-            const pct = Math.min(
-              100,
-              Math.max(10, Number(course.progress_percentage || 40))
-            );
-            return (
-              <Link
-                key={course.course_id}
-                href={`/dashboard/student/courses/${course.course_id}`}
-                className="block rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] hover:bg-[#FAF6F0] p-4 sm:p-5 shadow-2xs transition space-y-3"
+        {otherOngoingCourses.length === 0 ? (
+          <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-[#341D17]/65">
+              Belum ada materi berlangsung lainnya. Jelajahi kelas lain untuk menambah koleksi resepmu.
+            </p>
+            <Link
+              href="/dashboard/student/catalog"
+              className="rounded-xl bg-[#FAF6F0] hover:bg-[#F9DDBB]/70 border border-[#341D17]/15 px-3.5 py-2 text-xs font-bold text-[#341D17] transition shrink-0"
+            >
+              + Tambah Kursus
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {otherOngoingCourses.map((course) => (
+              <div
+                key={course.id}
+                className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 shadow-2xs flex flex-col justify-between gap-3"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="relative h-14 w-16 shrink-0 overflow-hidden rounded-xl border border-[#341D17]/10 bg-[#FAF6F0]">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-16 h-16 rounded-xl bg-[#F9DDBB] border border-[#341D17]/10 overflow-hidden shrink-0 flex items-center justify-center">
+                    {course.thumbnailUrl ? (
                       <img
-                        src={
-                          course.thumbnail_url ||
-                          '/pictures/courses/french_pastry/Fruits_tartle.png'
-                        }
+                        src={course.thumbnailUrl}
                         alt={course.title}
-                        className="h-full w-full object-cover"
+                        className="w-full h-full object-cover"
                       />
-                      <span className="absolute bottom-1 left-1 rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                        12 Sesi
+                    ) : (
+                      <span className="text-[10px] font-extrabold text-[#802924] text-center px-1.5">
+                        {course.category}
                       </span>
-                    </div>
-
-                    <div className="min-w-0">
-                      <span className="block text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
-                        {course.category_name || 'PASTRY ATELIER'}
-                      </span>
-                      <h3 className="text-sm sm:text-base font-bold text-[#341D17] truncate">
-                        {course.title}
-                      </h3>
-                      <p className="text-xs text-[#341D17]/65 truncate">
-                        Instruktur: Chef {course.instructor_name}
-                      </p>
-                    </div>
+                    )}
                   </div>
 
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#341D17]/12 bg-[#FAF6F0] text-sm text-[#341D17]">
-                    &rsaquo;
-                  </span>
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#802924] truncate">
+                      {course.category}
+                    </p>
+                    <h3 className="font-editorial text-base font-bold text-[#341D17] truncate">
+                      {course.title}
+                    </h3>
+                    <p className="text-[11px] text-[#341D17]/60 truncate">
+                      &#128104;&#8205;&#127859; {course.instructor}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="h-1.5 flex-1 rounded-full bg-[#F9DDBB] overflow-hidden">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-[#341D17]/65 font-semibold">
+                      Progres
+                    </span>
+                    <span className="font-bold text-[#341D17]">
+                      {course.progressPercent}% ({course.completedModules}/
+                      {course.totalModules || 1} Modul)
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-[#F9DDBB]/75 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-[#802924]"
-                      style={{ width: `${pct}%` }}
+                      style={{ width: `${course.progressPercent}%` }}
                     />
                   </div>
-                  <span className="text-[11px] font-bold text-[#341D17]/75 shrink-0">
-                    {pct}%
-                  </span>
                 </div>
-              </Link>
-            );
-          })}
-        </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <Link
+                    href={buildCourseDetailHref(course)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-3.5 py-2 text-xs font-bold text-[#FFFDF9] transition"
+                  >
+                    <span>Lanjut Belajar</span>
+                    <span>&rarr;</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedContinueId(course.id)}
+                    className="rounded-xl border border-[#341D17]/15 bg-[#FAF6F0] hover:bg-[#F9DDBB]/65 px-3 py-2 text-xs font-bold text-[#341D17] transition cursor-pointer shrink-0"
+                  >
+                    Sorot
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

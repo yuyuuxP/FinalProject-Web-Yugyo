@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   getActiveStudentIdentity,
   saveActiveStudentId,
@@ -24,7 +25,9 @@ function cleanUrl(val) {
 }
 
 function normalizeCategory(rawCat) {
-  const lower = String(rawCat || '').toLowerCase();
+  const lower = String(rawCat || '')
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ');
   if (
     lower.includes('bread') ||
     lower.includes('yeast') ||
@@ -36,10 +39,10 @@ function normalizeCategory(rawCat) {
     return 'Bread & Yeast Goods';
   }
   if (
-    lower.includes('cake') &&
-    (lower.includes('decor') ||
-      lower.includes('buttercream') ||
-      lower.includes('glaze'))
+    lower.includes('decor') ||
+    lower.includes('buttercream') ||
+    lower.includes('glaze') ||
+    lower.includes('fondant')
   ) {
     return 'Cake Decorating';
   }
@@ -47,7 +50,9 @@ function normalizeCategory(rawCat) {
     lower.includes('cookie') ||
     lower.includes('small bite') ||
     lower.includes('macaron') ||
-    lower.includes('nastar')
+    lower.includes('nastar') ||
+    lower.includes('kastengel') ||
+    lower.includes('putri salju')
   ) {
     return 'Cookies & Small Bites';
   }
@@ -56,20 +61,94 @@ function normalizeCategory(rawCat) {
     lower.includes('patisserie') ||
     lower.includes('pastry') ||
     lower.includes('croissant') ||
-    lower.includes('madeleine')
+    lower.includes('madeleine') ||
+    lower.includes('eclair') ||
+    lower.includes('choux') ||
+    lower.includes('opera') ||
+    lower.includes('mille')
   ) {
     return 'French Patisserie & Pastry';
   }
   if (
     lower.includes('traditional') ||
     lower.includes('indonesian') ||
+    lower.includes('indo') ||
     lower.includes('nusantara') ||
     lower.includes('lapis') ||
-    lower.includes('bika')
+    lower.includes('bika') ||
+    lower.includes('onde') ||
+    lower.includes('klepon') ||
+    lower.includes('serabi') ||
+    lower.includes('putu')
   ) {
     return 'Traditional Indonesian Cakes';
   }
   return 'Bread & Yeast Goods';
+}
+
+function isYouTubeUrl(url) {
+  const s = cleanUrl(url);
+  return /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i.test(s);
+}
+
+function toYoutubeEmbedUrl(url) {
+  try {
+    const normalized = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    const parsed = new URL(normalized);
+    if (parsed.hostname.includes('youtu.be')) {
+      const id = parsed.pathname.replace('/', '').trim();
+      return id ? `https://www.youtube.com/embed/${id}` : '';
+    }
+    if (parsed.hostname.includes('youtube.com')) {
+      const v = parsed.searchParams.get('v');
+      if (v) return `https://www.youtube.com/embed/${v}`;
+      if (parsed.pathname.startsWith('/embed/')) return normalized;
+    }
+  } catch {
+    return '';
+  }
+  return '';
+}
+
+function toPlayableVideoSrc(url) {
+  const clean = cleanUrl(url);
+  if (!clean) return '';
+  if (/^https?:\/\//i.test(clean)) return clean;
+  const withSlash = clean.startsWith('/') ? clean : `/${clean}`;
+  return withSlash
+    .split('/')
+    .map((seg, idx) => {
+      if (idx === 0) return seg;
+      try {
+        return encodeURIComponent(decodeURIComponent(seg));
+      } catch {
+        return encodeURIComponent(seg);
+      }
+    })
+    .join('/');
+}
+
+function matchesCourseId(rawCourseId, activeCourse) {
+  if (!activeCourse) return false;
+  const cleanRaw = String(rawCourseId ?? '').trim();
+  if (!cleanRaw) return false;
+
+  if (
+    cleanRaw.toLowerCase() === String(activeCourse.id).toLowerCase() ||
+    cleanRaw.toLowerCase() === String(activeCourse.numericId).toLowerCase()
+  ) {
+    return true;
+  }
+
+  const extractedDigits = cleanRaw.replace(/\D+/g, '');
+  if (
+    extractedDigits &&
+    Number(extractedDigits) === Number(activeCourse.numericId)
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function mapCourseItem(row, idx = 0) {
@@ -94,71 +173,71 @@ function mapCourseItem(row, idx = 0) {
     progress: Number(row?.progress ?? row?.progress_percentage ?? 0),
     remainingDays: Number(row?.remainingDays ?? row?.remaining_days ?? 180),
     badge: String(row?.badge || row?.tag || 'Kelas Atelier').trim(),
-    videoUrl: cleanUrl(
-      row?.videoUrl || row?.video_url || row?.media_url || row?.file_url || ''
-    ),
-    videoTitle: String(row?.videoTitle || title).trim(),
   };
 }
 
 function mapContentItem(row, idx = 0) {
   const title = String(
-    row?.title ||
-      row?.content_title ||
-      row?.module_title ||
-      row?.lesson_title ||
-      row?.name ||
-      `Materi #${idx + 1}`
+    row?.title || row?.content_title || row?.module_title || `Materi #${idx + 1}`
   ).trim();
 
-  const mediaUrl = cleanUrl(
-    row?.mediaUrl || row?.video_url || row?.file_url || row?.url || ''
+  const rawMediaUrl = cleanUrl(
+    row?.video_url || row?.media_url || row?.mediaUrl || ''
   );
 
   const textContent = String(
-    row?.textContent ||
-      row?.content_text ||
-      row?.body ||
-      row?.text ||
-      row?.description ||
-      row?.summary ||
-      row?.notes ||
-      ''
+    row?.description ?? row?.summary ?? row?.content_text ?? row?.textContent ?? ''
   ).trim();
 
-  const rawType = String(row?.type || row?.content_type || '')
-    .trim()
-    .toUpperCase();
+  const itemIsYouTube = isYouTubeUrl(rawMediaUrl);
+  const isVideo = Boolean(rawMediaUrl);
 
-  const isVideo =
-    Boolean(mediaUrl) ||
-    rawType.includes('VIDEO') ||
-    rawType.includes('MP4') ||
-    rawType.includes('WEBM');
+  const rawId = row?.id ?? `content-${idx + 1}`;
+  const orderIndex = Number(
+    row?.order_index ?? row?.sort_order ?? row?.orderIndex ?? idx + 1
+  );
 
   return {
-    id: String(row?.id || row?.content_id || `content-${idx + 1}`),
-    courseId: String(
-      row?.courseId || row?.course_id || row?.parent_course_id || ''
-    ).trim(),
-    courseTitle: String(
-      row?.courseTitle || row?.course_title || row?.course_name || ''
-    ).trim(),
+    id: String(rawId),
+    orderIndex: Number.isFinite(orderIndex) ? orderIndex : idx + 1,
+    courseId: String(row?.course_id ?? row?.courseId ?? '').trim(),
+    courseTitle: String(row?.course_title ?? row?.courseTitle ?? '').trim(),
     title,
-    textContent:
-      textContent ||
-      (!isVideo
-        ? `Catatan modul untuk ${title}. Silakan lengkapi isi teks modul pada content management.`
-        : ''),
-    type: isVideo ? 'VIDEO' : 'TEKS',
-    mediaUrl: isVideo ? mediaUrl : '',
+    textContent,
+    isYouTube: itemIsYouTube,
+    type: itemIsYouTube ? 'YOUTUBE' : isVideo ? 'VIDEO' : 'TEKS',
+    rawMediaUrl,
+    mediaUrl: isVideo ? toPlayableVideoSrc(rawMediaUrl) : '',
   };
+}
+
+function deduplicateModules(items) {
+  const seen = new Set();
+  const result = [];
+  for (const item of items) {
+    const sig = `${item.courseId}|${item.title.toLowerCase()}|${item.rawMediaUrl.toLowerCase()}`;
+    if (!seen.has(sig)) {
+      seen.add(sig);
+      result.push(item);
+    }
+  }
+  return result;
 }
 
 export default function StudentCoursesClient({
   initialCourses = [],
   initialContents = [],
+  initialCourseId = '',
+  initialCategory = '',
 }) {
+  const searchParams = useSearchParams();
+  const queryCourseId =
+    searchParams?.get('courseId') ||
+    searchParams?.get('course') ||
+    initialCourseId ||
+    '';
+  const queryCategory = searchParams?.get('category') || initialCategory || '';
+
   const allCourses = useMemo(
     () =>
       Array.isArray(initialCourses)
@@ -171,8 +250,9 @@ export default function StudentCoursesClient({
   const [completedKeys, setCompletedKeys] = useState([]);
   const [progressByCourse, setProgressByCourse] = useState({});
   const [togglingKey, setTogglingKey] = useState('');
+  const [liveContents, setLiveContents] = useState([]);
 
-  const contents = useMemo(
+  const serverContents = useMemo(
     () =>
       Array.isArray(initialContents)
         ? initialContents.map((row, idx) => mapContentItem(row, idx))
@@ -282,17 +362,88 @@ export default function StudentCoursesClient({
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    async function refreshContents() {
+      try {
+        const res = await fetch('/api/student/course-contents', {
+          cache: 'no-store',
+        });
+        if (!active || !res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (active && Array.isArray(data?.contents)) {
+          setLiveContents(
+            data.contents.map((row, idx) => mapContentItem(row, idx))
+          );
+        }
+      } catch {
+        // Gunakan serverContents
+      }
+    }
+
+    refreshContents();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const enrolledCourses = useMemo(() => {
     const enrolledSet = new Set(enrolledIds.map(Number));
     return allCourses.filter((c) => enrolledSet.has(Number(c.numericId)));
   }, [allCourses, enrolledIds]);
 
-  const [selectedCategory, setSelectedCategory] = useState('Bread & Yeast Goods');
-  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const targetCourseFromQuery = useMemo(() => {
+    const clean = String(queryCourseId || '').trim().toLowerCase();
+    if (!clean) return null;
+    return (
+      allCourses.find(
+        (c) =>
+          String(c.id).toLowerCase() === clean ||
+          String(c.numericId).toLowerCase() === clean ||
+          c.title.toLowerCase() === clean
+      ) || null
+    );
+  }, [allCourses, queryCourseId]);
+
+  const [manualCategory, setManualCategory] = useState(null);
+  const [manualCourseId, setManualCourseId] = useState(null);
   const [openItemId, setOpenItemId] = useState('');
   const [isCourseListOpen, setIsCourseListOpen] = useState(false);
   const [searchMaterial, setSearchMaterial] = useState('');
   const videoRef = useRef(null);
+
+  const selectedCategory = useMemo(() => {
+    if (manualCategory) return manualCategory;
+    if (targetCourseFromQuery) {
+      return normalizeCategory(targetCourseFromQuery.category);
+    }
+    if (queryCategory) {
+      return normalizeCategory(queryCategory);
+    }
+    if (enrolledCourses.length > 0) {
+      return normalizeCategory(enrolledCourses[0].category);
+    }
+    return 'Bread & Yeast Goods';
+  }, [manualCategory, targetCourseFromQuery, queryCategory, enrolledCourses]);
+
+  const selectedCourseId = useMemo(() => {
+    if (manualCourseId !== null) return manualCourseId;
+    if (targetCourseFromQuery) return String(targetCourseFromQuery.id);
+    return '';
+  }, [manualCourseId, targetCourseFromQuery]);
+
+  useEffect(() => {
+    if (!queryCourseId) return;
+    const timer = window.setTimeout(() => {
+      const targetEl = document.getElementById('silabus-kurikulum');
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [queryCourseId]);
 
   const filteredCourses = useMemo(() => {
     return enrolledCourses.filter(
@@ -301,58 +452,48 @@ export default function StudentCoursesClient({
   }, [enrolledCourses, selectedCategory]);
 
   const activeCourse =
-    filteredCourses.find((c) => String(c.id) === String(selectedCourseId)) ||
+    filteredCourses.find(
+      (c) =>
+        String(c.id) === String(selectedCourseId) ||
+        String(c.numericId) === String(selectedCourseId)
+    ) ||
     filteredCourses[0] ||
     null;
 
   const handleSelectCategory = (cat) => {
-    setSelectedCategory(cat);
+    setManualCategory(cat);
     const matching = enrolledCourses.filter(
       (c) => normalizeCategory(c.category) === cat
     );
-    setSelectedCourseId(matching.length > 0 ? String(matching[0].id) : '');
+    setManualCourseId(matching.length > 0 ? String(matching[0].id) : '');
     setOpenItemId('');
     setIsCourseListOpen(false);
   };
 
   const handleSelectCourse = (course) => {
-    setSelectedCourseId(String(course.id));
+    setManualCategory(normalizeCategory(course.category));
+    setManualCourseId(String(course.id));
     setOpenItemId('');
     setIsCourseListOpen(false);
   };
 
   const courseContents = useMemo(() => {
     if (!activeCourse) return [];
-    const activeId = String(activeCourse.id).toLowerCase();
-    const activeNumId = String(activeCourse.numericId).toLowerCase();
     const activeTitle = String(activeCourse.title).toLowerCase();
 
-    const matched = contents.filter((item) => {
-      const itemCourseId = String(item.courseId || '').toLowerCase();
+    const sourceList = liveContents.length > 0 ? liveContents : serverContents;
+    const matched = sourceList.filter((item) => {
       const itemCourseTitle = String(item.courseTitle || '').toLowerCase();
       return (
-        (itemCourseId &&
-          (itemCourseId === activeId || itemCourseId === activeNumId)) ||
+        matchesCourseId(item.courseId, activeCourse) ||
         (itemCourseTitle && itemCourseTitle === activeTitle)
       );
     });
 
-    if (matched.length === 0 && activeCourse.videoUrl) {
-      return [
-        {
-          id: `course-video-${activeCourse.id}`,
-          courseId: activeCourse.id,
-          courseTitle: activeCourse.title,
-          title: activeCourse.videoTitle || activeCourse.title,
-          textContent: '',
-          type: 'VIDEO',
-          mediaUrl: activeCourse.videoUrl,
-        },
-      ];
-    }
-
-    return matched;
-  }, [contents, activeCourse]);
+    return deduplicateModules(
+      [...matched].sort((a, b) => a.orderIndex - b.orderIndex)
+    );
+  }, [activeCourse, liveContents, serverContents]);
 
   const completedKeySet = useMemo(
     () => new Set(completedKeys.map(String)),
@@ -393,13 +534,13 @@ export default function StudentCoursesClient({
   }, [courseContents, searchMaterial]);
 
   const handleToggleItem = (mod) => {
-    const isVideo = mod.type === 'VIDEO' && Boolean(mod.mediaUrl);
+    const isVideo = mod.type === 'VIDEO' || mod.type === 'YOUTUBE';
     const hasText = Boolean(mod.textContent);
     if (!isVideo && !hasText) return;
 
     setOpenItemId((prev) => {
       const nextId = String(prev) === String(mod.id) ? '' : String(mod.id);
-      if (nextId && isVideo) {
+      if (nextId && mod.type === 'VIDEO' && mod.mediaUrl?.startsWith('/')) {
         window.requestAnimationFrame(() => {
           const playPromise = videoRef.current?.play?.();
           if (playPromise && typeof playPromise.catch === 'function') {
@@ -667,18 +808,20 @@ export default function StudentCoursesClient({
         {visibleModules.length === 0 ? (
           <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 text-xs text-[#341D17]/65">
             {activeCourse
-              ? `Belum ada konten atau file video di folder public/videos untuk kursus "${activeCourse.title}".`
+              ? `Belum ada modul yang ditambahkan instruktur pada Content Management untuk kursus "${activeCourse.title}".`
               : 'Pilih atau ikuti kursus terlebih dahulu untuk melihat silabus kurikulum.'}
           </div>
         ) : (
           <div className="space-y-3">
             {visibleModules.map((mod, index) => {
-              const isVideo = mod.type === 'VIDEO' && Boolean(mod.mediaUrl);
+              const isVideo = mod.type === 'VIDEO' || mod.type === 'YOUTUBE';
               const hasText = Boolean(mod.textContent);
               const isInteractive = isVideo || hasText;
               const isOpen = String(openItemId) === String(mod.id);
-              const orderLabel = String(index + 1).padStart(2, '0');
-              const typeLabel = isVideo ? 'VIDEO' : 'TEKS';
+              const orderLabel = String(
+                mod.orderIndex || index + 1
+              ).padStart(2, '0');
+              const typeLabel = mod.type;
 
               const compositeKey = activeCourse
                 ? `${activeCourse.numericId}:${mod.id}`
@@ -693,6 +836,10 @@ export default function StudentCoursesClient({
                 : isOpen
                   ? 'Tutup Teks'
                   : 'Baca Teks';
+
+              const youtubeEmbed = mod.isYouTube
+                ? toYoutubeEmbedUrl(mod.rawMediaUrl)
+                : '';
 
               return (
                 <div
@@ -727,7 +874,7 @@ export default function StudentCoursesClient({
                       </p>
                       {isVideo ? (
                         <p className="text-xs text-[#341D17]/55 truncate">
-                          {decodeURIComponent(mod.mediaUrl)}
+                          {mod.rawMediaUrl}
                         </p>
                       ) : (
                         <p className="text-xs text-[#341D17]/55 truncate">
@@ -765,18 +912,38 @@ export default function StudentCoursesClient({
 
                   {isOpen && isVideo && (
                     <div className="px-5 pb-5 pt-1 space-y-3">
-                      <div className="overflow-hidden rounded-xl border border-[#341D17]/12 bg-[#0B0B0C]">
-                        <video
-                          ref={videoRef}
-                          key={mod.mediaUrl}
-                          src={mod.mediaUrl}
-                          controls
-                          preload="metadata"
-                          className="w-full max-h-[420px] object-contain bg-[#0B0B0C]"
-                        >
-                          Browser Anda tidak mendukung pemutar video HTML5.
-                        </video>
-                      </div>
+                      {youtubeEmbed ? (
+                        <div className="overflow-hidden rounded-xl border border-[#341D17]/12 bg-[#0B0B0C] aspect-video">
+                          <iframe
+                            src={youtubeEmbed}
+                            title={mod.title}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            className="w-full h-full"
+                          />
+                        </div>
+                      ) : mod.mediaUrl ? (
+                        <div className="overflow-hidden rounded-xl border border-[#341D17]/12 bg-[#0B0B0C]">
+                          <video
+                            ref={videoRef}
+                            key={mod.mediaUrl}
+                            src={mod.mediaUrl}
+                            controls
+                            playsInline
+                            preload="metadata"
+                            className="w-full max-h-[420px] object-contain bg-[#0B0B0C]"
+                          >
+                            Browser Anda tidak mendukung pemutar video HTML5.
+                          </video>
+                        </div>
+                      ) : null}
+
+                      {hasText && (
+                        <div className="rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] p-4 text-xs sm:text-sm text-[#341D17]/85 whitespace-pre-line leading-relaxed">
+                          {mod.textContent}
+                        </div>
+                      )}
+
                       <div className="flex justify-end">
                         <button
                           type="button"

@@ -1,529 +1,247 @@
-import fs from 'fs';
-import path from 'path';
-import { cookies } from 'next/headers';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import pool from '@/lib/db';
 import StudentCoursesClient from '@/components/student/StudentCoursesClient';
 
 export const dynamic = 'force-dynamic';
 
-const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.ogg', '.mov']);
-const STOP_WORDS = new Set([
-  'dan',
-  'atau',
-  'dengan',
-  'untuk',
-  'yang',
-  'ala',
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.mkv']);
+const CATEGORY_FOLDERS = [
+  'bread',
+  'cakes_decor',
+  'cookies',
+  'french_pastry',
+  'indo_cakes',
+];
+
+const GENERIC_WORDS = new Set([
+  'masterclass',
+  'classic',
+  'kelas',
+  'kursus',
+  'modul',
+  'sesi',
+  'dasar',
+  'lanjutan',
+  'otentik',
+  'authentic',
   'klasik',
   'modern',
+  'atelier',
+  'anti',
+  'gagal',
+  'pain',
+  'cake',
+  'cakes',
+  'bread',
+  'cookie',
+  'cookies',
+  'pastry',
+  'special',
   'spesial',
-  'premium',
-  'tradisional',
-  'dasar',
-  'masterclass',
-  'teknik',
+  'double',
+  'with',
+  'dan',
+  'the',
 ]);
 
-function parseIntOrNull(value) {
-  if (value === undefined || value === null || value === '') return null;
-  const num = Number(value);
-  return Number.isInteger(num) && num > 0 ? num : null;
-}
-
-function pickFirst(obj, keys, fallback = '') {
-  for (const key of keys) {
-    if (
-      obj &&
-      obj[key] !== undefined &&
-      obj[key] !== null &&
-      String(obj[key]).trim() !== '' &&
-      String(obj[key]).trim().toLowerCase() !== 'null'
-    ) {
-      return obj[key];
-    }
-  }
-  return fallback;
-}
-
-function normalizeToken(text) {
+function normalizeText(text) {
   return String(text || '')
     .toLowerCase()
-    .replace(/\.[^.]+$/, '')
+    .replace(/\.(mp4|webm|mov|m4v|mkv)$/i, '')
     .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
-function extractUserIdFromPayload(payload) {
-  if (!payload || typeof payload !== 'object') return null;
-  return parseIntOrNull(
-    payload.id ??
-      payload.userId ??
-      payload.user_id ??
-      payload.studentId ??
-      payload.student_id ??
-      payload.sub ??
-      payload.user?.id ??
-      payload.user?.userId ??
-      payload.user?.user_id
-  );
+function getCoreKeywords(text) {
+  const words = normalizeText(text)
+    .split(' ')
+    .filter((w) => w.length >= 2);
+  const core = words.filter((w) => !GENERIC_WORDS.has(w));
+  return core.length > 0 ? core : words;
 }
 
-async function getLoggedInStudentId() {
-  try {
-    const cookieStore = await cookies();
-    for (const c of cookieStore.getAll()) {
-      const name = String(c.name || '').toLowerCase();
-      const rawVal = String(c.value || '').trim();
-      if (!rawVal) continue;
+function humanizeFileName(fileName) {
+  return String(fileName || '')
+    .replace(/\.(mp4|webm|mov|m4v|mkv)$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
 
-      const directNum = parseIntOrNull(rawVal);
-      if (
-        directNum &&
-        (name.includes('user') ||
-          name.includes('student') ||
-          name.includes('uid') ||
-          name === 'id')
-      ) {
-        return directNum;
-      }
+function isVideoRelevantToCourse(courseTitle, fileName) {
+  const normCourse = normalizeText(courseTitle);
+  const normFile = normalizeText(fileName);
+  if (!normCourse || !normFile) return false;
 
-      const candidates = [rawVal];
-      try {
-        const decoded = decodeURIComponent(rawVal);
-        if (decoded !== rawVal) candidates.push(decoded);
-      } catch {
-        // Abaikan jika gagal decodeURIComponent
-      }
-
-      for (const str of candidates) {
-        if (str.startsWith('{') || str.startsWith('[')) {
-          try {
-            const idFromObj = extractUserIdFromPayload(JSON.parse(str));
-            if (idFromObj) return idFromObj;
-          } catch {
-            // Abaikan jika bukan JSON valid
-          }
-        }
-
-        const parts = str.split('.');
-        if (parts.length === 3) {
-          try {
-            const payloadJson = Buffer.from(
-              parts[1].replace(/-/g, '+').replace(/_/g, '/'),
-              'base64'
-            ).toString('utf8');
-            const jwtId = extractUserIdFromPayload(JSON.parse(payloadJson));
-            if (jwtId) return jwtId;
-          } catch {
-            // Abaikan jika bukan JWT valid
-          }
-        }
-
-        try {
-          const b64Json = Buffer.from(
-            str.replace(/-/g, '+').replace(/_/g, '/'),
-            'base64'
-          ).toString('utf8');
-          if (b64Json.trim().startsWith('{')) {
-            const b64Id = extractUserIdFromPayload(JSON.parse(b64Json));
-            if (b64Id) return b64Id;
-          }
-        } catch {
-          // Abaikan jika bukan base64 JSON
-        }
-      }
-    }
-  } catch {
-    // Abaikan jika cookie gagal dibaca
+  if (normFile.includes(normCourse) || normCourse.includes(normFile)) {
+    return true;
   }
-  return null;
+
+  const coreKeywords = getCoreKeywords(courseTitle);
+  if (coreKeywords.length === 0) return false;
+  return coreKeywords.every((kw) => normFile.includes(kw));
 }
 
-function scanVideosFolder() {
-  const videos = [];
-  const baseDir = path.join(process.cwd(), 'public', 'videos');
+async function scanAllCategoryVideos() {
+  const videosRoot = path.join(process.cwd(), 'public', 'videos');
+  const allVideos = [];
 
-  function walk(currentDir, relativeParts = []) {
-    if (!fs.existsSync(currentDir)) return;
-    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        walk(path.join(currentDir, entry.name), [...relativeParts, entry.name]);
-      } else if (entry.isFile()) {
+  for (const folder of CATEGORY_FOLDERS) {
+    const folderPath = path.join(videosRoot, folder);
+    try {
+      const entries = await fs.readdir(folderPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isFile()) continue;
         const ext = path.extname(entry.name).toLowerCase();
         if (!VIDEO_EXTENSIONS.has(ext)) continue;
-        const baseName = entry.name.slice(0, -ext.length);
-        const urlParts = ['videos', ...relativeParts, entry.name].map(
-          encodeURIComponent
-        );
 
-        videos.push({
-          url: `/${urlParts.join('/')}`,
-          title: baseName.trim(),
-          fileKey: normalizeToken(baseName),
-          folderKey: normalizeToken(relativeParts.join(' ')),
+        allVideos.push({
+          fileName: entry.name,
+          title: humanizeFileName(entry.name),
+          folder,
+          mediaUrl: `/videos/${folder}/${entry.name}`,
         });
       }
+    } catch {
+      // Lewati folder jika belum ada di disk
     }
   }
 
-  try {
-    walk(baseDir);
-  } catch {
-    return [];
-  }
-
-  return videos;
+  return allVideos;
 }
 
-function matchVideosForCourse(courseTitle, videos) {
-  const titleNorm = normalizeToken(courseTitle);
-  if (!titleNorm || videos.length === 0) return [];
+function findMatchedVideosForCourse(courseTitle, allVideos) {
+  const normCourse = normalizeText(courseTitle);
+  if (!normCourse) return [];
 
-  const titleKeywords = titleNorm
-    .split(' ')
-    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
-  const fileKeywords = (fileKey) =>
-    fileKey
-      .split(' ')
-      .filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
+  const matched = [];
+  for (const vid of allVideos) {
+    if (isVideoRelevantToCourse(courseTitle, vid.fileName)) {
+      const normFile = normalizeText(vid.fileName);
+      const isExact =
+        normFile === normCourse ||
+        normFile.includes(normCourse) ||
+        normCourse.includes(normFile);
 
-  const matched = videos
-    .map((vid) => {
-      if (!vid.fileKey) return { vid, score: 0 };
-
-      if (vid.fileKey === titleNorm) {
-        return { vid, score: 100 };
-      }
-      if (
-        vid.fileKey.length >= 5 &&
-        (titleNorm.includes(vid.fileKey) || vid.fileKey.includes(titleNorm))
-      ) {
-        return { vid, score: 85 };
-      }
-
-      const fWords = new Set(fileKeywords(vid.fileKey));
-      let exactKeywordHits = 0;
-      for (const kw of titleKeywords) {
-        if (fWords.has(kw)) {
-          exactKeywordHits += 1;
-        }
-      }
-
-      if (titleKeywords.length > 0 && exactKeywordHits === titleKeywords.length) {
-        return { vid, score: 75 + exactKeywordHits * 5 };
-      }
-      if (exactKeywordHits >= 2) {
-        return { vid, score: 50 + exactKeywordHits * 5 };
-      }
-      if (titleKeywords.length === 1 && exactKeywordHits === 1) {
-        return { vid, score: 45 };
-      }
-
-      return { vid, score: 0 };
-    })
-    .filter((item) => item.score >= 45)
-    .sort((a, b) => b.score - a.score);
-
-  return matched.map((m) => m.vid);
-}
-
-async function getExistingPublicTables(pool) {
-  const res = await pool
-    .query(
-      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
-    )
-    .catch(() => null);
-  const set = new Set();
-  if (Array.isArray(res?.rows)) {
-    for (const r of res.rows) {
-      if (r?.table_name) set.add(String(r.table_name).toLowerCase());
-    }
-  }
-  return set;
-}
-
-async function fetchCoursesAndContentsFromDb() {
-  const videos = scanVideosFolder();
-  const studentId = await getLoggedInStudentId();
-
-  try {
-    const dbModule = await import('@/lib/db').catch(() => null);
-    const pool = dbModule?.default?.query
-      ? dbModule.default
-      : dbModule?.pool?.query
-        ? dbModule.pool
-        : null;
-
-    if (!pool) {
-      return { courses: [], contents: [], enrolledCourseIds: [], studentId };
-    }
-
-    const existingTables = await getExistingPublicTables(pool);
-    if (!existingTables.has('courses')) {
-      return { courses: [], contents: [], enrolledCourseIds: [], studentId };
-    }
-
-    let enrolledCourseIds = [];
-    if (studentId && existingTables.has('student_enrollments')) {
-      const enrollRes = await pool
-        .query(
-          `SELECT course_id
-           FROM student_enrollments
-           WHERE student_id = $1 AND LOWER(COALESCE(status, 'active')) != 'dropped'`,
-          [studentId]
-        )
-        .catch(() => null);
-
-      if (Array.isArray(enrollRes?.rows)) {
-        enrolledCourseIds = enrollRes.rows
-          .map((r) => Number(r?.course_id))
-          .filter((n) => Number.isInteger(n) && n > 0);
-      }
-    }
-
-    const courseRes = await pool
-      .query('SELECT * FROM courses ORDER BY id ASC')
-      .catch(() => null);
-
-    const courseRows = Array.isArray(courseRes?.rows) ? courseRes.rows : [];
-    if (courseRows.length === 0) {
-      return { courses: [], contents: [], enrolledCourseIds, studentId };
-    }
-
-    const categoryById = new Map();
-    const catTable = existingTables.has('categories')
-      ? 'categories'
-      : existingTables.has('course_categories')
-        ? 'course_categories'
-        : '';
-
-    if (catTable) {
-      const catRes = await pool
-        .query(`SELECT * FROM ${catTable}`)
-        .catch(() => null);
-      if (Array.isArray(catRes?.rows)) {
-        for (const catRow of catRes.rows) {
-          const catId = pickFirst(catRow, ['id', 'category_id']);
-          const catName = pickFirst(catRow, [
-            'name',
-            'title',
-            'category_name',
-            'label',
-          ]);
-          if (catId !== '' && catName !== '') {
-            categoryById.set(String(catId), String(catName).trim());
-          }
-        }
-      }
-    }
-
-    const instructorById = new Map();
-    const hasInstructorId = courseRows.some(
-      (r) => pickFirst(r, ['instructor_id', 'teacher_id', 'user_id']) !== ''
-    );
-    if (hasInstructorId && existingTables.has('users')) {
-      const userRes = await pool.query('SELECT * FROM users').catch(() => null);
-      if (Array.isArray(userRes?.rows)) {
-        for (const u of userRes.rows) {
-          const uid = pickFirst(u, ['id', 'user_id']);
-          const uname = pickFirst(u, [
-            'full_name',
-            'fullName',
-            'name',
-            'username',
-          ]);
-          if (uid !== '' && uname !== '') {
-            instructorById.set(String(uid), String(uname).trim());
-          }
-        }
-      }
-    }
-
-    const contents = [];
-
-    const courses = courseRows.map((row, idx) => {
-      const rawId = pickFirst(row, ['id', 'course_id'], idx + 1);
-      const numericId = Number(rawId) || idx + 1;
-      const id = String(numericId);
-      const title = String(
-        pickFirst(
-          row,
-          ['title', 'course_title', 'name'],
-          `Kursus #${idx + 1}`
-        )
-      ).trim();
-
-      const rawCatId = String(
-        pickFirst(row, ['category_id', 'course_category_id'])
-      );
-      const category = String(
-        pickFirst(
-          row,
-          ['category', 'category_name'],
-          categoryById.get(rawCatId) || 'Bread & Yeast Goods'
-        )
-      ).trim();
-
-      const rawInstId = String(
-        pickFirst(row, ['instructor_id', 'teacher_id', 'user_id'])
-      );
-      const instructor = String(
-        pickFirst(
-          row,
-          ['instructor', 'instructor_name', 'teacher_name'],
-          instructorById.get(rawInstId) || 'Chef Yugyo'
-        )
-      ).trim();
-
-      const matchedVideos = matchVideosForCourse(title, videos);
-      matchedVideos.forEach((vid, vIdx) => {
-        contents.push({
-          id: `vid-${id}-${vIdx + 1}`,
-          courseId: id,
-          courseTitle: title,
-          title: vid.title || title,
-          description: '',
-          textContent: '',
-          type: 'VIDEO',
-          mediaUrl: vid.url,
-        });
+      matched.push({
+        ...vid,
+        score: isExact ? 100 : 50,
       });
-
-      return {
-        id,
-        numericId,
-        title,
-        category,
-        instructor,
-        progress: Number(pickFirst(row, ['progress'], 40)),
-        completedLessons: Number(
-          pickFirst(row, ['completed_lessons', 'completedLessons'], 4)
-        ),
-        totalLessons: Number(
-          pickFirst(row, ['total_lessons', 'totalLessons'], 10)
-        ),
-        remainingDays: Number(
-          pickFirst(row, ['remaining_days', 'remainingDays'], 180)
-        ),
-        badge: String(pickFirst(row, ['badge', 'tag', 'level'], 'Atelier')).trim(),
-        videoUrl: matchedVideos[0]?.url || '',
-        videoTitle: matchedVideos[0]?.title || title,
-      };
-    });
-
-    const contentTableCandidates = [
-      'course_contents',
-      'course_content',
-      'contents',
-      'content',
-      'course_modules',
-      'modules',
-      'lessons',
-      'course_lessons',
-      'materials',
-      'course_materials',
-    ];
-
-    for (const tableName of contentTableCandidates) {
-      if (!existingTables.has(tableName)) continue;
-      const contentRes = await pool
-        .query(`SELECT * FROM ${tableName} ORDER BY id ASC`)
-        .catch(() => null);
-      if (Array.isArray(contentRes?.rows) && contentRes.rows.length > 0) {
-        contentRes.rows.forEach((cRow, cIdx) => {
-          const cId = String(
-            pickFirst(
-              cRow,
-              ['id', 'content_id', 'module_id', 'lesson_id'],
-              `${tableName}-${cIdx + 1}`
-            )
-          );
-          const courseId = String(
-            pickFirst(
-              cRow,
-              ['course_id', 'courseId', 'parent_course_id', 'course_slug'],
-              ''
-            )
-          ).trim();
-          const courseTitle = String(
-            pickFirst(cRow, ['course_title', 'course_name'], '')
-          ).trim();
-          const title = String(
-            pickFirst(
-              cRow,
-              [
-                'title',
-                'content_title',
-                'module_title',
-                'lesson_title',
-                'name',
-                'topic',
-              ],
-              `Materi #${cIdx + 1}`
-            )
-          ).trim();
-          const textContent = String(
-            pickFirst(
-              cRow,
-              [
-                'content_text',
-                'body',
-                'text',
-                'material_text',
-                'recipe',
-                'steps',
-                'description',
-                'summary',
-                'notes',
-              ],
-              ''
-            )
-          ).trim();
-          const mediaUrl = String(
-            pickFirst(
-              cRow,
-              ['video_url', 'file_url', 'media_url', 'attachment_url', 'url'],
-              ''
-            )
-          ).trim();
-          const rawType = String(
-            pickFirst(cRow, ['type', 'content_type', 'media_type', 'format'], '')
-          )
-            .trim()
-            .toUpperCase();
-
-          const type = mediaUrl ? 'VIDEO' : rawType || 'TEKS';
-
-          contents.push({
-            id: cId,
-            courseId,
-            courseTitle,
-            title,
-            description: textContent,
-            textContent,
-            type,
-            mediaUrl,
-          });
-        });
-        break;
-      }
     }
-
-    return { courses, contents, enrolledCourseIds, studentId };
-  } catch {
-    return { courses: [], contents: [], enrolledCourseIds: [], studentId: null };
   }
+
+  matched.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+  return matched;
 }
 
-export default async function StudentCoursesPage() {
-  const { courses, contents, enrolledCourseIds, studentId } =
-    await fetchCoursesAndContentsFromDb();
+export default async function StudentCoursesPage({ searchParams }) {
+  const resolvedParams = (await searchParams) || {};
+  const initialCourseId = String(
+    resolvedParams.courseId ?? resolvedParams.course ?? ''
+  ).trim();
+  const initialCategory = String(resolvedParams.category ?? '').trim();
+
+  const [coursesRes, contentsRes, allVideos] = await Promise.all([
+    pool
+      .query(
+        `SELECT
+           c.*,
+           COALESCE(cat.name, 'Bread & Yeast Goods') AS category,
+           COALESCE(u.full_name, 'Chef Yugyo') AS instructor
+         FROM public.courses c
+         LEFT JOIN public.categories cat ON cat.id = c.category_id
+         LEFT JOIN public.users u ON u.id = c.instructor_id
+         ORDER BY c.id ASC;`
+      )
+      .catch(() => ({ rows: [] })),
+    pool
+      .query(
+        `SELECT *
+         FROM public.course_contents
+         ORDER BY course_id ASC, order_index ASC NULLS LAST, id ASC;`
+      )
+      .catch(() => ({ rows: [] })),
+    scanAllCategoryVideos(),
+  ]);
+
+  const courses = coursesRes.rows || [];
+  const rawDbContents = (contentsRes.rows || []).filter(
+    (row) => String(row?.status || 'published').toLowerCase() !== 'draft'
+  );
+
+  const unifiedContents = [];
+
+  for (const course of courses) {
+    const courseIdNum = Number(course.id);
+    const dbForCourse = rawDbContents.filter(
+      (row) => Number(row.course_id) === courseIdNum
+    );
+
+    const seenIds = new Set();
+    const seenSignature = new Set();
+    const courseItems = [];
+
+    for (let i = 0; i < dbForCourse.length; i += 1) {
+      const row = dbForCourse[i];
+      const idStr = row?.id !== undefined && row?.id !== null ? String(row.id) : '';
+      const vidUrl = String(row?.video_url ?? row?.media_url ?? '').trim();
+      const normTitle = String(row?.title || '').trim().toLowerCase();
+      const sig = `${normTitle}::${vidUrl.toLowerCase()}`;
+
+      if (idStr && seenIds.has(idStr)) continue;
+      if (normTitle && seenSignature.has(sig)) continue;
+
+      if (idStr) seenIds.add(idStr);
+      if (normTitle) seenSignature.add(sig);
+
+      courseItems.push({
+        ...row,
+        course_id: courseIdNum,
+        course_title: course.title,
+        description: row.description ?? row.summary ?? '',
+        video_url: vidUrl || null,
+        media_url: vidUrl || null,
+        order_index: Number(row.order_index ?? row.sort_order ?? i + 1) || i + 1,
+      });
+    }
+
+    const matchedVideos = findMatchedVideosForCourse(course.title, allVideos);
+    for (let j = 0; j < matchedVideos.length; j += 1) {
+      const vid = matchedVideos[j];
+      const vidUrl = String(vid.mediaUrl || '').trim();
+      const sig = `${String(vid.title || '').trim().toLowerCase()}::${vidUrl.toLowerCase()}`;
+      if (seenSignature.has(sig)) continue;
+      seenSignature.add(sig);
+
+      courseItems.push({
+        id: `folder-${courseIdNum}-${vid.fileName}-${j}`,
+        course_id: courseIdNum,
+        course_title: course.title,
+        title: vid.title,
+        description: '',
+        video_url: vidUrl || null,
+        media_url: vidUrl || null,
+        status: 'published',
+        order_index: courseItems.length + 1,
+      });
+    }
+
+    courseItems.sort(
+      (a, b) => (Number(a.order_index) || 999) - (Number(b.order_index) || 999)
+    );
+    unifiedContents.push(...courseItems);
+  }
+
   return (
     <StudentCoursesClient
       initialCourses={courses}
-      initialContents={contents}
-      initialEnrolledCourseIds={enrolledCourseIds}
-      currentStudentId={studentId}
+      initialContents={unifiedContents}
+      localVideos={allVideos}
+      initialCourseId={initialCourseId}
+      initialCategory={initialCategory}
     />
   );
 }

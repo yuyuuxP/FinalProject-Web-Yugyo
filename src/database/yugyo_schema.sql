@@ -363,3 +363,10 @@ WHERE c.category_id = cat.id
   AND LOWER(COALESCE(u.role, '')) = 'teacher'
   AND LOWER(TRIM(COALESCE(u.specialty, ''))) = LOWER(TRIM(COALESCE(cat.name, '')))
   AND (c.instructor_id IS DISTINCT FROM u.id);
+
+ALTER TABLE public.course_contents
+  ADD COLUMN IF NOT EXISTS content_text TEXT,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+
+  
