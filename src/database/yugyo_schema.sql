@@ -187,6 +187,16 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 16. Tabel COMPLETE MODULE (Menyimpan progres penyelesaian modul materi per student)
+CREATE TABLE IF NOT EXISTS student_content_completions (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  content_key VARCHAR(150) NOT NULL,
+  completed_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (student_id, course_id, content_key)
+);
+
 -- ==========================================
 -- DATABASE INDEXING (OPTIMASI PERFORMA QUERY)
 -- ==========================================
@@ -338,4 +348,18 @@ ALTER TABLE session_student_completions
 ADD COLUMN IF NOT EXISTS xp_earned INTEGER NOT NULL DEFAULT 25,
 ADD COLUMN IF NOT EXISTS notes TEXT;
 
+-- Cek pemetaan kursus, kategori, dan instruktur saat ini
+SELECT c.id, c.title, cat.name AS kategori, c.instructor_id, u.full_name AS instruktur, u.specialty
+FROM courses c
+LEFT JOIN categories cat ON cat.id = c.category_id
+LEFT JOIN users u ON u.id = c.instructor_id
+ORDER BY c.id ASC;
 
+-- Otomatis sinkronkan instructor_id pada courses berdasarkan kecocokan kategori & specialty guru
+UPDATE courses c
+SET instructor_id = u.id
+FROM categories cat, users u
+WHERE c.category_id = cat.id
+  AND LOWER(COALESCE(u.role, '')) = 'teacher'
+  AND LOWER(TRIM(COALESCE(u.specialty, ''))) = LOWER(TRIM(COALESCE(cat.name, '')))
+  AND (c.instructor_id IS DISTINCT FROM u.id);

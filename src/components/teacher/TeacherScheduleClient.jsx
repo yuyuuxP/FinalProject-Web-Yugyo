@@ -1,666 +1,405 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-const DAY_NAMES = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
-const MONTH_NAMES = [
-  'Januari',
-  'Februari',
-  'Maret',
-  'April',
-  'Mei',
-  'Juni',
-  'Juli',
-  'Agustus',
-  'September',
-  'Oktober',
-  'November',
-  'Desember',
-];
+const DAY_NAMES_ID = ['SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB', 'MIN'];
 
-function formatDateKey(dateObj) {
+function parseIsoDateLocal(isoStr) {
+  const clean = String(isoStr || '').slice(0, 10);
+  const parts = clean.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+    return new Date();
+  }
+  return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+
+function formatDateIso(dateObj) {
   const y = dateObj.getFullYear();
   const m = String(dateObj.getMonth() + 1).padStart(2, '0');
   const d = String(dateObj.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
 
-function normalizeDateKey(val) {
-  if (!val) return '';
-  const str = String(val).trim();
-  const match = str.match(/^(\d{4}-\d{2}-\d{2})/);
-  return match ? match[1] : str;
+function getMondayOfWeek(dateObj) {
+  const copy = new Date(
+    dateObj.getFullYear(),
+    dateObj.getMonth(),
+    dateObj.getDate()
+  );
+  const day = copy.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  copy.setDate(copy.getDate() + diff);
+  return copy;
 }
 
-function parseDateKeyLocal(dateKey) {
-  const normalized = normalizeDateKey(dateKey);
-  const parts = normalized.split('-').map(Number);
-  if (parts.length === 3 && parts.every((n) => Number.isFinite(n) && n > 0)) {
-    return new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
-  }
-  return new Date(2026, 10, 21, 12, 0, 0);
+function addDays(dateObj, days) {
+  const copy = new Date(
+    dateObj.getFullYear(),
+    dateObj.getMonth(),
+    dateObj.getDate()
+  );
+  copy.setDate(copy.getDate() + days);
+  return copy;
 }
 
-function normalizeSessionStatus(item) {
-  if (item?.status === 'canceled') return 'canceled';
-  if (item?.status === 'completed' || item?.is_done) return 'completed';
-  return 'scheduled';
-}
-
-function filterSessionsByTeacher(list, teacher, courseIdSet) {
-  const numericTeacherId = teacher?.id ? Number(teacher.id) : null;
-  const teacherNameLower = String(teacher?.full_name || '')
+function normalizeSession(row, idx = 0) {
+  const rawStatus = String(row?.status ?? 'scheduled')
     .trim()
     .toLowerCase();
+  const isDone = Boolean(
+    row?.is_done ??
+      row?.isDone ??
+      ['done', 'completed', 'selesai'].includes(rawStatus)
+  );
 
-  return (Array.isArray(list) ? list : [])
-    .filter((s) => {
-      if (!numericTeacherId && !teacherNameLower) return true;
-      if (s?.instructor_id != null && Number(s.instructor_id) === numericTeacherId) {
-        return true;
-      }
-      if (courseIdSet.has(Number(s?.course_id))) {
-        return true;
-      }
-      const sessionInstructorLower = String(s?.instructor_name || '')
-        .trim()
-        .toLowerCase();
-      if (teacherNameLower && sessionInstructorLower === teacherNameLower) {
-        return true;
-      }
-      return s?.instructor_id == null && !sessionInstructorLower;
-    })
-    .map((s) => ({
-      ...s,
-      session_date: normalizeDateKey(s.session_date),
-      status: normalizeSessionStatus(s),
-    }));
+  return {
+    id: Number(row?.id ?? idx + 1),
+    courseId: Number(row?.course_id ?? row?.courseId ?? 0),
+    courseTitle: String(
+      row?.course_title ?? row?.courseTitle ?? 'Kelas Atelier'
+    ).trim(),
+    title: String(row?.title ?? `Sesi #${idx + 1}`).trim(),
+    notes: String(row?.notes ?? '').trim(),
+    sessionDate: String(row?.session_date ?? row?.sessionDate ?? '').slice(
+      0,
+      10
+    ),
+    sessionTime: String(
+      row?.session_time ?? row?.sessionTime ?? '15:00 WITA'
+    ).trim(),
+    locationLabel: String(
+      row?.location_label ?? row?.locationLabel ?? 'Atelier Live'
+    ).trim(),
+    isDone,
+  };
 }
 
-function filterParticipantsByCourses(list, courseIdSet) {
-  return (Array.isArray(list) ? list : []).filter((p) => {
-    if (courseIdSet.size === 0) return true;
-    return courseIdSet.has(Number(p?.course_id));
-  });
+function normalizeParticipant(row, idx = 0) {
+  const studentName = String(
+    row?.student_name ??
+      row?.studentName ??
+      row?.full_name ??
+      row?.name ??
+      `Siswa #${idx + 1}`
+  ).trim();
+  const studentEmail = String(
+    row?.student_email ?? row?.studentEmail ?? row?.email ?? ''
+  ).trim();
+  const totalSessions = Math.max(
+    0,
+    Number(row?.total_sessions ?? row?.totalSessions ?? 0)
+  );
+  const completedSessions = Math.min(
+    totalSessions,
+    Math.max(
+      0,
+      Number(
+        row?.completed_sessions ??
+          row?.completedSessions ??
+          row?.done_sessions ??
+          0
+      )
+    )
+  );
+  const percent =
+    totalSessions > 0
+      ? Math.round((completedSessions / totalSessions) * 100)
+      : 0;
+
+  return {
+    studentId: Number(row?.student_id ?? row?.studentId ?? row?.id ?? idx + 1),
+    studentName,
+    studentEmail,
+    initial: studentName.charAt(0).toUpperCase() || 'S',
+    totalSessions,
+    completedSessions,
+    percent,
+  };
 }
 
 export default function TeacherScheduleClient({
-  teacher,
-  isPendingAccount = false,
-  courses = [],
+  teacher = null,
+  initialCourses = [],
   initialSessions = [],
   initialParticipants = [],
-  initialToday = '2026-11-21',
-  initialFilterByDate = false,
 }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const todayStr = normalizeDateKey(initialToday) || '2026-11-21';
-
-  const teacherCourseIds = useMemo(
-    () =>
-      new Set(
-        [
-          ...(Array.isArray(courses) ? courses : []).map((c) => Number(c.id)),
-          ...(Array.isArray(initialSessions) ? initialSessions : []).map((s) =>
-            Number(s.course_id)
-          ),
-        ].filter((id) => Number.isInteger(id) && id > 0)
-      ),
-    [courses, initialSessions]
+  const [courses, setCourses] = useState(
+    Array.isArray(initialCourses) ? initialCourses : []
   );
-
   const [sessions, setSessions] = useState(() =>
-    isPendingAccount ? [] : filterSessionsByTeacher(initialSessions, teacher, teacherCourseIds)
+    Array.isArray(initialSessions)
+      ? initialSessions.map((r, i) => normalizeSession(r, i))
+      : []
   );
   const [participants, setParticipants] = useState(() =>
-    isPendingAccount ? [] : filterParticipantsByCourses(initialParticipants, teacherCourseIds)
+    Array.isArray(initialParticipants)
+      ? initialParticipants.map((r, i) => normalizeParticipant(r, i))
+      : []
   );
 
-  const [selectedDate, setSelectedDate] = useState(() => {
-    if (isPendingAccount) return todayStr;
-    const filtered = filterSessionsByTeacher(initialSessions, teacher, teacherCourseIds);
-    const hasToday = filtered.some((s) => s.session_date === todayStr);
-    return hasToday ? todayStr : filtered[0]?.session_date || todayStr;
-  });
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [filterByDate, setFilterByDate] = useState(Boolean(initialFilterByDate));
+  const initialAnchor = useMemo(() => {
+    if (Array.isArray(initialSessions) && initialSessions.length > 0) {
+      const first = String(initialSessions[0]?.session_date ?? '').slice(0, 10);
+      if (first) return parseIsoDateLocal(first);
+    }
+    return new Date();
+  }, [initialSessions]);
 
-  const [busyId, setBusyId] = useState(null);
-  const [feedbackMsg, setFeedbackMsg] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [weekStart, setWeekStart] = useState(() =>
+    getMondayOfWeek(initialAnchor)
+  );
+  const [selectedDate, setSelectedDate] = useState(() =>
+    formatDateIso(initialAnchor)
+  );
+  const [busySessionId, setBusySessionId] = useState(null);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    course_id: courses[0]?.id || '',
-    title: '',
-    notes: '',
-    session_date: todayStr,
-    session_time: '15:00 WITA',
-    location_label: 'Atelier Live',
-    is_popup: false,
-  });
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [formCourseId, setFormCourseId] = useState(() =>
+    initialCourses?.[0]?.id ? String(initialCourses[0].id) : ''
+  );
+  const [formTitle, setFormTitle] = useState('');
+  const [formDate, setFormDate] = useState(() => formatDateIso(initialAnchor));
+  const [formTime, setFormTime] = useState('15:00 WITA');
+  const [formLocation, setFormLocation] = useState('Atelier Live');
+  const [formNotes, setFormNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const refreshScheduleData = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (teacher?.id) params.set('teacherId', String(teacher.id));
+      if (teacher?.full_name) params.set('teacherName', teacher.full_name);
+
+      const res = await fetch(`/api/teacher/schedule?${params.toString()}`, {
+        cache: 'no-store',
+      });
+      if (!res.ok) return;
+      const data = await res.json().catch(() => null);
+      if (!data) return;
+
+      if (Array.isArray(data.courses)) {
+        setCourses(data.courses);
+        const firstCourseId = data.courses[0]?.id;
+        if (firstCourseId) {
+          setFormCourseId((prev) => prev || String(firstCourseId));
+        }
+      }
+      if (Array.isArray(data.sessions)) {
+        setSessions(data.sessions.map((r, i) => normalizeSession(r, i)));
+      }
+      if (Array.isArray(data.participants)) {
+        setParticipants(
+          data.participants.map((r, i) => normalizeParticipant(r, i))
+        );
+      }
+    } catch {
+      // Abaikan gangguan jaringan sementara
+    }
+  }, [teacher]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function syncScheduleOnMount() {
+      try {
+        const params = new URLSearchParams();
+        if (teacher?.id) params.set('teacherId', String(teacher.id));
+        if (teacher?.full_name) params.set('teacherName', teacher.full_name);
+
+        const res = await fetch(`/api/teacher/schedule?${params.toString()}`, {
+          cache: 'no-store',
+        });
+        if (!active || !res.ok) return;
+
+        const data = await res.json().catch(() => null);
+        if (!active || !data) return;
+
+        if (Array.isArray(data.courses)) {
+          setCourses(data.courses);
+          const firstCourseId = data.courses[0]?.id;
+          if (firstCourseId) {
+            setFormCourseId((prev) => prev || String(firstCourseId));
+          }
+        }
+        if (Array.isArray(data.sessions)) {
+          setSessions(data.sessions.map((r, i) => normalizeSession(r, i)));
+        }
+        if (Array.isArray(data.participants)) {
+          setParticipants(
+            data.participants.map((r, i) => normalizeParticipant(r, i))
+          );
+        }
+      } catch {
+        // Abaikan gangguan jaringan sementara
+      }
+    }
+
+    syncScheduleOnMount();
+
+    return () => {
+      active = false;
+    };
+  }, [teacher]);
+
+  const datesWithSessions = useMemo(() => {
+    const set = new Set();
+    for (const s of sessions) {
+      if (s.sessionDate) set.add(s.sessionDate);
+    }
+    return set;
+  }, [sessions]);
 
   const weekDays = useMemo(() => {
-    const base = parseDateKeyLocal(selectedDate || todayStr);
-    base.setDate(base.getDate() + weekOffset * 7);
-    const currentDay = base.getDay();
-    const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
-    const monday = new Date(base);
-    monday.setDate(base.getDate() + diffToMonday);
-
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const key = formatDateKey(d);
-      const hasSession = !isPendingAccount && sessions.some((s) => normalizeDateKey(s.session_date) === key);
+    return Array.from({ length: 7 }, (_, idx) => {
+      const dt = addDays(weekStart, idx);
+      const iso = formatDateIso(dt);
       return {
-        key,
-        dayLabel: DAY_NAMES[d.getDay()],
-        dateNum: d.getDate(),
-        monthName: MONTH_NAMES[d.getMonth()],
-        year: d.getFullYear(),
-        hasSession,
+        iso,
+        dayName: DAY_NAMES_ID[idx],
+        dayNumber: String(dt.getDate()).padStart(2, '0'),
+        hasSession: datesWithSessions.has(iso),
       };
     });
-  }, [selectedDate, todayStr, weekOffset, sessions, isPendingAccount]);
+  }, [weekStart, datesWithSessions]);
 
-  const activeMonthTitle = useMemo(() => {
-    const mid = weekDays[3] || weekDays[0];
-    return mid ? `${mid.monthName} ${mid.year}` : 'November 2026';
-  }, [weekDays]);
+  const daySessions = useMemo(
+    () => sessions.filter((s) => s.sessionDate === selectedDate),
+    [sessions, selectedDate]
+  );
 
-  const activeDate = filterByDate ? normalizeDateKey(selectedDate) : todayStr;
+  const handleShiftWeek = (delta) => {
+    const nextStart = addDays(weekStart, delta * 7);
+    setWeekStart(nextStart);
+    const nextIso = formatDateIso(nextStart);
+    setSelectedDate(nextIso);
+    setFormDate(nextIso);
+  };
 
-  const visibleSessions = useMemo(() => {
-    if (isPendingAccount) return [];
-    if (!filterByDate) return sessions;
-    const target = normalizeDateKey(selectedDate);
-    return sessions.filter((s) => normalizeDateKey(s.session_date) === target);
-  }, [sessions, filterByDate, selectedDate, isPendingAccount]);
+  const handleToggleDone = async (sessionItem) => {
+    if (busySessionId === sessionItem.id) return;
+    setBusySessionId(sessionItem.id);
 
-  const stats = useMemo(() => {
-    if (isPendingAccount) {
-      return {
-        dateSessionsCount: 0,
-        totalAllSessionsCount: 0,
-        totalParticipants: 0,
-        activeStudentsCount: 0,
-        completedStudentsOnDateCount: 0,
-        pendingValidationCount: 0,
-        completedCount: 0,
-      };
+    try {
+      const res = await fetch('/api/teacher/schedule', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: sessionItem.id,
+          isDone: !sessionItem.isDone,
+        }),
+      });
+      if (res.ok) {
+        await refreshScheduleData();
+      }
+    } finally {
+      setBusySessionId(null);
     }
+  };
 
-    const targetDate = normalizeDateKey(selectedDate);
-    const dateSessions = filterByDate
-      ? sessions.filter((s) => normalizeDateKey(s.session_date) === targetDate)
-      : sessions;
+  const handleDeleteSession = async (sessionId) => {
+    if (busySessionId === sessionId) return;
+    setBusySessionId(sessionId);
 
-    const scheduledCourseIds = new Set(
-      dateSessions.map((s) => Number(s.course_id)).filter(Boolean)
-    );
-
-    const matchingParticipants = filterByDate
-      ? participants.filter((p) => scheduledCourseIds.has(Number(p.course_id)))
-      : participants;
-
-    const uniqueStudentIds = new Set(matchingParticipants.map((p) => p.student_id));
-    const activeStudentsCount = matchingParticipants.filter(
-      (p) => Number(p.done_classes_count || 0) > 0
-    ).length;
-
-    const completedStudentsOnDateCount = matchingParticipants.filter((p) => {
-      const dates = (Array.isArray(p.completed_dates) ? p.completed_dates : []).map(
-        normalizeDateKey
-      );
-      return filterByDate
-        ? dates.includes(targetDate)
-        : Number(p.done_classes_count || 0) > 0;
-    }).length;
-
-    const pendingValidationCount = dateSessions.filter(
-      (s) => normalizeSessionStatus(s) === 'scheduled'
-    ).length;
-
-    const completedCount = dateSessions.filter(
-      (s) => normalizeSessionStatus(s) === 'completed'
-    ).length;
-
-    return {
-      dateSessionsCount: dateSessions.length,
-      totalAllSessionsCount: sessions.length,
-      totalParticipants: uniqueStudentIds.size || matchingParticipants.length,
-      activeStudentsCount,
-      completedStudentsOnDateCount,
-      pendingValidationCount,
-      completedCount,
-    };
-  }, [sessions, participants, filterByDate, selectedDate, isPendingAccount]);
-
-  const openCreateModal = (popupMode = false) => {
-    if (isPendingAccount) {
-      setErrorMsg(
-        'Akun pengajar Anda masih berstatus PENDING sehingga tidak dapat membuat atau menerima schedule.'
-      );
-      return;
+    try {
+      const res = await fetch(`/api/teacher/schedule?sessionId=${sessionId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        await refreshScheduleData();
+      }
+    } finally {
+      setBusySessionId(null);
     }
-
-    setErrorMsg('');
-    const validCourseId = courses.some((c) => String(c.id) === String(formData.course_id))
-      ? formData.course_id
-      : courses[0]?.id || '';
-
-    setFormData((prev) => ({
-      ...prev,
-      course_id: validCourseId,
-      title: popupMode ? 'Sesi Dadakan / Troubleshooting Kelas' : '',
-      session_date: normalizeDateKey(selectedDate) || todayStr,
-      is_popup: popupMode,
-    }));
-    setIsModalOpen(true);
   };
 
   const handleCreateSession = async (e) => {
     e.preventDefault();
-    if (isPendingAccount) return;
-    setSubmitting(true);
-    setErrorMsg('');
-    setFeedbackMsg('');
+    if (!formCourseId || !formTitle.trim() || !formDate || isSubmitting) return;
 
+    setIsSubmitting(true);
     try {
       const res = await fetch('/api/teacher/schedule', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          courseId: Number(formCourseId),
+          title: formTitle.trim(),
+          sessionDate: formDate,
+          sessionTime: formTime.trim() || '15:00 WITA',
+          locationLabel: formLocation.trim() || 'Atelier Live',
+          notes: formNotes.trim(),
+        }),
       });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.message || 'Gagal menyimpan jadwal sesi.');
+      if (res.ok) {
+        setFormTitle('');
+        setFormNotes('');
+        setIsPopupOpen(false);
+        setSelectedDate(formDate);
+        setWeekStart(getMondayOfWeek(parseIsoDateLocal(formDate)));
+        await refreshScheduleData();
       }
-
-      const matchedCourse = courses.find((c) => String(c.id) === String(formData.course_id));
-      const createdDate = normalizeDateKey(data.session?.session_date || formData.session_date);
-      const created = {
-        ...(data.session || {}),
-        id: data.session?.id || Date.now(),
-        course_id: Number(formData.course_id),
-        instructor_id: teacher?.id ? Number(teacher.id) : data.session?.instructor_id,
-        title: formData.title,
-        notes: formData.notes,
-        session_date: createdDate,
-        session_time: formData.session_time,
-        location_label: formData.location_label,
-        is_popup: Boolean(formData.is_popup),
-        is_done: false,
-        status: 'scheduled',
-        course_title: matchedCourse?.title || 'Kursus Atelier',
-        instructor_name: teacher?.full_name || '',
-      };
-
-      setSessions((prev) => [created, ...prev]);
-      setSelectedDate(createdDate);
-      setIsModalOpen(false);
-      setFeedbackMsg(
-        formData.is_popup
-          ? 'Kelas dadakan berhasil ditambahkan ke jadwal.'
-          : 'Jadwal sesi kelas baru berhasil disimpan.'
-      );
-      startTransition(() => {
-        router.refresh();
-      });
-    } catch (err) {
-      setErrorMsg(err?.message || 'Terjadi kesalahan saat membuat sesi.');
     } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleCancelSession = async (sessionItem) => {
-    const currentStatus = normalizeSessionStatus(sessionItem);
-    if (!sessionItem?.id || busyId || currentStatus !== 'scheduled' || isPendingAccount) return;
-
-    const confirmed = window.confirm(
-      `Batalkan kelas "${sessionItem.title}"? Status akan berubah menjadi Dibatalkan (canceled) dan tidak bisa di-Mark as Done.`
-    );
-    if (!confirmed) return;
-
-    setBusyId(sessionItem.id);
-    setErrorMsg('');
-    setFeedbackMsg('');
-
-    try {
-      const res = await fetch('/api/teacher/schedule', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionItem.id, action: 'cancel' }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.message || 'Gagal membatalkan kelas.');
-      }
-
-      setSessions((prev) =>
-        prev.map((s) =>
-          s.id === sessionItem.id ? { ...s, status: 'canceled', is_done: false } : s
-        )
-      );
-      setFeedbackMsg(`Kelas "${sessionItem.title}" telah diubah menjadi Dibatalkan.`);
-      startTransition(() => {
-        router.refresh();
-      });
-    } catch (err) {
-      setErrorMsg(err?.message || 'Gagal membatalkan kelas.');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const handleToggleMarkAsDone = async (sessionItem) => {
-    const currentStatus = normalizeSessionStatus(sessionItem);
-    if (!sessionItem?.id || busyId || currentStatus === 'canceled' || isPendingAccount) return;
-
-    const isCurrentlyCompleted = currentStatus === 'completed';
-    const nextAction = isCurrentlyCompleted ? 'unmark_done' : 'mark_done';
-
-    setBusyId(sessionItem.id);
-    setErrorMsg('');
-    setFeedbackMsg('');
-
-    try {
-      const res = await fetch('/api/teacher/schedule', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionItem.id, action: nextAction }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.message || 'Gagal memperbarui status Mark as Done.');
-      }
-
-      if (isCurrentlyCompleted) {
-        setSessions((prev) =>
-          prev.map((s) =>
-            s.id === sessionItem.id ? { ...s, status: 'scheduled', is_done: false } : s
-          )
-        );
-
-        setParticipants((prev) =>
-          prev.map((p) => {
-            if (Number(p.course_id) !== Number(sessionItem.course_id)) return p;
-            const nextDone = Math.max(0, Number(p.done_classes_count || 0) - 1);
-            const total = Math.max(Number(p.total_classes_count || 1), 1);
-            const nextDates = (Array.isArray(p.completed_dates) ? p.completed_dates : [])
-              .map(normalizeDateKey)
-              .filter((d) => d !== normalizeDateKey(sessionItem.session_date));
-            return {
-              ...p,
-              done_classes_count: nextDone,
-              progress_percent: Math.min(100, Math.round((nextDone / total) * 100)),
-              completed_dates: nextDates,
-            };
-          })
-        );
-
-        setFeedbackMsg(
-          `Mark as Done untuk "${sessionItem.title}" dibatalkan. Jumlah selesai berkurang dan tombol Mark as Done aktif kembali.`
-        );
-      } else {
-        setSessions((prev) =>
-          prev.map((s) =>
-            s.id === sessionItem.id ? { ...s, status: 'completed', is_done: true } : s
-          )
-        );
-
-        setParticipants((prev) =>
-          prev.map((p) => {
-            if (Number(p.course_id) !== Number(sessionItem.course_id)) return p;
-            const nextDone = Math.min(
-              Number(p.total_classes_count || 1),
-              Number(p.done_classes_count || 0) + 1
-            );
-            const total = Math.max(Number(p.total_classes_count || 1), 1);
-            const prevDates = (Array.isArray(p.completed_dates) ? p.completed_dates : []).map(
-              normalizeDateKey
-            );
-            const sessDate = normalizeDateKey(sessionItem.session_date);
-            const nextDates = prevDates.includes(sessDate)
-              ? prevDates
-              : [...prevDates, sessDate];
-            return {
-              ...p,
-              done_classes_count: nextDone,
-              progress_percent: Math.min(100, Math.round((nextDone / total) * 100)),
-              completed_dates: nextDates,
-            };
-          })
-        );
-
-        setFeedbackMsg(
-          `Sesi "${sessionItem.title}" ditandai selesai (Mark as Done). Jumlah selesai bertambah.`
-        );
-      }
-
-      startTransition(() => {
-        router.refresh();
-      });
-    } catch (err) {
-      setErrorMsg(err?.message || 'Gagal memperbarui status Mark as Done.');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const handleDeleteCanceledSession = async (sessionItem) => {
-    const currentStatus = normalizeSessionStatus(sessionItem);
-    if (!sessionItem?.id || busyId || currentStatus !== 'canceled' || isPendingAccount) return;
-
-    const confirmed = window.confirm(
-      `Hapus permanen kelas yang dibatalkan "${sessionItem.title}"?`
-    );
-    if (!confirmed) return;
-
-    setBusyId(sessionItem.id);
-    setErrorMsg('');
-    setFeedbackMsg('');
-
-    try {
-      const res = await fetch(`/api/teacher/schedule?session_id=${sessionItem.id}`, {
-        method: 'DELETE',
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.message || 'Gagal menghapus kelas.');
-      }
-
-      setSessions((prev) => prev.filter((s) => s.id !== sessionItem.id));
-      setFeedbackMsg(`Kelas "${sessionItem.title}" berhasil dihapus.`);
-      startTransition(() => {
-        router.refresh();
-      });
-    } catch (err) {
-      setErrorMsg(err?.message || 'Gagal menghapus kelas.');
-    } finally {
-      setBusyId(null);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* HEADER ATELIER SCHEDULE */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <span className="block text-[10px] font-extrabold tracking-[0.2em] uppercase text-[#802924]">
-            ATELIER SCHEDULE &amp; APPRENTICES • {teacher?.full_name || 'Ayu'}
-          </span>
-          <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
-            Jadwal &amp; Siswa
-          </h1>
-          <p className="text-xs sm:text-sm text-[#341D17]/75">
-            Kelola sesi mentoring langsung, validasi kelas tuntas (Mark as Done), dan pantau progres keaktifan partisipan.
+    <div className="space-y-6 text-[#341D17] pb-12">
+      {/* Kalender Mingguan & Tombol Pop-up Sesi */}
+      <section className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 sm:p-6 shadow-2xs space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-extrabold uppercase tracking-wider text-[#802924]">
+            Kalender Kelas &amp; Sesi Atelier
           </p>
-        </div>
-
-        <button
-          type="button"
-          disabled={isPendingAccount}
-          onClick={() => openCreateModal(false)}
-          className="self-start sm:self-auto rounded-2xl bg-[#802924] hover:bg-[#661F1B] px-5 py-3 text-xs sm:text-sm font-bold text-[#F9DDBB] shadow-md transition inline-flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <span>+</span>
-          <span>Buat</span>
-        </button>
-      </div>
-
-      {isPendingAccount && (
-        <div className="rounded-2xl border border-amber-700/30 bg-[#F9DDBB]/80 px-4 py-3 text-xs font-bold text-[#802924]">
-          Akun pengajar Anda masih berstatus PENDING. Anda belum dapat menerima atau mengelola schedule maupun chat dari siswa sampai disetujui oleh Admin.
-        </div>
-      )}
-
-      {feedbackMsg && (
-        <div className="rounded-2xl border border-[#341D17]/20 bg-[#F9DDBB]/60 px-4 py-3 text-xs font-bold text-[#341D17]">
-          {feedbackMsg} {isPending ? '• Menyinkronkan...' : ''}
-        </div>
-      )}
-
-      {errorMsg && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs font-medium text-red-800">
-          {errorMsg}
-        </div>
-      )}
-
-      {/* 3 KARTU RINGKASAN DISESUAIKAN DENGAN TANGGAL AKTIF */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-5 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/65">
-              {filterByDate ? `TANGGAL ${activeDate}` : 'SEMUA TANGGAL'}
-            </span>
-            <span className="h-2.5 w-2.5 rounded-full bg-[#802924]" />
-          </div>
-          <p className="font-editorial text-2xl font-bold text-[#341D17]">
-            {stats.dateSessionsCount}
-          </p>
-          <p className="text-xs text-[#341D17]/75">
-            {filterByDate
-              ? `Total Sesi Terjadwal (${stats.totalAllSessionsCount} Semua Tanggal)`
-              : 'Total Sesi Terjadwal di Database'}
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-5 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/65">
-              PARTISIPAN
-            </span>
-            <span className="rounded-full bg-[#F9DDBB] px-2.5 py-0.5 text-[10px] font-bold text-[#802924]">
-              {stats.activeStudentsCount} Aktif
-            </span>
-          </div>
-          <p className="font-editorial text-2xl font-bold text-[#341D17]">
-            {stats.totalParticipants}
-          </p>
-          <p className="text-xs text-[#341D17]/75">
-            {filterByDate
-              ? `Siswa Terdaftar • ${stats.completedStudentsOnDateCount} Tuntas di Tanggal Ini`
-              : 'Siswa Terdaftar di Kelas'}
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-5 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#341D17]/65">
-              MARK AS DONE
-            </span>
-            <span className="text-xs font-extrabold text-[#802924]">✓</span>
-          </div>
-          <p className="font-editorial text-2xl font-bold text-[#341D17]">
-            {stats.completedCount}
-          </p>
-          <p className="text-xs text-[#341D17]/75">
-            Kursus/Sesi Selesai • {stats.pendingValidationCount} Menunggu Validasi
-          </p>
-        </div>
-      </div>
-
-      {/* KALENDER MINGGUAN & TOMBOL KELAS DADAKAN (+ POP-UP SESI) */}
-      <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-5 sm:p-6 shadow-sm space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
-              {activeMonthTitle}
-            </h2>
-            <p className="text-xs text-[#341D17]/70">
-              Pilih tanggal untuk mengatur jadwal atau menyaring sesi kelas.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => setFilterByDate((prev) => !prev)}
-              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
-                filterByDate
-                  ? 'bg-[#802924] text-[#F9DDBB]'
-                  : 'border border-[#341D17]/20 bg-[#FFFDF9] text-[#341D17] hover:bg-[#F9DDBB]/50'
-              }`}
+              onClick={() => handleShiftWeek(-1)}
+              aria-label="Minggu sebelumnya"
+              className="w-8 h-8 rounded-xl border border-[#341D17]/15 bg-[#FAF6F0] hover:bg-[#F9DDBB]/65 text-xs font-bold cursor-pointer"
             >
-              {filterByDate ? `Tanggal: ${selectedDate}` : 'Semua Tanggal'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setWeekOffset((prev) => prev - 1)}
-              className="h-8 w-8 rounded-xl border border-[#341D17]/20 bg-[#FFFDF9] hover:bg-[#F9DDBB]/50 text-xs font-bold text-[#341D17] cursor-pointer"
-              aria-label="Pekan sebelumnya"
-            >
-              &lt;
+              &lsaquo;
             </button>
             <button
               type="button"
-              onClick={() => setWeekOffset((prev) => prev + 1)}
-              className="h-8 w-8 rounded-xl border border-[#341D17]/20 bg-[#FFFDF9] hover:bg-[#F9DDBB]/50 text-xs font-bold text-[#341D17] cursor-pointer"
-              aria-label="Pekan berikutnya"
+              onClick={() => handleShiftWeek(1)}
+              aria-label="Minggu berikutnya"
+              className="w-8 h-8 rounded-xl border border-[#341D17]/15 bg-[#FAF6F0] hover:bg-[#F9DDBB]/65 text-xs font-bold cursor-pointer"
             >
-              &gt;
+              &rsaquo;
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-7 gap-2.5">
           {weekDays.map((day) => {
-            const isSelected = filterByDate && day.key === selectedDate;
+            const isSelected = selectedDate === day.iso;
             return (
               <button
-                key={day.key}
+                key={day.iso}
                 type="button"
                 onClick={() => {
-                  setSelectedDate(day.key);
-                  setFilterByDate(true);
+                  setSelectedDate(day.iso);
+                  setFormDate(day.iso);
                 }}
-                className={`rounded-2xl p-3 text-center transition border cursor-pointer flex flex-col items-center justify-between gap-1 ${
+                className={`rounded-2xl py-3 px-2 border text-center transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
                   isSelected
-                    ? 'bg-[#802924] text-[#F9DDBB] border-[#802924] shadow-sm'
-                    : 'bg-[#FFFDF9] text-[#341D17] border-[#341D17]/15 hover:bg-[#F9DDBB]/40'
+                    ? 'bg-[#802924] text-[#FFFDF9] border-[#802924] shadow-xs'
+                    : 'bg-[#FAF6F0]/75 hover:bg-[#F9DDBB]/45 text-[#341D17] border-[#341D17]/10'
                 }`}
               >
                 <span
-                  className={`text-[10px] font-extrabold tracking-wider ${
-                    isSelected ? 'text-[#F9DDBB]/90' : 'text-[#341D17]/60'
+                  className={`text-[10px] font-extrabold uppercase tracking-wider ${
+                    isSelected ? 'text-[#F9DDBB]' : 'text-[#341D17]/55'
                   }`}
                 >
-                  {day.dayLabel}
+                  {day.dayName}
                 </span>
-                <span className="font-editorial text-lg font-bold">{day.dateNum}</span>
+                <span className="text-lg font-extrabold leading-tight">
+                  {day.dayNumber}
+                </span>
                 <span
-                  className={`h-1.5 w-1.5 rounded-full ${
+                  className={`mt-1 h-1.5 w-1.5 rounded-full ${
                     day.hasSession
                       ? isSelected
                         ? 'bg-[#F9DDBB]'
@@ -673,296 +412,34 @@ export default function TeacherScheduleClient({
           })}
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-[#F9DDBB]/45 border border-[#341D17]/10 px-4 py-3">
-          <p className="text-xs text-[#341D17]/85">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#341D17]/8">
+          <p className="text-xs text-[#341D17]/65">
             Butuh membuka sesi mentoring atau kelas dadakan di luar jadwal reguler?
           </p>
           <button
             type="button"
-            disabled={isPendingAccount}
-            onClick={() => openCreateModal(true)}
-            className="self-start sm:self-auto text-xs font-extrabold text-[#802924] hover:underline cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => setIsPopupOpen((prev) => !prev)}
+            className="rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition cursor-pointer"
           >
             + Pop-up Sesi
           </button>
         </div>
-      </div>
 
-      {/* SESI KELAS TERJADWAL & MARK AS DONE */}
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17]">
-              Sesi Kelas Terjadwal
-            </h2>
-            <p className="text-xs text-[#341D17]/70">
-              Tandai kelas yang telah selesai dengan Mark as Done untuk memperbarui progres keaktifan siswa.
-            </p>
-          </div>
-          <span className="rounded-full bg-[#F9DDBB] px-3.5 py-1 text-xs font-extrabold text-[#802924]">
-            {visibleSessions.length} Sesi Terdata
-          </span>
-        </div>
-
-        {isPendingAccount ? (
-          <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-6 text-center text-xs text-[#341D17]/70">
-            Akun masih berstatus PENDING. Jadwal tidak dapat diterima sebelum diaktifkan oleh Admin.
-          </div>
-        ) : visibleSessions.length === 0 ? (
-          <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-6 text-center text-xs text-[#341D17]/70">
-            Belum ada sesi kelas untuk pilihan tanggal ini. Klik <strong>+ Buat</strong> atau <strong>+ Pop-up Sesi</strong> untuk menambahkan.
-          </div>
-        ) : (
-          <div className="space-y-3.5">
-            {visibleSessions.map((item) => {
-              const status = normalizeSessionStatus(item);
-              const isBusy = busyId === item.id;
-
-              const badgeStyle =
-                status === 'canceled'
-                  ? 'bg-red-500/15 text-red-800'
-                  : status === 'completed'
-                  ? 'bg-[#341D17] text-[#F9DDBB]'
-                  : 'bg-[#F9DDBB] text-[#802924]';
-
-              const badgeLabel =
-                status === 'canceled'
-                  ? 'DIBATALKAN'
-                  : status === 'completed'
-                  ? 'SELESAI (DONE)'
-                  : 'TERJADWAL';
-
-              return (
-                <div
-                  key={item.id}
-                  className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-5 shadow-2xs space-y-3"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider ${badgeStyle}`}
-                      >
-                        {badgeLabel}
-                      </span>
-
-                      {item.is_popup && (
-                        <span className="rounded-full bg-[#802924]/15 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-[#802924]">
-                          KELAS DADAKAN
-                        </span>
-                      )}
-
-                      <span className="text-xs font-semibold text-[#341D17]/75">
-                        {item.session_date} • {item.session_time || '14:00 WITA'}
-                      </span>
-                    </div>
-
-                    <span className="rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3 py-1 text-[11px] font-bold text-[#341D17]">
-                      {item.location_label || 'Atelier Live'}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
-                      {item.course_title}
-                      {item.instructor_name ? ` • CHEF ${String(item.instructor_name).toUpperCase()}` : ''}
-                    </p>
-                    <h3
-                      className={`font-editorial text-lg sm:text-xl font-bold ${
-                        status === 'canceled' ? 'text-[#341D17]/55 line-through' : 'text-[#341D17]'
-                      }`}
-                    >
-                      {item.title}
-                    </h3>
-                    {item.notes && (
-                      <p className="text-xs sm:text-sm text-[#341D17]/75">{item.notes}</p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#341D17]/10 pt-3">
-                    <span className="text-xs text-[#341D17]/70">
-                      {status === 'canceled'
-                        ? 'Kelas berstatus Dibatalkan. Tidak dapat ditandai Mark as Done dan kini dapat dihapus.'
-                        : status === 'completed'
-                        ? 'Kelas telah divalidasi tuntas. Klik tombol untuk membatalkan Mark as Done dan mengaktifkan kembali.'
-                        : 'Kelas sudah selesai dilaksanakan? Validasi agar progres siswa bertambah.'}
-                    </span>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      {status === 'scheduled' && (
-                        <>
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => handleCancelSession(item)}
-                            className="rounded-xl border border-[#341D17]/25 bg-[#FFFDF9] hover:bg-[#F9DDBB]/60 px-4 py-2 text-xs font-bold text-[#341D17] transition cursor-pointer disabled:opacity-50"
-                          >
-                            {isBusy ? 'Memproses...' : 'Batalkan'}
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => handleToggleMarkAsDone(item)}
-                            className="rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#F9DDBB] shadow-xs transition cursor-pointer disabled:opacity-50"
-                          >
-                            {isBusy ? 'Menyimpan...' : 'Mark as Done'}
-                          </button>
-                        </>
-                      )}
-
-                      {status === 'completed' && (
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => handleToggleMarkAsDone(item)}
-                          className="rounded-xl border border-[#802924] bg-[#F9DDBB] hover:bg-[#802924] hover:text-[#F9DDBB] px-4 py-2 text-xs font-bold text-[#802924] transition cursor-pointer disabled:opacity-50"
-                        >
-                          {isBusy ? 'Membatalkan...' : '✓ Marked as Done • Batal'}
-                        </button>
-                      )}
-
-                      {status === 'canceled' && (
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => handleDeleteCanceledSession(item)}
-                          className="rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#F9DDBB] shadow-xs transition cursor-pointer disabled:opacity-50"
-                        >
-                          {isBusy ? 'Menghapus...' : 'Hapus'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* DAFTAR PARTISIPAN SISWA & PROGRES KEAKTIFAN */}
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17]">
-              Daftar Partisipan Siswa
-            </h2>
-            <p className="text-xs text-[#341D17]/70">
-              Progres keaktifan dihitung dari jumlah kelas/sesi yang telah di-mark as done.
-            </p>
-          </div>
-          <span className="rounded-full border border-[#341D17]/15 bg-[#FFFDF9] px-3.5 py-1 text-xs font-bold text-[#341D17]">
-            {participants.length} Partisipan
-          </span>
-        </div>
-
-        {participants.length === 0 ? (
-          <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-6 text-center text-xs text-[#341D17]/70">
-            {isPendingAccount
-              ? 'Akun masih berstatus PENDING. Daftar partisipan belum tersedia.'
-              : 'Belum ada partisipan siswa yang terdaftar pada kursus Anda.'}
-          </div>
-        ) : (
-          <div className="space-y-3.5">
-            {participants.map((student, index) => {
-              const initials = String(student.full_name || 'SW')
-                .split(' ')
-                .map((part) => part[0])
-                .join('')
-                .slice(0, 2)
-                .toUpperCase();
-
-              return (
-                <div
-                  key={`${student.student_id}-${student.course_id}-${index}`}
-                  className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-5 shadow-2xs space-y-3.5"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#802924] text-xs font-extrabold text-[#F9DDBB]">
-                        {initials}
-                      </span>
-                      <div>
-                        <h3 className="text-sm sm:text-base font-bold text-[#341D17]">
-                          {student.full_name}
-                        </h3>
-                        <p className="text-xs text-[#341D17]/65">{student.email}</p>
-                        <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#802924] mt-0.5">
-                          {student.course_title}
-                        </p>
-                      </div>
-                    </div>
-
-                    <span
-                      className={`self-start sm:self-auto rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider ${
-                        student.progress_percent >= 100
-                          ? 'bg-[#341D17] text-[#F9DDBB]'
-                          : student.done_classes_count > 0
-                          ? 'bg-[#F9DDBB] text-[#802924]'
-                          : 'bg-[#341D17]/10 text-[#341D17]/70'
-                      }`}
-                    >
-                      {student.progress_percent >= 100
-                        ? 'Tuntas 100%'
-                        : student.done_classes_count > 0
-                        ? 'Aktif Mengikuti'
-                        : 'Menunggu Mark as Done'}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs font-semibold text-[#341D17]">
-                      <span>Keaktifan Kelas (Mark as Done)</span>
-                      <span>
-                        {student.done_classes_count}/{student.total_classes_count} Kelas ({student.progress_percent}%)
-                      </span>
-                    </div>
-                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#341D17]/10">
-                      <div
-                        style={{ width: `${student.progress_percent}%` }}
-                        className="h-full rounded-full bg-[#802924] transition-all duration-300"
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* MODAL BUAT SESI / KELAS DADAKAN */}
-      {isModalOpen && !isPendingAccount && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-3xl border border-[#341D17]/20 bg-[#FFFDF9] p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#341D17]/10 pb-3">
+        {isPopupOpen && (
+          <form
+            onSubmit={handleCreateSession}
+            className="rounded-2xl bg-[#FAF6F0] border border-[#341D17]/12 p-4 space-y-3"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#802924]">
-                  {formData.is_popup ? 'KELAS DADAKAN / POP-UP' : 'JADWAL BARU'}
-                </span>
-                <h3 className="font-editorial text-xl font-bold text-[#341D17]">
-                  {formData.is_popup ? 'Buat Pop-up Sesi Kelas' : 'Tambah Jadwal Sesi'}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="h-8 w-8 rounded-full bg-[#802924] text-xs font-bold text-[#F9DDBB] cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSession} className="space-y-3.5">
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/75">
-                  KURSUS
+                <label className="block text-[11px] font-bold text-[#341D17]/75 mb-1">
+                  Kursus Terkait
                 </label>
                 <select
+                  value={formCourseId}
+                  onChange={(e) => setFormCourseId(e.target.value)}
                   required
-                  value={formData.course_id}
-                  onChange={(e) => setFormData((p) => ({ ...p, course_id: e.target.value }))}
-                  className="w-full rounded-2xl border border-[#341D17]/20 bg-[#FFFDF9] px-3.5 py-2.5 text-xs text-[#341D17]"
+                  className="w-full rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3 py-2 text-xs text-[#341D17]"
                 >
                   {courses.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -972,81 +449,272 @@ export default function TeacherScheduleClient({
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/75">
-                  JUDUL SESI / KELAS
+              <div>
+                <label className="block text-[11px] font-bold text-[#341D17]/75 mb-1">
+                  Judul Sesi
                 </label>
                 <input
                   type="text"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="Contoh: Praktik Adonan Lumer"
                   required
-                  value={formData.title}
-                  onChange={(e) => setFormData((p) => ({ ...p, title: e.target.value }))}
-                  placeholder="Contoh: Sesi Evaluasi Adonan & Tanya Jawab"
-                  className="w-full rounded-2xl border border-[#341D17]/20 bg-[#FFFDF9] px-3.5 py-2.5 text-xs text-[#341D17]"
+                  className="w-full rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3 py-2 text-xs text-[#341D17]"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/75">
-                    TANGGAL
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.session_date}
-                    onChange={(e) => setFormData((p) => ({ ...p, session_date: e.target.value }))}
-                    className="w-full rounded-2xl border border-[#341D17]/20 bg-[#FFFDF9] px-3.5 py-2.5 text-xs text-[#341D17]"
-                  />
-                </div>
+              <div>
+                <label className="block text-[11px] font-bold text-[#341D17]/75 mb-1">
+                  Tanggal Sesi
+                </label>
+                <input
+                  type="date"
+                  value={formDate}
+                  onChange={(e) => setFormDate(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3 py-2 text-xs text-[#341D17]"
+                />
+              </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/75">
-                    WAKTU
-                  </label>
+              <div>
+                <label className="block text-[11px] font-bold text-[#341D17]/75 mb-1">
+                  Waktu &amp; Ruangan
+                </label>
+                <div className="grid grid-cols-2 gap-2">
                   <input
                     type="text"
-                    value={formData.session_time}
-                    onChange={(e) => setFormData((p) => ({ ...p, session_time: e.target.value }))}
+                    value={formTime}
+                    onChange={(e) => setFormTime(e.target.value)}
                     placeholder="15:00 WITA"
-                    className="w-full rounded-2xl border border-[#341D17]/20 bg-[#FFFDF9] px-3.5 py-2.5 text-xs text-[#341D17]"
+                    className="w-full rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3 py-2 text-xs text-[#341D17]"
+                  />
+                  <input
+                    type="text"
+                    value={formLocation}
+                    onChange={(e) => setFormLocation(e.target.value)}
+                    placeholder="Atelier Live"
+                    className="w-full rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3 py-2 text-xs text-[#341D17]"
                   />
                 </div>
               </div>
+            </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/75">
-                  CATATAN SESI (OPSIONAL)
-                </label>
-                <textarea
-                  rows={2}
-                  value={formData.notes}
-                  onChange={(e) => setFormData((p) => ({ ...p, notes: e.target.value }))}
-                  placeholder="Ringkasan topik atau keperluan kelas dadakan..."
-                  className="w-full rounded-2xl border border-[#341D17]/20 bg-[#FFFDF9] px-3.5 py-2.5 text-xs text-[#341D17]"
-                />
-              </div>
+            <div>
+              <label className="block text-[11px] font-bold text-[#341D17]/75 mb-1">
+                Catatan Sesi
+              </label>
+              <input
+                type="text"
+                value={formNotes}
+                onChange={(e) => setFormNotes(e.target.value)}
+                placeholder="Ringkasan materi atau alat yang perlu disiapkan..."
+                className="w-full rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3 py-2 text-xs text-[#341D17]"
+              />
+            </div>
 
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl border border-[#341D17]/20 px-4 py-2.5 text-xs font-bold text-[#341D17] cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="rounded-xl bg-[#802924] hover:bg-[#661F1B] px-5 py-2.5 text-xs font-bold text-[#F9DDBB] cursor-pointer disabled:opacity-50"
-                >
-                  {submitting ? 'Menyimpan...' : 'Simpan Jadwal'}
-                </button>
-              </div>
-            </form>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsPopupOpen(false)}
+                className="rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3.5 py-2 text-xs font-bold text-[#341D17] cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] cursor-pointer disabled:opacity-60"
+              >
+                {isSubmitting ? 'Menyimpan...' : 'Simpan Sesi'}
+              </button>
+            </div>
+          </form>
+        )}
+      </section>
+
+      {/* Sesi Kelas Terjadwal */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-editorial text-xl font-bold text-[#341D17]">
+              Sesi Kelas Terjadwal
+            </h2>
+            <p className="text-xs text-[#341D17]/60">
+              Tandai kelas yang telah selesai dengan Mark as Done untuk memperbarui progres keaktifan siswa.
+            </p>
           </div>
+          <span className="rounded-full bg-[#F9DDBB]/80 border border-[#802924]/15 px-3 py-1 text-[11px] font-extrabold text-[#802924]">
+            {daySessions.length} Sesi Terdata
+          </span>
         </div>
-      )}
+
+        {daySessions.length === 0 ? (
+          <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 text-center text-xs text-[#341D17]/60">
+            Belum ada sesi kelas untuk pilihan tanggal ini. Klik{' '}
+            <span className="font-bold text-[#802924]">+ Pop-up Sesi</span>{' '}
+            untuk menambahkan.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {daySessions.map((item) => {
+              const isBusy = busySessionId === item.id;
+              return (
+                <article
+                  key={item.id}
+                  className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 space-y-3 shadow-2xs"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 font-extrabold uppercase ${
+                          item.isDone
+                            ? 'bg-[#341D17] text-[#FFFDF9]'
+                            : 'bg-[#F9DDBB] text-[#802924]'
+                        }`}
+                      >
+                        {item.isDone ? 'SELESAI (DONE)' : 'TERJADWAL'}
+                      </span>
+                      <span className="font-semibold text-[#341D17]/65">
+                        {item.sessionDate} &bull; {item.sessionTime}
+                      </span>
+                    </div>
+                    <span className="rounded-full border border-[#341D17]/12 bg-[#FAF6F0] px-3 py-0.5 font-semibold text-[#341D17]/75">
+                      {item.locationLabel}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
+                      {item.courseTitle}
+                    </p>
+                    <h3 className="font-editorial text-lg font-bold text-[#341D17]">
+                      {item.title}
+                    </h3>
+                    {item.notes && (
+                      <p className="text-xs text-[#341D17]/65">{item.notes}</p>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-[#341D17]/8 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-[11px] text-[#341D17]/60">
+                      {item.isDone
+                        ? 'Kelas telah divalidasi tuntas. Klik tombol untuk membatalkan Mark as Done dan mengaktifkan kembali.'
+                        : 'Kelas sudah selesai dilaksanakan? Validasi agar progres siswa bertambah.'}
+                    </p>
+
+                    <div className="flex items-center gap-2">
+                      {!item.isDone && (
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => handleDeleteSession(item.id)}
+                          className="rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#FAF6F0] px-3.5 py-2 text-xs font-bold text-[#341D17] transition cursor-pointer disabled:opacity-60"
+                        >
+                          Batalkan
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => handleToggleDone(item)}
+                        className={`rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer disabled:opacity-60 ${
+                          item.isDone
+                            ? 'bg-[#F9DDBB]/80 border border-[#802924]/25 text-[#802924]'
+                            : 'bg-[#802924] hover:bg-[#661F1B] text-[#FFFDF9]'
+                        }`}
+                      >
+                        {item.isDone
+                          ? '✓ Marked as Done • Batal'
+                          : 'Mark as Done'}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Daftar Partisipan Siswa */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-editorial text-xl font-bold text-[#341D17]">
+              Daftar Partisipan Siswa
+            </h2>
+            <p className="text-xs text-[#341D17]/60">
+              Progres keaktifan dihitung dari jumlah kelas/sesi yang telah diikuti dan di-mark as done.
+            </p>
+          </div>
+          <span className="rounded-full bg-[#F9DDBB]/80 border border-[#802924]/15 px-3 py-1 text-[11px] font-extrabold text-[#802924]">
+            {participants.length} Partisipan
+          </span>
+        </div>
+
+        {participants.length === 0 ? (
+          <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 text-center text-xs text-[#341D17]/60">
+            Belum ada siswa yang mendaftar pada kursus yang Anda ampu.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {participants.map((student) => (
+              <div
+                key={student.studentId}
+                className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 space-y-3 shadow-2xs"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-[#802924] text-[#FFFDF9] font-extrabold text-sm flex items-center justify-center shrink-0">
+                      {student.initial}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-[#341D17] truncate">
+                        {student.studentName}
+                      </p>
+                      {student.studentEmail && (
+                        <p className="text-xs text-[#341D17]/60 truncate">
+                          {student.studentEmail}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <span
+                    className={`rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider shrink-0 ${
+                      student.completedSessions > 0
+                        ? 'bg-[#F9DDBB] text-[#802924]'
+                        : 'bg-[#FAF6F0] border border-[#341D17]/12 text-[#341D17]/65'
+                    }`}
+                  >
+                    {student.completedSessions > 0
+                      ? 'AKTIF MENGIKUTI'
+                      : 'MENUNGGU MARK AS DONE'}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#341D17]/75">
+                      Keaktifan Kelas (Mark as Done)
+                    </span>
+                    <span className="font-bold text-[#341D17]">
+                      {student.completedSessions}/{student.totalSessions} Kelas (
+                      {student.percent}%)
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-[#F9DDBB]/70 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-[#802924] transition-all duration-300"
+                      style={{ width: `${student.percent}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

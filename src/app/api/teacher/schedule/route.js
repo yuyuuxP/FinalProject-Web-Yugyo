@@ -1,73 +1,244 @@
 import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
-import pool from '@/lib/db';
-import { isTeacherPending } from '@/lib/teacher-status';
 
-async function resolveTeacherId() {
-  const cookieStore = await cookies();
-  const rawId = cookieStore.get('yugyo_user_id')?.value;
-  if (rawId && Number.isInteger(Number(rawId)) && Number(rawId) > 0) {
-    return Number(rawId);
-  }
-  const res = await pool.query(
-    "SELECT id FROM users WHERE role = 'teacher' ORDER BY id ASC LIMIT 1;"
+export const dynamic = 'force-dynamic';
+
+async function getDbPool() {
+  const dbModule = await import('@/lib/db').catch(() => null);
+  return dbModule?.default?.query
+    ? dbModule.default
+    : dbModule?.pool?.query
+      ? dbModule.pool
+      : null;
+}
+
+function parseIntOrNull(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const num = Number(value);
+  return Number.isInteger(num) && num > 0 ? num : null;
+}
+
+function isPlaceholderTeacherName(name) {
+  const clean = String(name || '').trim().toLowerCase();
+  return (
+    !clean ||
+    clean === 'instructor' ||
+    clean === 'in' ||
+    clean === 'teacher' ||
+    clean === 'instructor baker atelier' ||
+    clean === 'master baker atelier'
   );
-  return res.rows[0]?.id ? Number(res.rows[0].id) : null;
 }
 
-async function getTeacherRecord(teacherId) {
-  if (!teacherId) return null;
-  const res = await pool.query(
-    "SELECT id, full_name, status FROM users WHERE id = $1 AND role = 'teacher' LIMIT 1;",
-    [teacherId]
-  );
-  return res.rows[0] || null;
-}
-
-function revalidateSchedulePaths() {
-  revalidatePath('/dashboard/teacher/schedule');
-  revalidatePath('/dashboard/teacher');
-  revalidatePath('/dashboard/admin/schedule');
-  revalidatePath('/dashboard/admin');
-}
-
-export async function GET() {
+async function readYugyoUserCookie() {
   try {
-    const teacherId = await resolveTeacherId();
-    if (!teacherId) {
-      return NextResponse.json({ success: true, sessions: [] });
+    const cookieStore = await cookies();
+    const raw = cookieStore.get('yugyo_user')?.value;
+    if (!raw) return null;
+    const decoded = decodeURIComponent(raw);
+    const parsed = JSON.parse(decoded);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveTeacher(pool, explicitId, teacherName) {
+  const cleanName = !isPlaceholderTeacherName(teacherName)
+    ? String(teacherName).trim()
+    : '';
+
+  if (cleanName && pool) {
+    const exactRes = await pool
+      .query(
+        `SELECT id, full_name, email, specialty
+         FROM users
+         WHERE LOWER(COALESCE(role, '')) IN ('teacher', 'instructor')
+           AND (
+             LOWER(TRIM(COALESCE(full_name, ''))) = LOWER($1)
+             OR LOWER(TRIM(COALESCE(email, ''))) = LOWER($1)
+           )
+         ORDER BY id ASC LIMIT 1`,
+        [cleanName]
+      )
+      .catch(() => null);
+
+    if (exactRes?.rows?.[0]) return exactRes.rows[0];
+
+    const prefixRes = await pool
+      .query(
+        `SELECT id, full_name, email, specialty
+         FROM users
+         WHERE LOWER(COALESCE(role, '')) IN ('teacher', 'instructor')
+           AND (
+             SPLIT_PART(LOWER(TRIM(COALESCE(full_name, ''))), ' ', 1) = LOWER($1)
+             OR LOWER(TRIM(COALESCE(full_name, ''))) LIKE LOWER($1 || ' %')
+           )
+         ORDER BY id ASC LIMIT 1`,
+        [cleanName]
+      )
+      .catch(() => null);
+
+    if (prefixRes?.rows?.[0]) return prefixRes.rows[0];
+  }
+
+  const directId = parseIntOrNull(explicitId);
+  if (directId && pool) {
+    const idRes = await pool
+      .query(
+        `SELECT id, full_name, email, specialty
+         FROM users
+         WHERE id = $1
+           AND LOWER(COALESCE(role, '')) IN ('teacher', 'instructor')
+         LIMIT 1`,
+        [directId]
+      )
+      .catch(() => null);
+    if (idRes?.rows?.[0]) return idRes.rows[0];
+  }
+
+  const cookieUser = await readYugyoUserCookie();
+  const cookieRole = String(cookieUser?.role || '').trim().toLowerCase();
+  if (cookieRole === 'teacher' || cookieRole === 'instructor') {
+    const cookieId = parseIntOrNull(
+      cookieUser?.id ?? cookieUser?.userId ?? cookieUser?.user_id
+    );
+    if (cookieId && pool) {
+      const cRes = await pool
+        .query(
+          `SELECT id, full_name, email, specialty
+           FROM users
+           WHERE id = $1
+             AND LOWER(COALESCE(role, '')) IN ('teacher', 'instructor')
+           LIMIT 1`,
+          [cookieId]
+        )
+        .catch(() => null);
+      if (cRes?.rows?.[0]) return cRes.rows[0];
+    }
+  }
+
+  return null;
+}
+
+export async function GET(request) {
+  try {
+    const pool = await getDbPool();
+    if (!pool) {
+      return NextResponse.json(
+        { error: 'Koneksi database tidak tersedia' },
+        { status: 500 }
+      );
     }
 
-    const teacherRecord = await getTeacherRecord(teacherId);
-    if (!teacherRecord || isTeacherPending(teacherRecord.status)) {
+    const { searchParams } = new URL(request.url);
+    const teacher = await resolveTeacher(
+      pool,
+      searchParams.get('teacherId') ?? searchParams.get('instructorId'),
+      searchParams.get('teacherName') ?? searchParams.get('instructorName')
+    );
+
+    if (!teacher) {
       return NextResponse.json({
-        success: true,
+        teacher: null,
+        courses: [],
         sessions: [],
-        blockedByPending: true,
-        message: 'Akun guru masih berstatus pending sehingga tidak dapat menerima schedule.',
+        participants: [],
       });
     }
 
-    const res = await pool.query(
+    const coursesRes = await pool.query(
       `SELECT
-        cs.*,
-        c.title AS course_title,
-        COALESCE(inst.full_name, u.full_name) AS instructor_name
-       FROM course_sessions cs
-       LEFT JOIN courses c ON c.id = cs.course_id
-       LEFT JOIN users inst ON inst.id = cs.instructor_id
-       LEFT JOIN users u ON u.id = c.instructor_id
-       WHERE COALESCE(cs.instructor_id, c.instructor_id) = $1
-       ORDER BY cs.session_date ASC, cs.id ASC;`,
-      [teacherId]
+         c.id,
+         c.title,
+         COALESCE(cat.name, '') AS category_name
+       FROM courses c
+       LEFT JOIN categories cat ON cat.id = c.category_id
+       WHERE c.instructor_id = $1
+         AND (
+           NULLIF(TRIM(COALESCE($2, '')), '') IS NULL
+           OR LOWER(TRIM(COALESCE(cat.name, ''))) = LOWER(TRIM($2))
+         )
+       ORDER BY c.id ASC`,
+      [teacher.id, teacher.specialty || '']
     );
 
-    return NextResponse.json({ success: true, sessions: res.rows || [] });
+    const sessionsRes = await pool.query(
+      `SELECT
+         cs.id,
+         cs.course_id,
+         cs.title,
+         cs.notes,
+         TO_CHAR(cs.session_date, 'YYYY-MM-DD') AS session_date,
+         cs.session_time,
+         cs.location_label,
+         cs.status,
+         COALESCE(cs.is_done, FALSE) AS is_done,
+         c.title AS course_title,
+         COALESCE(cat.name, '') AS category_name
+       FROM course_sessions cs
+       INNER JOIN courses c ON c.id = cs.course_id
+       LEFT JOIN categories cat ON cat.id = c.category_id
+       WHERE c.instructor_id = $1
+         AND (
+           NULLIF(TRIM(COALESCE($2, '')), '') IS NULL
+           OR LOWER(TRIM(COALESCE(cat.name, ''))) = LOWER(TRIM($2))
+         )
+         AND LOWER(COALESCE(cs.status, 'scheduled')) <> 'canceled'
+       ORDER BY cs.session_date ASC, cs.session_time ASC, cs.id ASC`,
+      [teacher.id, teacher.specialty || '']
+    );
+
+    // Dikelompokkan per siswa unik tanpa nama kursus, menghitung total progres kelas/sesi
+    const participantsRes = await pool.query(
+      `SELECT
+         u.id AS student_id,
+         u.full_name AS student_name,
+         u.email AS student_email,
+         COALESCE(SUM(course_stats.total_sessions), 0)::int AS total_sessions,
+         COALESCE(SUM(course_stats.done_sessions), 0)::int AS completed_sessions
+       FROM student_enrollments se
+       INNER JOIN users u
+         ON u.id = se.student_id
+         AND LOWER(COALESCE(u.role, '')) = 'student'
+       INNER JOIN courses c
+         ON c.id = se.course_id
+         AND c.instructor_id = $1
+       LEFT JOIN categories cat ON cat.id = c.category_id
+       LEFT JOIN LATERAL (
+         SELECT
+           COUNT(*)::int AS total_sessions,
+           COUNT(*) FILTER (
+             WHERE COALESCE(cs.is_done, FALSE)
+                OR LOWER(COALESCE(cs.status, '')) IN ('done', 'completed', 'selesai')
+                OR EXISTS (
+                  SELECT 1 FROM session_student_completions ssc
+                  WHERE ssc.session_id = cs.id AND ssc.student_id = u.id
+                )
+           )::int AS done_sessions
+         FROM course_sessions cs
+         WHERE cs.course_id = c.id
+           AND LOWER(COALESCE(cs.status, 'scheduled')) <> 'canceled'
+       ) course_stats ON TRUE
+       WHERE LOWER(COALESCE(se.status, 'active')) <> 'dropped'
+         AND (
+           NULLIF(TRIM(COALESCE($2, '')), '') IS NULL
+           OR LOWER(TRIM(COALESCE(cat.name, ''))) = LOWER(TRIM($2))
+         )
+       GROUP BY u.id, u.full_name, u.email
+       ORDER BY u.full_name ASC`,
+      [teacher.id, teacher.specialty || '']
+    );
+
+    return NextResponse.json({
+      teacher,
+      courses: coursesRes.rows || [],
+      sessions: sessionsRes.rows || [],
+      participants: participantsRes.rows || [],
+    });
   } catch (err) {
-    console.error('Error fetching teacher sessions:', err);
     return NextResponse.json(
-      { message: `Gagal memuat jadwal sesi: ${err?.message || 'Kesalahan server.'}` },
+      { error: err?.message || 'Gagal memuat jadwal dan partisipan instruktur' },
       { status: 500 }
     );
   }
@@ -75,91 +246,50 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const teacherId = await resolveTeacherId();
-    const teacherRecord = await getTeacherRecord(teacherId);
-    if (!teacherRecord || isTeacherPending(teacherRecord.status)) {
+    const pool = await getDbPool();
+    if (!pool) {
       return NextResponse.json(
-        {
-          message:
-            'Akun guru masih berstatus pending. Tidak dapat membuat atau menerima schedule sebelum diaktifkan admin.',
-        },
-        { status: 403 }
+        { error: 'Koneksi database tidak tersedia' },
+        { status: 500 }
       );
     }
 
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const courseId = parseIntOrNull(body?.courseId ?? body?.course_id);
+    const title = String(body?.title || '').trim();
+    const sessionDate = String(
+      body?.sessionDate ?? body?.session_date ?? ''
+    ).slice(0, 10);
+    const sessionTime = String(
+      body?.sessionTime ?? body?.session_time ?? '15:00 WITA'
+    ).trim();
+    const locationLabel = String(
+      body?.locationLabel ?? body?.location_label ?? 'Atelier Live'
+    ).trim();
+    const notes = String(body?.notes || '').trim();
 
-    const courseId = Number(body?.course_id);
-    const title = typeof body?.title === 'string' ? body.title.trim() : '';
-    const notes = typeof body?.notes === 'string' ? body.notes.trim() : '';
-    const sessionDate = typeof body?.session_date === 'string' ? body.session_date.trim() : '';
-    const sessionTime =
-      typeof body?.session_time === 'string' && body.session_time.trim()
-        ? body.session_time.trim()
-        : '14:00 WITA';
-    const locationLabel =
-      typeof body?.location_label === 'string' && body.location_label.trim()
-        ? body.location_label.trim()
-        : 'Atelier Live';
-    const isPopup = Boolean(body?.is_popup);
-
-    if (!courseId || Number.isNaN(courseId)) {
+    if (!courseId || !title || !sessionDate) {
       return NextResponse.json(
-        { message: 'Pilih kursus terlebih dahulu.' },
+        { error: 'Kursus, judul sesi, dan tanggal wajib diisi' },
         { status: 400 }
       );
     }
 
-    if (!title) {
-      return NextResponse.json(
-        { message: 'Judul sesi kelas wajib diisi.' },
-        { status: 400 }
-      );
-    }
-
-    if (!sessionDate) {
-      return NextResponse.json(
-        { message: 'Tanggal sesi kelas wajib diisi.' },
-        { status: 400 }
-      );
-    }
-
-    const courseOwnerRes = await pool.query(
-      'SELECT id FROM courses WHERE id = $1 AND instructor_id = $2 LIMIT 1;',
-      [courseId, teacherId]
-    );
-    if (courseOwnerRes.rows.length === 0) {
-      return NextResponse.json(
-        { message: 'Kursus tidak ditemukan atau bukan milik pengajar yang sedang login.' },
-        { status: 403 }
-      );
-    }
-
-    const inserted = await pool.query(
-      `INSERT INTO course_sessions (
-        course_id,
-        instructor_id,
-        title,
-        notes,
-        session_date,
-        session_time,
-        location_label,
-        is_popup,
-        is_done,
-        status
-      )
-      VALUES ($1, $2, $3, $4, $5::date, $6, $7, $8, FALSE, 'scheduled')
-      RETURNING *;`,
-      [courseId, teacherId, title, notes || null, sessionDate, sessionTime, locationLabel, isPopup]
+    const insertRes = await pool.query(
+      `INSERT INTO course_sessions
+         (course_id, title, notes, session_date, session_time, location_label, status, is_done)
+       VALUES ($1, $2, $3, $4::date, $5, $6, 'scheduled', FALSE)
+       RETURNING id`,
+      [courseId, title, notes || null, sessionDate, sessionTime, locationLabel]
     );
 
-    revalidateSchedulePaths();
-
-    return NextResponse.json({ success: true, session: inserted.rows[0] }, { status: 201 });
+    return NextResponse.json({
+      id: insertRes.rows[0]?.id,
+      message: 'Sesi berhasil ditambahkan',
+    });
   } catch (err) {
-    console.error('Error creating teacher session:', err);
     return NextResponse.json(
-      { message: `Gagal membuat jadwal sesi: ${err?.message || 'Kesalahan server.'}` },
+      { error: err?.message || 'Gagal menambahkan sesi baru' },
       { status: 500 }
     );
   }
@@ -167,166 +297,59 @@ export async function POST(request) {
 
 export async function PATCH(request) {
   try {
-    const teacherId = await resolveTeacherId();
-    const teacherRecord = await getTeacherRecord(teacherId);
-    if (!teacherRecord || isTeacherPending(teacherRecord.status)) {
+    const pool = await getDbPool();
+    if (!pool) {
       return NextResponse.json(
-        { message: 'Akun guru masih berstatus pending sehingga tidak dapat mengubah schedule.' },
-        { status: 403 }
+        { error: 'Koneksi database tidak tersedia' },
+        { status: 500 }
       );
     }
 
-    const body = await request.json();
-    const sessionId = Number(body?.session_id);
-    const action =
-      body?.action === 'cancel'
-        ? 'cancel'
-        : body?.action === 'unmark_done'
-        ? 'unmark_done'
-        : 'mark_done';
-
-    if (!sessionId || Number.isNaN(sessionId)) {
+    const body = await request.json().catch(() => ({}));
+    const sessionId = parseIntOrNull(body?.sessionId ?? body?.id);
+    if (!sessionId) {
       return NextResponse.json(
-        { message: 'ID sesi tidak valid.' },
+        { error: 'sessionId tidak valid' },
         { status: 400 }
       );
     }
 
-    const sessionRes = await pool.query(
-      'SELECT id, course_id, is_done, status FROM course_sessions WHERE id = $1;',
+    const currentRes = await pool.query(
+      `SELECT COALESCE(is_done, FALSE) AS is_done
+       FROM course_sessions
+       WHERE id = $1
+       LIMIT 1`,
       [sessionId]
     );
 
-    if (sessionRes.rows.length === 0) {
+    if (currentRes.rows.length === 0) {
       return NextResponse.json(
-        { message: 'Sesi kelas tidak ditemukan.' },
+        { error: 'Sesi tidak ditemukan' },
         { status: 404 }
       );
     }
 
-    const sessionRow = sessionRes.rows[0];
-    const currentStatus =
-      sessionRow.status || (sessionRow.is_done ? 'completed' : 'scheduled');
+    const nextDone =
+      typeof body?.isDone === 'boolean'
+        ? body.isDone
+        : !Boolean(currentRes.rows[0].is_done);
 
-    if (action === 'cancel') {
-      if (currentStatus === 'completed' || sessionRow.is_done) {
-        return NextResponse.json(
-          { message: 'Kelas yang sudah ditandai selesai (Mark as Done) tidak dapat dibatalkan.' },
-          { status: 400 }
-        );
-      }
-
-      const updatedCancel = await pool.query(
-        `UPDATE course_sessions
-         SET status = 'canceled', is_done = FALSE, completed_at = NULL
-         WHERE id = $1
-         RETURNING *;`,
-        [sessionId]
-      );
-
-      revalidateSchedulePaths();
-
-      return NextResponse.json({
-        success: true,
-        status: 'canceled',
-        session: updatedCancel.rows[0],
-        message: 'Kelas berhasil diubah menjadi berstatus Dibatalkan (canceled).',
-      });
-    }
-
-    if (action === 'unmark_done') {
-      const updatedReopen = await pool.query(
-        `UPDATE course_sessions
-         SET is_done = FALSE,
-             status = 'scheduled',
-             completed_at = NULL
-         WHERE id = $1
-         RETURNING *;`,
-        [sessionId]
-      );
-
-      try {
-        await pool.query(
-          'DELETE FROM session_student_completions WHERE session_id = $1;',
-          [sessionId]
-        );
-      } catch (compErr) {
-        console.warn('Completion cleanup skipped:', compErr?.message);
-      }
-
-      try {
-        if (sessionRow.course_id) {
-          await pool.query(
-            `UPDATE courses
-             SET status = 'active'
-             WHERE id = $1 AND LOWER(COALESCE(status, '')) = 'completed';`,
-            [sessionRow.course_id]
-          );
-        }
-      } catch (courseErr) {
-        console.warn('Course active status sync skipped:', courseErr?.message);
-      }
-
-      revalidateSchedulePaths();
-
-      return NextResponse.json({
-        success: true,
-        status: 'scheduled',
-        course_status: 'active',
-        session: updatedReopen.rows[0],
-        message: 'Status Mark as Done dibatalkan dan sesi kembali aktif (scheduled).',
-      });
-    }
-
-    if (currentStatus === 'canceled') {
-      return NextResponse.json(
-        { message: 'Kelas yang berstatus Dibatalkan tidak dapat ditandai Mark as Done.' },
-        { status: 400 }
-      );
-    }
-
-    const updatedDone = await pool.query(
+    await pool.query(
       `UPDATE course_sessions
-       SET is_done = TRUE,
-           status = 'completed',
-           completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)
-       WHERE id = $1
-       RETURNING *;`,
-      [sessionId]
+       SET is_done = $1,
+           status = $2,
+           completed_at = CASE WHEN $1 THEN CURRENT_TIMESTAMP ELSE NULL END
+       WHERE id = $3`,
+      [nextDone, nextDone ? 'done' : 'scheduled', sessionId]
     );
 
-    try {
-      const enrollments = await pool.query(
-        'SELECT student_id FROM student_enrollments WHERE course_id = $1;',
-        [sessionRow.course_id]
-      );
-
-      for (const row of enrollments.rows) {
-        if (row?.student_id) {
-          await pool.query(
-            `INSERT INTO session_student_completions (session_id, student_id)
-             VALUES ($1, $2)
-             ON CONFLICT (session_id, student_id) DO NOTHING;`,
-            [sessionId, row.student_id]
-          );
-        }
-      }
-    } catch (enrollErr) {
-      console.warn('Enrollment completion sync skipped:', enrollErr?.message);
-    }
-
-    revalidateSchedulePaths();
-
     return NextResponse.json({
-      success: true,
-      status: 'completed',
-      session: updatedDone.rows[0],
-      message: 'Sesi ditandai selesai (Mark as Done) dan progres keaktifan siswa diperbarui.',
+      sessionId,
+      isDone: nextDone,
     });
   } catch (err) {
-    console.error('Error updating session status:', err);
     return NextResponse.json(
-      { message: `Gagal memperbarui status sesi: ${err?.message || 'Kesalahan server.'}` },
+      { error: err?.message || 'Gagal memperbarui status sesi' },
       { status: 500 }
     );
   }
@@ -334,64 +357,32 @@ export async function PATCH(request) {
 
 export async function DELETE(request) {
   try {
-    const teacherId = await resolveTeacherId();
-    const teacherRecord = await getTeacherRecord(teacherId);
-    if (!teacherRecord || isTeacherPending(teacherRecord.status)) {
+    const pool = await getDbPool();
+    if (!pool) {
       return NextResponse.json(
-        { message: 'Akun guru masih berstatus pending sehingga tidak dapat menghapus schedule.' },
-        { status: 403 }
+        { error: 'Koneksi database tidak tersedia' },
+        { status: 500 }
       );
     }
 
     const { searchParams } = new URL(request.url);
-    let sessionId = Number(searchParams.get('session_id'));
-
-    if (!sessionId || Number.isNaN(sessionId)) {
-      const body = await request.json().catch(() => ({}));
-      sessionId = Number(body?.session_id);
-    }
-
-    if (!sessionId || Number.isNaN(sessionId)) {
-      return NextResponse.json(
-        { message: 'ID sesi tidak valid.' },
-        { status: 400 }
-      );
-    }
-
-    const existingRes = await pool.query(
-      'SELECT id, status, is_done FROM course_sessions WHERE id = $1;',
-      [sessionId]
+    const sessionId = parseIntOrNull(
+      searchParams.get('sessionId') ?? searchParams.get('id')
     );
 
-    if (existingRes.rows.length === 0) {
+    if (!sessionId) {
       return NextResponse.json(
-        { message: 'Sesi kelas tidak ditemukan.' },
-        { status: 404 }
-      );
-    }
-
-    const row = existingRes.rows[0];
-    const currentStatus = row.status || (row.is_done ? 'completed' : 'scheduled');
-
-    if (currentStatus !== 'canceled') {
-      return NextResponse.json(
-        { message: 'Fitur hapus hanya tersedia untuk kelas yang berstatus Dibatalkan (canceled).' },
+        { error: 'sessionId tidak valid' },
         { status: 400 }
       );
     }
 
-    await pool.query('DELETE FROM course_sessions WHERE id = $1;', [sessionId]);
+    await pool.query(`DELETE FROM course_sessions WHERE id = $1`, [sessionId]);
 
-    revalidateSchedulePaths();
-
-    return NextResponse.json({
-      success: true,
-      message: 'Kelas yang dibatalkan berhasil dihapus dari database.',
-    });
+    return NextResponse.json({ deletedId: sessionId });
   } catch (err) {
-    console.error('Error deleting canceled session:', err);
     return NextResponse.json(
-      { message: `Gagal menghapus kelas: ${err?.message || 'Kesalahan server.'}` },
+      { error: err?.message || 'Gagal menghapus sesi' },
       { status: 500 }
     );
   }
