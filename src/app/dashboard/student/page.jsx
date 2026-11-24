@@ -6,8 +6,27 @@ export const dynamic = 'force-dynamic';
 
 async function getAuthenticatedStudent() {
   const cookieStore = await cookies();
-  const rawId = cookieStore.get('yugyo_user_id')?.value;
 
+  const rawUserCookie = cookieStore.get('yugyo_user')?.value;
+  if (rawUserCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(rawUserCookie));
+      const parsedId = Number(parsed?.id ?? parsed?.userId ?? parsed?.user_id);
+      if (Number.isInteger(parsedId) && parsedId > 0) {
+        const res = await pool.query(
+          "SELECT id, full_name, email, role, status, specialty FROM users WHERE id = $1 AND role = 'student' LIMIT 1;",
+          [parsedId]
+        );
+        if (res.rows.length > 0) {
+          return res.rows[0];
+        }
+      }
+    } catch {
+      // Lanjut cek cookie fallback
+    }
+  }
+
+  const rawId = cookieStore.get('yugyo_user_id')?.value;
   if (rawId && Number.isInteger(Number(rawId)) && Number(rawId) > 0) {
     const res = await pool.query(
       "SELECT id, full_name, email, role, status, specialty FROM users WHERE id = $1 AND role = 'student' LIMIT 1;",
@@ -27,6 +46,8 @@ export default async function StudentDashboardPage() {
   let enrollments = [];
   let sessions = [];
   let contentsCount = 0;
+  let sessionXpTotal = 0;
+  let completedModulesTotal = 0;
 
   if (student) {
     const enrollmentsRes = await pool.query(
@@ -49,7 +70,7 @@ export default async function StudentDashboardPage() {
       LEFT JOIN categories cat ON cat.id = c.category_id
       LEFT JOIN users u_inst ON u_inst.id = c.instructor_id
       WHERE se.student_id = $1
-        AND se.status IS DISTINCT FROM 'dropped'
+        AND LOWER(COALESCE(se.status, 'active')) <> 'dropped'
       ORDER BY se.id DESC;`,
       [student.id]
     );
@@ -61,14 +82,21 @@ export default async function StudentDashboardPage() {
         cs.course_id,
         cs.title,
         cs.notes,
+        ssc.notes AS student_notes,
         cs.session_date,
         cs.session_time,
         cs.location_label,
         cs.status,
         c.title AS course_title,
         COALESCE(u_inst.full_name, 'Instruktur Atelier') AS instructor_name,
-        COALESCE(ssc.session_id IS NOT NULL OR cs.is_done = TRUE, FALSE) AS is_completed
+        COALESCE(ssc.session_id IS NOT NULL, FALSE) AS is_completed,
+        ssc.marked_done_at,
+        COALESCE(ssc.xp_earned, 25) AS xp_earned
       FROM course_sessions cs
+      INNER JOIN student_enrollments se
+        ON se.course_id = cs.course_id
+        AND se.student_id = $1
+        AND LOWER(COALESCE(se.status, 'active')) <> 'dropped'
       INNER JOIN courses c ON c.id = cs.course_id
       LEFT JOIN users u_inst ON u_inst.id = c.instructor_id
       LEFT JOIN session_student_completions ssc
@@ -80,19 +108,54 @@ export default async function StudentDashboardPage() {
     );
     sessions = sessionsRes.rows || [];
 
-    const contentsRes = await pool.query(
-      `SELECT COUNT(*)::int AS total_contents
-       FROM course_contents;`
-    );
+    const contentsRes = await pool
+      .query(
+        `SELECT COUNT(*)::int AS total_contents
+         FROM course_contents cc
+         INNER JOIN student_enrollments se
+           ON se.course_id = cc.course_id
+           AND se.student_id = $1
+           AND LOWER(COALESCE(se.status, 'active')) <> 'dropped';`,
+        [student.id]
+      )
+      .catch(() => ({ rows: [{ total_contents: 0 }] }));
     contentsCount = Number(contentsRes.rows[0]?.total_contents ?? 0);
+
+    const sessionXpRes = await pool
+      .query(
+        `SELECT COALESCE(SUM(xp_earned), 0)::int AS total_xp
+         FROM session_student_completions
+         WHERE student_id = $1;`,
+        [student.id]
+      )
+      .catch(() => ({ rows: [{ total_xp: 0 }] }));
+    sessionXpTotal = Number(sessionXpRes.rows[0]?.total_xp ?? 0);
+
+    const moduleDoneRes = await pool
+      .query(
+        `SELECT COUNT(*)::int AS completed_modules
+         FROM student_content_completions scc
+         INNER JOIN student_enrollments se
+           ON se.student_id = scc.student_id
+           AND se.course_id = scc.course_id
+           AND LOWER(COALESCE(se.status, 'active')) <> 'dropped'
+         WHERE scc.student_id = $1;`,
+        [student.id]
+      )
+      .catch(() => ({ rows: [{ completed_modules: 0 }] }));
+    completedModulesTotal = Number(
+      moduleDoneRes.rows[0]?.completed_modules ?? 0
+    );
   }
 
   const activeCoursesCount = enrollments.length;
-  const completedSessionsCount = sessions.filter((s) => Boolean(s.is_completed)).length;
-  const totalSessionsCount = Math.max(sessions.length, 18);
+  const completedSessionsCount = sessions.filter((s) =>
+    Boolean(s.is_completed)
+  ).length;
+  const totalSessionsCount = sessions.length;
   const indexPercent =
-    sessions.length > 0
-      ? Math.round((completedSessionsCount / sessions.length) * 100)
+    totalSessionsCount > 0
+      ? Math.round((completedSessionsCount / totalSessionsCount) * 100)
       : 0;
 
   const avgProgress =
@@ -105,14 +168,20 @@ export default async function StudentDashboardPage() {
         )
       : 0;
 
-  const xpCurrent =
-    enrollments.length > 0
-      ? Math.min(2000, 950 + avgProgress * 10 + completedSessionsCount * 25)
-      : 0;
+  const xpCurrent = Math.min(
+    2000,
+    sessionXpTotal + completedModulesTotal * 50
+  );
   const xpTarget = 2000;
   const focusHours =
     enrollments.length > 0
-      ? Number(((avgProgress / 100) * 4.5 + completedSessionsCount * 0.25).toFixed(1))
+      ? Number(
+          (
+            (avgProgress / 100) * 4.5 +
+            completedSessionsCount * 0.25 +
+            completedModulesTotal * 0.5
+          ).toFixed(1)
+        )
       : 0;
   const readyCertificates = enrollments.filter(
     (e) => Number(e.progress_percentage || 0) >= 75

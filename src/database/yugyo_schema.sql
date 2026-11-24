@@ -329,3 +329,13 @@ ADD COLUMN IF NOT EXISTS admin_reply TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_reports_created_at_desc ON reports (created_at DESC, id DESC);
 
+-- Optimasi index untuk query berdasarkan student_id
+CREATE INDEX IF NOT EXISTS idx_session_student_completions_student_id
+ON session_student_completions (student_id);
+
+-- Tambahkan kolom pencatatan XP & catatan sesi per siswa
+ALTER TABLE session_student_completions
+ADD COLUMN IF NOT EXISTS xp_earned INTEGER NOT NULL DEFAULT 25,
+ADD COLUMN IF NOT EXISTS notes TEXT;
+
+

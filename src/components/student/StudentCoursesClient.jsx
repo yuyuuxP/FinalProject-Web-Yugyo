@@ -91,11 +91,7 @@ function mapCourseItem(row, idx = 0) {
         row?.teacher_name ||
         'Chef Yugyo'
     ).trim(),
-    progress: Number(row?.progress ?? 40),
-    completedLessons: Number(
-      row?.completedLessons ?? row?.completed_lessons ?? 4
-    ),
-    totalLessons: Number(row?.totalLessons ?? row?.total_lessons ?? 10),
+    progress: Number(row?.progress ?? row?.progress_percentage ?? 0),
     remainingDays: Number(row?.remainingDays ?? row?.remaining_days ?? 180),
     badge: String(row?.badge || row?.tag || 'Kelas Atelier').trim(),
     videoUrl: cleanUrl(
@@ -172,6 +168,9 @@ export default function StudentCoursesClient({
   );
 
   const [enrolledIds, setEnrolledIds] = useState([]);
+  const [completedKeys, setCompletedKeys] = useState([]);
+  const [progressByCourse, setProgressByCourse] = useState({});
+  const [togglingKey, setTogglingKey] = useState('');
 
   const contents = useMemo(
     () =>
@@ -184,7 +183,7 @@ export default function StudentCoursesClient({
   useEffect(() => {
     let active = true;
 
-    async function syncEnrollmentsForActiveStudent() {
+    async function syncEnrollmentsAndProgress() {
       try {
         const identity = await getActiveStudentIdentity();
         if (!active) return;
@@ -199,47 +198,83 @@ export default function StudentCoursesClient({
 
         if (!identity.studentId && !identity.studentName) {
           setEnrolledIds([]);
+          setCompletedKeys([]);
+          setProgressByCourse({});
           return;
         }
 
-        const res = await fetch(`/api/student/enrollments?${params.toString()}`, {
-          cache: 'no-store',
-        });
+        const [enrollRes, progressRes] = await Promise.all([
+          fetch(`/api/student/enrollments?${params.toString()}`, {
+            cache: 'no-store',
+          }),
+          fetch(`/api/student/module-progress?${params.toString()}`, {
+            cache: 'no-store',
+          }),
+        ]);
+
         if (!active) return;
 
-        if (!res.ok) {
-          setEnrolledIds([]);
-          return;
-        }
+        const enrollData = enrollRes.ok
+          ? await enrollRes.json().catch(() => null)
+          : null;
+        const progressData = progressRes.ok
+          ? await progressRes.json().catch(() => null)
+          : null;
 
-        const data = await res.json().catch(() => null);
         if (!active) return;
 
-        if (!data || !Array.isArray(data.enrollments)) {
+        const resolvedId = enrollData?.studentId || progressData?.studentId;
+        if (resolvedId) {
+          saveActiveStudentId(resolvedId, identity.studentName || '');
+        }
+
+        if (enrollData && Array.isArray(enrollData.enrollments)) {
+          const ids = enrollData.enrollments
+            .filter(
+              (row) =>
+                String(row?.status || 'active').toLowerCase() !== 'dropped'
+            )
+            .map((row) => Number(row?.course_id ?? row?.courseId))
+            .filter((id) => Number.isInteger(id) && id > 0);
+          setEnrolledIds(ids);
+
+          const initialMap = {};
+          for (const row of enrollData.enrollments) {
+            const cId = String(row?.course_id ?? row?.courseId ?? '');
+            if (cId) {
+              initialMap[cId] = Number(row?.progress_percentage ?? 0);
+            }
+          }
+          setProgressByCourse((prev) => ({ ...initialMap, ...prev }));
+        } else {
           setEnrolledIds([]);
-          return;
         }
 
-        if (data.studentId) {
-          saveActiveStudentId(data.studentId, identity.studentName || '');
+        if (progressData && Array.isArray(progressData.completedKeys)) {
+          setCompletedKeys(progressData.completedKeys);
+        } else {
+          setCompletedKeys([]);
         }
 
-        const ids = data.enrollments
-          .filter(
-            (row) =>
-              String(row?.status || 'active').toLowerCase() !== 'dropped'
-          )
-          .map((row) => Number(row?.course_id ?? row?.courseId))
-          .filter((id) => Number.isInteger(id) && id > 0);
-
-        setEnrolledIds(ids);
+        if (
+          progressData?.progressByCourse &&
+          typeof progressData.progressByCourse === 'object'
+        ) {
+          setProgressByCourse((prev) => ({
+            ...prev,
+            ...progressData.progressByCourse,
+          }));
+        }
       } catch {
-        if (active) setEnrolledIds([]);
+        if (active) {
+          setEnrolledIds([]);
+          setCompletedKeys([]);
+        }
       }
     }
 
-    syncEnrollmentsForActiveStudent();
-    const timer = setTimeout(syncEnrollmentsForActiveStudent, 200);
+    syncEnrollmentsAndProgress();
+    const timer = setTimeout(syncEnrollmentsAndProgress, 200);
 
     return () => {
       active = false;
@@ -319,6 +354,34 @@ export default function StudentCoursesClient({
     return matched;
   }, [contents, activeCourse]);
 
+  const completedKeySet = useMemo(
+    () => new Set(completedKeys.map(String)),
+    [completedKeys]
+  );
+
+  const completedModulesCount = useMemo(() => {
+    if (!activeCourse || courseContents.length === 0) return 0;
+    return courseContents.filter((mod) =>
+      completedKeySet.has(`${activeCourse.numericId}:${mod.id}`)
+    ).length;
+  }, [activeCourse, courseContents, completedKeySet]);
+
+  const activeProgressPercent = useMemo(() => {
+    if (!activeCourse) return 0;
+    if (courseContents.length > 0) {
+      return Math.min(
+        100,
+        Math.round((completedModulesCount / courseContents.length) * 100)
+      );
+    }
+    return Number(progressByCourse[String(activeCourse.numericId)] ?? 0);
+  }, [
+    activeCourse,
+    courseContents.length,
+    completedModulesCount,
+    progressByCourse,
+  ]);
+
   const visibleModules = useMemo(() => {
     const q = searchMaterial.trim().toLowerCase();
     return courseContents.filter(
@@ -348,6 +411,61 @@ export default function StudentCoursesClient({
     });
   };
 
+  const handleToggleModuleDone = async (mod) => {
+    if (!activeCourse) return;
+    const courseId = Number(activeCourse.numericId);
+    const contentKey = String(mod.id);
+    const compositeKey = `${courseId}:${contentKey}`;
+
+    if (togglingKey === compositeKey) return;
+
+    const nextDone = !completedKeySet.has(compositeKey);
+    setTogglingKey(compositeKey);
+
+    setCompletedKeys((prev) => {
+      if (nextDone) {
+        return prev.includes(compositeKey) ? prev : [...prev, compositeKey];
+      }
+      return prev.filter((item) => item !== compositeKey);
+    });
+
+    try {
+      const identity = await getActiveStudentIdentity();
+      const res = await fetch('/api/student/module-progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: identity.studentId,
+          studentName: identity.studentName,
+          courseId,
+          contentKey,
+          totalModules: courseContents.length,
+          completed: nextDone,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (res.ok && data) {
+        if (data.studentId) {
+          saveActiveStudentId(data.studentId, identity.studentName || '');
+        }
+        if (Array.isArray(data.completedKeys)) {
+          setCompletedKeys(data.completedKeys);
+        }
+        if (typeof data.progressPercentage === 'number') {
+          setProgressByCourse((prev) => ({
+            ...prev,
+            [String(courseId)]: data.progressPercentage,
+          }));
+        }
+      }
+    } catch {
+      // Abaikan jika gagal sinkronisasi jaringan
+    } finally {
+      setTogglingKey('');
+    }
+  };
+
   return (
     <div className="space-y-6 text-[#341D17] pb-12">
       <div className="space-y-3">
@@ -374,7 +492,6 @@ export default function StudentCoursesClient({
           </Link>
         </div>
 
-        {/* Filter 5 Kategori Utama */}
         <div className="flex flex-wrap items-center gap-2 pt-1">
           {CATEGORY_TABS.map((cat) => {
             const isActive = selectedCategory === cat;
@@ -396,7 +513,6 @@ export default function StudentCoursesClient({
         </div>
       </div>
 
-      {/* Kartu Kursus Aktif */}
       {activeCourse ? (
         <section className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 sm:p-6 shadow-2xs space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
@@ -436,14 +552,14 @@ export default function StudentCoursesClient({
                 Progres Pembelajaran
               </span>
               <span className="font-bold text-[#341D17]">
-                {activeCourse.progress}% Selesai &bull;{' '}
-                {visibleModules.length} Konten
+                {activeProgressPercent}% Selesai &bull; {completedModulesCount}/
+                {courseContents.length} Modul
               </span>
             </div>
             <div className="h-2.5 w-full rounded-full bg-[#F9DDBB]/70 overflow-hidden">
               <div
-                className="h-full rounded-full bg-[#802924] transition-all"
-                style={{ width: `${activeCourse.progress}%` }}
+                className="h-full rounded-full bg-[#802924] transition-all duration-300"
+                style={{ width: `${activeProgressPercent}%` }}
               />
             </div>
           </div>
@@ -480,7 +596,6 @@ export default function StudentCoursesClient({
         </section>
       )}
 
-      {/* Pencarian Materi & Dropdown Kursus Terdaftar */}
       <div className="space-y-3">
         <input
           type="text"
@@ -539,7 +654,6 @@ export default function StudentCoursesClient({
         </div>
       </div>
 
-      {/* Silabus Kurikulum */}
       <section id="silabus-kurikulum" className="space-y-2.5">
         <div className="flex items-center justify-between">
           <h2 className="font-editorial text-lg font-bold text-[#341D17]">
@@ -566,6 +680,12 @@ export default function StudentCoursesClient({
               const orderLabel = String(index + 1).padStart(2, '0');
               const typeLabel = isVideo ? 'VIDEO' : 'TEKS';
 
+              const compositeKey = activeCourse
+                ? `${activeCourse.numericId}:${mod.id}`
+                : String(mod.id);
+              const isDone = completedKeySet.has(compositeKey);
+              const isSavingDone = togglingKey === compositeKey;
+
               const actionLabel = isVideo
                 ? isOpen
                   ? 'Tutup Video'
@@ -577,7 +697,9 @@ export default function StudentCoursesClient({
               return (
                 <div
                   key={mod.id}
-                  className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 transition overflow-hidden"
+                  className={`rounded-2xl bg-[#FFFDF9] border transition overflow-hidden ${
+                    isDone ? 'border-[#4E7A4E]/45' : 'border-[#341D17]/12'
+                  }`}
                 >
                   <div
                     role={isInteractive ? 'button' : undefined}
@@ -592,11 +714,11 @@ export default function StudentCoursesClient({
                         handleToggleItem(mod);
                       }
                     }}
-                    className={`px-5 py-4 flex items-center justify-between gap-4 ${
+                    className={`px-5 py-4 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 ${
                       isInteractive ? 'cursor-pointer hover:bg-[#FAF6F0]/80' : ''
                     }`}
                   >
-                    <div className="min-w-0 space-y-0.5">
+                    <div className="min-w-0 flex-1 space-y-0.5">
                       <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
                         URUTAN #{orderLabel} &bull; {typeLabel}
                       </p>
@@ -616,15 +738,33 @@ export default function StudentCoursesClient({
                       )}
                     </div>
 
-                    {isInteractive && (
-                      <span className="rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] px-3 py-1.5 text-[11px] font-bold text-[#802924] shrink-0">
-                        {actionLabel}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={isSavingDone}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleModuleDone(mod);
+                        }}
+                        className={`rounded-xl px-3 py-1.5 text-[11px] font-bold border transition cursor-pointer disabled:opacity-60 ${
+                          isDone
+                            ? 'bg-[#4E7A4E] text-[#FFFDF9] border-[#4E7A4E]'
+                            : 'bg-[#FFFDF9] hover:bg-[#F9DDBB]/55 text-[#341D17] border-[#341D17]/15'
+                        }`}
+                      >
+                        {isDone ? '✓ Selesai' : 'Mark as Done'}
+                      </button>
+
+                      {isInteractive && (
+                        <span className="rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] px-3 py-1.5 text-[11px] font-bold text-[#802924]">
+                          {actionLabel}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {isOpen && isVideo && (
-                    <div className="px-5 pb-5 pt-1">
+                    <div className="px-5 pb-5 pt-1 space-y-3">
                       <div className="overflow-hidden rounded-xl border border-[#341D17]/12 bg-[#0B0B0C]">
                         <video
                           ref={videoRef}
@@ -637,13 +777,45 @@ export default function StudentCoursesClient({
                           Browser Anda tidak mendukung pemutar video HTML5.
                         </video>
                       </div>
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          disabled={isSavingDone}
+                          onClick={() => handleToggleModuleDone(mod)}
+                          className={`rounded-xl px-3.5 py-2 text-xs font-bold border transition cursor-pointer ${
+                            isDone
+                              ? 'bg-[#4E7A4E] text-[#FFFDF9] border-[#4E7A4E]'
+                              : 'bg-[#802924] hover:bg-[#661F1B] text-[#FFFDF9] border-[#802924]'
+                          }`}
+                        >
+                          {isDone
+                            ? '✓ Modul Sudah Selesai'
+                            : 'Tandai Modul Selesai (Mark as Done)'}
+                        </button>
+                      </div>
                     </div>
                   )}
 
                   {isOpen && !isVideo && hasText && (
-                    <div className="px-5 pb-5 pt-1">
+                    <div className="px-5 pb-5 pt-1 space-y-3">
                       <div className="rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] p-4 text-xs sm:text-sm text-[#341D17]/85 whitespace-pre-line leading-relaxed">
                         {mod.textContent}
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          disabled={isSavingDone}
+                          onClick={() => handleToggleModuleDone(mod)}
+                          className={`rounded-xl px-3.5 py-2 text-xs font-bold border transition cursor-pointer ${
+                            isDone
+                              ? 'bg-[#4E7A4E] text-[#FFFDF9] border-[#4E7A4E]'
+                              : 'bg-[#802924] hover:bg-[#661F1B] text-[#FFFDF9] border-[#802924]'
+                          }`}
+                        >
+                          {isDone
+                            ? '✓ Modul Sudah Selesai'
+                            : 'Tandai Modul Selesai (Mark as Done)'}
+                        </button>
                       </div>
                     </div>
                   )}
