@@ -74,68 +74,68 @@ INSERT INTO categories (name, description) VALUES
 -- 3. SEEDING COURSES (50 Materi: 10 per Kategori)
 -- Guru 1: Firah (Category ID: 1 - Bread & Yeast Goods)
 INSERT INTO courses (title, description, category_id, instructor_id, status, video_url) VALUES
-('Dasar Fermentasi Ragi Roti', 'Pengenalan ragi aktif, suhu ideal, dan proses proofing awal.', 1, 2, 'active', 'https://youtube.com/watch?v=sample1'),
-('Mastering Sourdough Starter', 'Cara merawat dan menumbuhkan ragi alami dari tepung dan air.', 1, 2, 'active', 'https://youtube.com/watch?v=sample2'),
-('Ciabatta dengan Hidrasi Tinggi', 'Teknik menghasilkan rongga udara besar pada roti khas Italia.', 1, 2, 'active', 'https://youtube.com/watch?v=sample3'),
-('Brioche Roti Mewah Prancis', 'Pencampuran mentega masif untuk tekstur roti selembut sutra.', 1, 2, 'pending', 'https://youtube.com/watch?v=sample4'),
-('Bagel ala New York', 'Teknik rebus sebelum panggang untuk tekstur kenyal luar dalam.', 1, 2, 'active', 'https://youtube.com/watch?v=sample5'),
-('Roti Tawar Gandum Utuh', 'Pilihan sehat sarapan pagi kaya serat dan nutrisi.', 1, 2, 'draft', 'https://youtube.com/watch?v=sample6'),
-('Focaccia Art & Rosemary', 'Seni menghias permukaan roti focaccia dengan sayuran segar.', 1, 2, 'active', 'https://youtube.com/watch?v=sample7'),
-('Pain de Campagne Klasik', 'Roti pedesaan Prancis dengan campuran tepung gandum hitam.', 1, 2, 'active', 'https://youtube.com/watch?v=sample8'),
-('Milk Bread Hokkaido', 'Teknik tangzhong untuk roti super empuk tahan lama.', 1, 2, 'pending', 'https://youtube.com/watch?v=sample9'),
-('Pretzel Jerman Tradisional', 'Pencelupan larutan lindi untuk warna cokelat khas pretzel.', 1, 2, 'active', 'https://youtube.com/watch?v=sample10');
+('Dasar Fermentasi Ragi Roti', 'Pengenalan ragi aktif, suhu ideal, dan proses proofing awal.', 1, 2, 'active', '/videos/bread/Dasar Fermentasi Ragi Roti.mp4'),
+('Mastering Sourdough Starter', 'Cara merawat dan menumbuhkan ragi alami dari tepung dan air.', 1, 2, 'active', '/videos/bread/Mastering Sourdough Starter.mp4'),
+('Ciabatta dengan Hidrasi Tinggi', 'Teknik menghasilkan rongga udara besar pada roti khas Italia.', 1, 2, 'active', '/videos/bread/Ciabatta dengan Hidrasi Tinggi.mp4'),
+('Brioche Roti Mewah Prancis', 'Pencampuran mentega masif untuk tekstur roti selembut sutra.', 1, 2, 'pending', '/videos/bread/Brioche Roti Mewah Prancis.mp4'),
+('Bagel ala New York', 'Teknik rebus sebelum panggang untuk tekstur kenyal luar dalam.', 1, 2, 'active', '/videos/bread/Bagel ala New York.mp4'),
+('Roti Tawar Gandum Utuh', 'Pilihan sehat sarapan pagi kaya serat dan nutrisi.', 1, 2, 'draft', '/videos/bread/Roti Tawar Gandum Utuh.mp4'),
+('Focaccia Art & Rosemary', 'Seni menghias permukaan roti focaccia dengan sayuran segar.', 1, 2, 'active', '/videos/bread/Focaccia Art & Rosemary.mp4'),
+('Pain de Campagne Klasik', 'Roti pedesaan Prancis dengan campuran tepung gandum hitam.', 1, 2, 'active', '/videos/bread/Pain de Campagne Klasik.mp4'),
+('Milk Bread Hokkaido', 'Teknik tangzhong untuk roti super empuk tahan lama.', 1, 2, 'pending', '/videos/bread/Milk Bread Hokkaido.mp4'),
+('Pretzel Jerman Tradisional', 'Pencelupan larutan lindi untuk warna cokelat khas pretzel.', 1, 2, 'active', '/videos/bread/Pretzel Jerman Tradisional.mp4');
 
 -- Guru 2: Diva (Category ID: 2 - Traditional Indonesian Cakes)
 INSERT INTO courses (title, description, category_id, instructor_id, status, video_url) VALUES
-('Bolu Kukus Mekar Klasik', 'Tips agar bolu kukus merekah sempurna tanpa bahan pengawet.', 2, 3, 'active', 'https://youtube.com/watch?v=sample11'),
-('Kue Lapis Legit Spesial', 'Teknik panggang berlapis lapis dengan rempah spekuk.', 2, 3, 'active', 'https://youtube.com/watch?v=sample12'),
-('Klepon Pandan Lumer', 'Membuat isian gula merah cair yang meledak di mulut.', 2, 3, 'active', 'https://youtube.com/watch?v=sample13'),
-('Onde-Onde Ketan Hijau', 'Kulit renyah berbalur wijen dengan isian kacang hijau lembut.', 2, 3, 'pending', 'https://youtube.com/watch?v=sample14'),
-('Nagasari Pisang Wangi', 'Kue tradisional bungkus daun pisang aroma santan kelapa.', 2, 3, 'active', 'https://youtube.com/watch?v=sample15'),
-('Putu Ayu Lembut', 'Kue basah kukus aroma pandan tabur kelapa parut.', 2, 3, 'draft', 'https://youtube.com/watch?v=sample16'),
-('Serabi Solo Kuah Santan', 'Teknik cetak serabi teflon bersarang sempurna.', 2, 3, 'active', 'https://youtube.com/watch?v=sample17'),
-('Kue Talam Ubi Ungu', 'Kombinasi gurih santan dan manis ubi ungu legit.', 2, 3, 'active', 'https://youtube.com/watch?v=sample18'),
-('Dadar Gulung Unti Kelapa', 'Kulit dadar berpori cantik isi gula kelapa manis.', 2, 3, 'pending', 'https://youtube.com/watch?v=sample19'),
-('Getuk Lindri Tradisional', 'Pengolahan singkong rebus menjadi camilan cantik berwarna.', 2, 3, 'active', 'https://youtube.com/watch?v=sample20');
+('Bolu Kukus Mekar Klasik', 'Tips agar bolu kukus merekah sempurna tanpa bahan pengawet.', 2, 3, 'active', '/videos/indo_cakes/bolu kukus.mp4'),
+('Kue Lapis Legit Spesial', 'Teknik panggang berlapis lapis dengan rempah spekuk.', 2, 3, 'active', '/videos/indo_cakes/kue lapis.mp4'),
+('Klepon Pandan Lumer', 'Membuat isian gula merah cair yang meledak di mulut.', 2, 3, 'active', '/videos/indo_cakes/klepon.mp4'),
+('Onde-Onde Ketan Hijau', 'Kulit renyah berbalur wijen dengan isian kacang hijau lembut.', 2, 3, 'pending', '/videos/indo_cakes/onde-onde.mp4'),
+('Nagasari Pisang Wangi', 'Kue tradisional bungkus daun pisang aroma santan kelapa.', 2, 3, 'active', '/videos/indo_cakes/nagasari.mp4'),
+('Putu Ayu Lembut', 'Kue basah kukus aroma pandan tabur kelapa parut.', 2, 3, 'draft', '/videos/indo_cakes/putu ayu.mp4'),
+('Serabi Solo Kuah Santan', 'Teknik cetak serabi teflon bersarang sempurna.', 2, 3, 'active', '/videos/indo_cakes/serabi.mp4'),
+('Kue Talam Ubi Ungu', 'Kombinasi gurih santan dan manis ubi ungu legit.', 2, 3, 'active', '/videos/indo_cakes/kue talam.mp4'),
+('Dadar Gulung Unti Kelapa', 'Kulit dadar berpori cantik isi gula kelapa manis.', 2, 3, 'pending', '/videos/indo_cakes/dadar.mp4'),
+('Getuk Lindri Tradisional', 'Pengolahan singkong rebus menjadi camilan cantik berwarna.', 2, 3, 'active', '/videos/indo_cakes/getuk salindri.mp4');
 
 -- Guru 3: Fadhiyah (Category ID: 3 - Cookies & Small Bites)
 INSERT INTO courses (title, description, category_id, instructor_id, status, video_url) VALUES
-('Classic Choco Chip Cookies', 'Tekstur renyah di luar dan chewy di bagian tengah.', 3, 4, 'active', 'https://youtube.com/watch?v=sample21'),
-('Nastar Selai Nanas Premium', 'Membuat selai nanas padat dan bulatan adonan lumer.', 3, 4, 'active', 'https://youtube.com/watch?v=sample22'),
-('Kastengel Gurih Keju Edam', 'Taburan keju melimpah dengan aroma mentega harum.', 3, 4, 'active', 'https://youtube.com/watch?v=sample23'),
-('Putri Salju Mentega', 'Cookies lembut berselimut gula dingin manis.', 3, 4, 'pending', 'https://youtube.com/watch?v=sample24'),
-('Matcha Green Tea Sablé', 'Biskuit mentega Prancis rasa teh hijau jepang.', 3, 4, 'active', 'https://youtube.com/watch?v=sample25'),
-('Almond Florentine Cookies', 'Kue kering karamel tipis bertabur irisan almond.', 3, 4, 'draft', 'https://youtube.com/watch?v=sample26'),
-('Red Velvet Crinkles', 'Cookies berbentuk retak estetik warna merah pekat.', 3, 4, 'active', 'https://youtube.com/watch?v=sample27'),
-('Peanut Butter Cookies', 'Camilan gurih kacang tanah panggang klasik.', 3, 4, 'active', 'https://youtube.com/watch?v=sample28'),
-('Biscotti Italia Double Choc', 'Kue panggang dua kali yang renyah celup kopi.', 3, 4, 'pending', 'https://youtube.com/watch?v=sample29'),
-('Thumbprint Strawberry Jam', 'Biskuit cantik berlubang tengah isi selai buah.', 3, 4, 'active', 'https://youtube.com/watch?v=sample30');
+('Classic Choco Chip Cookies', 'Tekstur renyah di luar dan chewy di bagian tengah.', 3, 4, 'active', '/videos/cookies/Classic Choco Chip Cookies.mp4'),
+('Nastar Selai Nanas Premium', 'Membuat selai nanas padat dan bulatan adonan lumer.', 3, 4, 'active', '/videos/cookies/Nastar Selai Nanas Premium.mp4'),
+('Kastengel Gurih Keju Edam', 'Taburan keju melimpah dengan aroma mentega harum.', 3, 4, 'active', '/videos/cookies/Kastengel Gurih Keju Edam.mp4'),
+('Putri Salju Mentega', 'Cookies lembut berselimut gula dingin manis.', 3, 4, 'pending', '/videos/cookies/Putri Salju Mentega.mp4'),
+('Matcha Green Tea Sablé', 'Biskuit mentega Prancis rasa teh hijau jepang.', 3, 4, 'active', '/videos/cookies/Matcha Sablé Cookies.mp4'),
+('Almond Florentine Cookies', 'Kue kering karamel tipis bertabur irisan almond.', 3, 4, 'draft', '/videos/cookies/Almond Florentine Cookies.mp4'),
+('Red Velvet Crinkles', 'Cookies berbentuk retak estetik warna merah pekat.', 3, 4, 'active', '/videos/cookies/Red Velvet Crinkles.mp4'),
+('Peanut Butter Cookies', 'Camilan gurih kacang tanah panggang klasik.', 3, 4, 'active', '/videos/cookies/Peanut Butter Cookies.mp4'),
+('Biscotti Italia Double Choc', 'Kue panggang dua kali yang renyah celup kopi.', 3, 4, 'pending', '/videos/cookies/Biscotti Italia Double Choc.mp4'),
+('Thumbprint Strawberry Jam', 'Biskuit cantik berlubang tengah isi selai buah.', 3, 4, 'active', '/videos/cookies/Thumbprint Strawberry Jam.mp4');
 
 -- Guru 4: Rasyah (Category ID: 4 - Cakes Decorating)
 INSERT INTO courses (title, description, category_id, instructor_id, status, video_url) VALUES
-('Dasar Ice Cream & Buttercream', 'Membuat krim mentega halus tanpa butiran gula.', 4, 5, 'active', 'https://youtube.com/watch?v=sample31'),
-('Smoothing Kue Tepi Tajam', 'Teknik meratakan kue ulang tahun dengan scraper logam.', 4, 5, 'active', 'https://youtube.com/watch?v=sample32'),
-('Korean Vintage Cake Piping', 'Seni menghias kue gaya korea dengan spuit rumit.', 4, 5, 'active', 'https://youtube.com/watch?v=sample33'),
-('Floral Buttercream Painting', 'Melukis bunga mawar langsung di atas kue tart.', 4, 5, 'pending', 'https://youtube.com/watch?v=sample34'),
-('Mirror Glaze Cake Modern', 'Teknik melapisi kue dengan efek cermin mengkilap.', 4, 5, 'active', 'https://youtube.com/watch?v=sample35'),
-('Chocolate Ganache Drip', 'Aplikasi tetesan cokelat estetik di pinggiran kue.', 4, 5, 'draft', 'https://youtube.com/watch?v=sample36'),
-('Fondant Sugar Flowers', 'Membuat kelopak bunga peony dari bahan fondant elastis.', 4, 5, 'active', 'https://youtube.com/watch?v=sample37'),
-('Ombre Buttercream Shading', 'Gradasi warna artistik dari gelap ke terang.', 4, 5, 'active', 'https://youtube.com/watch?v=sample38'),
-('Wafer Paper Butterfly Decor', 'Membuat hiasan kupu-kupu transparan dari kertas wafer.', 4, 5, 'pending', 'https://youtube.com/watch?v=sample39'),
-('Geometric Metallic Cakes', 'Sentuhan cat emas mewah pada dekorasi kue modern.', 4, 5, 'active', 'https://youtube.com/watch?v=sample40');
+('Dasar Ice Cream & Buttercream', 'Membuat krim mentega halus tanpa butiran gula.', 4, 5, 'active', '/videos/cakes_decor/Dasar Ice Cream & Buttercream.mp4'),
+('Smoothing Kue Tepi Tajam', 'Teknik meratakan kue ulang tahun dengan scraper logam.', 4, 5, 'active', '/videos/cakes_decor/Smoothing Kue Tepi Tajam.mp4'),
+('Korean Vintage Cake Piping', 'Seni menghias kue gaya korea dengan spuit rumit.', 4, 5, 'active', '/videos/cakes_decor/Korean Vintage Cake Piping.mp4'),
+('Floral Buttercream Painting', 'Melukis bunga mawar langsung di atas kue tart.', 4, 5, 'pending', '/videos/cakes_decor/Floral Buttercream Painting.mp4'),
+('Mirror Glaze Cake Modern', 'Teknik melapisi kue dengan efek cermin mengkilap.', 4, 5, 'active', '/videos/cakes_decor/Mirror Glaze Cake Modern.mp4'),
+('Chocolate Ganache Drip', 'Aplikasi tetesan cokelat estetik di pinggiran kue.', 4, 5, 'draft', '/videos/cakes_decor/Chocolate Ganache Drip.mp4'),
+('Fondant Sugar Flowers', 'Membuat kelopak bunga peony dari bahan fondant elastis.', 4, 5, 'active', '/videos/cakes_decor/Fondant Sugar Flowers.mp4'),
+('Ombre Buttercream Shading', 'Gradasi warna artistik dari gelap ke terang.', 4, 5, 'active', '/videos/cakes_decor/Ombre Buttercream Shading.mp4'),
+('Wafer Paper Butterfly Decor', 'Membuat hiasan kupu-kupu transparan dari kertas wafer.', 4, 5, 'pending', '/videos/cakes_decor/Wafer Paper Butterfly Decor.mp4'),
+('Geometric Metallic Cakes', 'Sentuhan cat emas mewah pada dekorasi kue modern.', 4, 5, 'active', '/videos/cakes_decor/Geometric Metallic Cakes.mp4');
 
 -- Guru 5: Ayu (Category ID: 5 - French Patisserie & Pastry)
 INSERT INTO courses (title, description, category_id, instructor_id, status, video_url) VALUES
-('Masterclass Classic Croissant', 'Teknik laminasi lipatan mentega untuk croissant berongga sarang laba-laba.', 5, 6, 'active', 'https://youtube.com/watch?v=sample41'),
-('Pain au Chocolat Otentik', 'Baluran batangan cokelat premium dalam balutan pastry renyah.', 5, 6, 'active', 'https://youtube.com/watch?v=sample42'),
-('Kouign-Amann Bretons', 'Kue mentega karamel berlapis asal wilayah Brittany.', 5, 6, 'active', 'https://youtube.com/watch?v=sample43'),
-('Fruit Tartlet Crème Patissière', 'Kulit pie renyah isi vla vanila custard dan buah segar.', 5, 6, 'pending', 'https://youtube.com/watch?v=sample44'),
-('Choux à la Crème & Craquelin', 'Kue sus renyah dengan topping biskuit craquelin di atasnya.', 5, 6, 'active', 'https://youtube.com/watch?v=sample45'),
-('Éclairs Cokelat Berkilau', 'Pastry panjang isi krim diplomat lembut berlapis fondant.', 5, 6, 'draft', 'https://youtube.com/watch?v=sample46'),
-('Mille-Feuille Napoleon Klasik', 'Tiga lapis puff pastry renyah berselang-seling vla custard.', 5, 6, 'active', 'https://youtube.com/watch?v=sample47'),
-('Opera Cake Mewah Prancis', 'Kue espong almond berendam kopi dengan ganache cokelat.', 5, 6, 'active', 'https://youtube.com/watch?v=sample48'),
-('Macaron Prancis Anti Gagal', 'Kunci kaki macaron (feet) mengembang dan kulit mulus.', 5, 6, 'pending', 'https://youtube.com/watch?v=sample49'),
-('Madeleine Lemon Keik Cangkang', 'Kue spons kecil khas Prancis berbentuk kerang laut.', 5, 6, 'active', 'https://youtube.com/watch?v=sample50');
+('Masterclass Classic Croissant', 'Teknik laminasi lipatan mentega untuk croissant berongga sarang laba-laba.', 5, 6, 'active', '/videos/french_pastry/Masterclass Classic Croissant.mp4'),
+('Pain au Chocolat Otentik', 'Baluran batangan cokelat premium dalam balutan pastry renyah.', 5, 6, 'active', '/videos/french_pastry/Pain au Chocolat Otentik.mp4'),
+('Kouign-Amann Bretons', 'Kue mentega karamel berlapis asal wilayah Brittany.', 5, 6, 'active', '/videos/french_pastry/Kouign-Amann Bretons.mp4'),
+('Fruit Tartlet Crème Patissière', 'Kulit pie renyah isi vla vanila custard dan buah segar.', 5, 6, 'pending', '/videos/french_pastry/Fruit Tartlet Crème Pâtissière.mp4'),
+('Choux à la Crème & Craquelin', 'Kue sus renyah dengan topping biskuit craquelin di atasnya.', 5, 6, 'active', '/videos/french_pastry/Choux à la Crème & Craquelin.mp4'),
+('Éclairs Cokelat Berkilau', 'Pastry panjang isi krim diplomat lembut berlapis fondant.', 5, 6, 'draft', '/videos/french_pastry/Éclairs Cokelat Berkilau.mp4'),
+('Mille-Feuille Napoleon Klasik', 'Tiga lapis puff pastry renyah berselang-seling vla custard.', 5, 6, 'active', '/videos/french_pastry/Mille-Feuille Napoleon Klasik.mp4'),
+('Opera Cake Mewah Prancis', 'Kue espong almond berendam kopi dengan ganache cokelat.', 5, 6, 'active', '/videos/french_pastry/Opera Cake Mewah Prancis.mp4'),
+('Macaron Prancis Anti Gagal', 'Kunci kaki macaron (feet) mengembang dan kulit mulus.', 5, 6, 'pending', '/videos/french_pastry/Macaron Prancis Anti Gagal.mp4'),
+('Madeleine Lemon Keik Cangkang', 'Kue spons kecil khas Prancis berbentuk kerang laut.', 5, 6, 'active', '/videos/french_pastry/Madeleine Lemon Keik Cangkang.mp4');
 
 
 -- 4. SEEDING REPORTS DAN REVIEWS (Menggunakan ID dari tabel users yang ber-role 'student')
@@ -281,6 +281,39 @@ SET thumbnail_url = CASE
   ELSE '/pictures/courses/french_pastry/croissant.png'
 END
 WHERE thumbnail_url IS NULL;
+
+-- 7B. SEEDING COURSE CONTENTS DARI VIDEO LOKAL
+INSERT INTO course_contents (
+  course_id,
+  title,
+  description,
+  content_type,
+  duration_minutes,
+  order_index,
+  status,
+  cover_image_url,
+  video_url,
+  updated_at
+)
+SELECT
+  c.id,
+  c.title,
+  COALESCE(NULLIF(TRIM(c.description), ''), 'Video pembelajaran ' || c.title || '.'),
+  'Video & Bacaan',
+  20,
+  1,
+  'published',
+  c.thumbnail_url,
+  c.video_url,
+  CURRENT_TIMESTAMP
+FROM courses c
+WHERE c.video_url LIKE '/videos/%'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM course_contents existing
+    WHERE existing.course_id = c.id
+      AND existing.video_url = c.video_url
+  );
 
 
 -- Isi instructor_id pada chat_threads berdasarkan nama guru yang disebut di last_preview / course_title

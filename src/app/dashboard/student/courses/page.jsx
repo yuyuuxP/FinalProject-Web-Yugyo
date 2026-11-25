@@ -1,141 +1,11 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import pool from '@/lib/db';
 import StudentCoursesClient from '@/components/student/StudentCoursesClient';
+import {
+  scanAllCategoryVideos,
+  findMatchedVideosForCourse,
+} from '@/lib/mediaMatcher';
 
 export const dynamic = 'force-dynamic';
-
-const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.mkv']);
-const CATEGORY_FOLDERS = [
-  'bread',
-  'cakes_decor',
-  'cookies',
-  'french_pastry',
-  'indo_cakes',
-];
-
-const GENERIC_WORDS = new Set([
-  'masterclass',
-  'classic',
-  'kelas',
-  'kursus',
-  'modul',
-  'sesi',
-  'dasar',
-  'lanjutan',
-  'otentik',
-  'authentic',
-  'klasik',
-  'modern',
-  'atelier',
-  'anti',
-  'gagal',
-  'pain',
-  'cake',
-  'cakes',
-  'bread',
-  'cookie',
-  'cookies',
-  'pastry',
-  'special',
-  'spesial',
-  'double',
-  'with',
-  'dan',
-  'the',
-]);
-
-function normalizeText(text) {
-  return String(text || '')
-    .toLowerCase()
-    .replace(/\.(mp4|webm|mov|m4v|mkv)$/i, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function getCoreKeywords(text) {
-  const words = normalizeText(text)
-    .split(' ')
-    .filter((w) => w.length >= 2);
-  const core = words.filter((w) => !GENERIC_WORDS.has(w));
-  return core.length > 0 ? core : words;
-}
-
-function humanizeFileName(fileName) {
-  return String(fileName || '')
-    .replace(/\.(mp4|webm|mov|m4v|mkv)$/i, '')
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\b\w/g, (ch) => ch.toUpperCase());
-}
-
-function isVideoRelevantToCourse(courseTitle, fileName) {
-  const normCourse = normalizeText(courseTitle);
-  const normFile = normalizeText(fileName);
-  if (!normCourse || !normFile) return false;
-
-  if (normFile.includes(normCourse) || normCourse.includes(normFile)) {
-    return true;
-  }
-
-  const coreKeywords = getCoreKeywords(courseTitle);
-  if (coreKeywords.length === 0) return false;
-  return coreKeywords.every((kw) => normFile.includes(kw));
-}
-
-async function scanAllCategoryVideos() {
-  const videosRoot = path.join(process.cwd(), 'public', 'videos');
-  const allVideos = [];
-
-  for (const folder of CATEGORY_FOLDERS) {
-    const folderPath = path.join(videosRoot, folder);
-    try {
-      const entries = await fs.readdir(folderPath, { withFileTypes: true });
-      for (const entry of entries) {
-        if (!entry.isFile()) continue;
-        const ext = path.extname(entry.name).toLowerCase();
-        if (!VIDEO_EXTENSIONS.has(ext)) continue;
-
-        allVideos.push({
-          fileName: entry.name,
-          title: humanizeFileName(entry.name),
-          folder,
-          mediaUrl: `/videos/${folder}/${entry.name}`,
-        });
-      }
-    } catch {
-      // Lewati folder jika belum ada di disk
-    }
-  }
-
-  return allVideos;
-}
-
-function findMatchedVideosForCourse(courseTitle, allVideos) {
-  const normCourse = normalizeText(courseTitle);
-  if (!normCourse) return [];
-
-  const matched = [];
-  for (const vid of allVideos) {
-    if (isVideoRelevantToCourse(courseTitle, vid.fileName)) {
-      const normFile = normalizeText(vid.fileName);
-      const isExact =
-        normFile === normCourse ||
-        normFile.includes(normCourse) ||
-        normCourse.includes(normFile);
-
-      matched.push({
-        ...vid,
-        score: isExact ? 100 : 50,
-      });
-    }
-  }
-
-  matched.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
-  return matched;
-}
 
 export default async function StudentCoursesPage({ searchParams }) {
   const resolvedParams = (await searchParams) || {};
@@ -208,7 +78,7 @@ export default async function StudentCoursesPage({ searchParams }) {
       });
     }
 
-    const matchedVideos = findMatchedVideosForCourse(course.title, allVideos);
+    const matchedVideos = await findMatchedVideosForCourse(course.title, allVideos);
     for (let j = 0; j < matchedVideos.length; j += 1) {
       const vid = matchedVideos[j];
       const vidUrl = String(vid.mediaUrl || '').trim();

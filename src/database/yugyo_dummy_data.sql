@@ -1,5 +1,10 @@
 -- Data dummy untuk pengembangan lokal, mengikuti tabel pada yugyo_schema.sql.
 -- Jalankan setelah schema. Tidak menghapus atau mengosongkan data yang sudah ada.
+-- Seluruh media (gambar kategori, thumbnail kursus, dan video materi) mengarah
+-- ke file lokal pada public/pictures/ dan public/videos/.
+-- Untuk sinkronisasi otomatis apabila ada file baru yang diinput manual ke
+-- folder public/pictures/ atau public/videos/, jalankan: npm run db:sync
+--
 -- Akun dan password di bawah hanya untuk development; jangan gunakan di produksi.
 --
 -- Login demo:
@@ -24,8 +29,8 @@ ON CONFLICT (email) DO UPDATE SET
 
 INSERT INTO categories (name, description, image_url)
 VALUES
-  ('Dummy - Roti & Pastry', 'Kategori contoh untuk data pengembangan.', NULL),
-  ('Dummy - Dekorasi Kue', 'Kategori contoh untuk latihan dekorasi kue.', NULL)
+  ('Dummy - Roti & Pastry', 'Kategori contoh untuk data pengembangan.', '/pictures/categories/bread&yeast_goods.png'),
+  ('Dummy - Dekorasi Kue', 'Kategori contoh untuk latihan dekorasi kue.', '/pictures/categories/cakes_decorating.png')
 ON CONFLICT (name) DO UPDATE SET
   description = EXCLUDED.description,
   image_url = EXCLUDED.image_url;
@@ -72,7 +77,8 @@ WITH sample_courses AS (
       'Kursus contoh untuk menguji katalog dan pendaftaran siswa.',
       'Dummy - Roti & Pastry',
       'active',
-      'https://example.invalid/dummy-sourdough',
+      '/videos/bread/Mastering Sourdough Starter.mp4',
+      '/pictures/courses/bread/sourdough.png',
       7,
       21
     ),
@@ -81,7 +87,8 @@ WITH sample_courses AS (
       'Kursus contoh dengan status menunggu persetujuan.',
       'Dummy - Roti & Pastry',
       'pending',
-      'https://example.invalid/dummy-croissant',
+      '/videos/french_pastry/Masterclass Classic Croissant.mp4',
+      '/pictures/courses/french_pastry/croissant.png',
       14,
       28
     ),
@@ -90,11 +97,12 @@ WITH sample_courses AS (
       'Kursus contoh berstatus draft.',
       'Dummy - Dekorasi Kue',
       'draft',
-      'https://example.invalid/dummy-buttercream',
+      '/videos/cakes_decor/Dasar Ice Cream & Buttercream.mp4',
+      '/pictures/courses/cakes_decor/cake_piping.png',
       30,
       44
     )
-  ) AS data(title, description, category_name, status, video_url, start_days, end_days)
+  ) AS data(title, description, category_name, status, video_url, thumbnail_url, start_days, end_days)
 )
 INSERT INTO courses (
   title,
@@ -116,7 +124,7 @@ SELECT
   sample.video_url,
   CURRENT_DATE + sample.start_days,
   CURRENT_DATE + sample.end_days,
-  NULL
+  sample.thumbnail_url
 FROM sample_courses sample
 JOIN categories category ON category.name = sample.category_name
 JOIN users instructor ON instructor.email = 'dummy.chef@yugyo.test'
@@ -125,6 +133,41 @@ WHERE NOT EXISTS (
   FROM courses existing
   WHERE existing.title = sample.title
 );
+
+-- Perbarui kursus [DUMMY] yang sudah ada jika masih memakai URL placeholder atau thumbnail NULL
+WITH sample_courses AS (
+  SELECT *
+  FROM (VALUES
+    (
+      '[DUMMY] Dasar Sourdough',
+      '/videos/bread/Mastering Sourdough Starter.mp4',
+      '/pictures/courses/bread/sourdough.png'
+    ),
+    (
+      '[DUMMY] Croissant untuk Pemula',
+      '/videos/french_pastry/Masterclass Classic Croissant.mp4',
+      '/pictures/courses/french_pastry/croissant.png'
+    ),
+    (
+      '[DUMMY] Dekorasi Buttercream',
+      '/videos/cakes_decor/Dasar Ice Cream & Buttercream.mp4',
+      '/pictures/courses/cakes_decor/cake_piping.png'
+    )
+  ) AS data(title, video_url, thumbnail_url)
+)
+UPDATE courses c
+SET
+  video_url = sample.video_url,
+  thumbnail_url = sample.thumbnail_url
+FROM sample_courses sample
+WHERE c.title = sample.title
+  AND (
+    c.video_url IS NULL
+    OR c.video_url = ''
+    OR c.video_url LIKE 'https://example.invalid/%'
+    OR c.thumbnail_url IS NULL
+    OR c.thumbnail_url = ''
+  );
 
 WITH sample_contents AS (
   SELECT *
@@ -138,7 +181,8 @@ WITH sample_contents AS (
       1,
       'published',
       'Materi dummy: amati aroma starter, gelembung, dan kenaikan volumenya.',
-      'https://example.invalid/dummy-starter-video'
+      '/videos/bread/Mastering Sourdough Starter.mp4',
+      '/pictures/courses/bread/sourdough.png'
     ),
     (
       '[DUMMY] Dasar Sourdough',
@@ -149,7 +193,8 @@ WITH sample_contents AS (
       2,
       'published',
       'Materi dummy: catat waktu, suhu, dan perubahan bentuk adonan.',
-      'https://example.invalid/dummy-fermentation-video'
+      '/videos/bread/Dasar Fermentasi Ragi Roti.mp4',
+      '/pictures/courses/bread/ragi_roti.png'
     ),
     (
       '[DUMMY] Croissant untuk Pemula',
@@ -160,9 +205,22 @@ WITH sample_contents AS (
       1,
       'published',
       'Materi dummy: jaga adonan dan mentega tetap dingin saat laminasi.',
-      'https://example.invalid/dummy-lamination-video'
+      '/videos/french_pastry/Masterclass Classic Croissant.mp4',
+      '/pictures/courses/french_pastry/croissant.png'
+    ),
+    (
+      '[DUMMY] Dekorasi Buttercream',
+      'Dasar Ice Cream & Buttercream',
+      'Mengenal teknik membuat buttercream halus dan stabil.',
+      'Video & Bacaan',
+      15,
+      1,
+      'published',
+      'Materi dummy: kendalikan suhu mentega agar buttercream tidak pecah.',
+      '/videos/cakes_decor/Dasar Ice Cream & Buttercream.mp4',
+      '/pictures/courses/cakes_decor/ice_cream.png'
     )
-  ) AS data(course_title, title, description, content_type, duration_minutes, order_index, status, content_text, video_url)
+  ) AS data(course_title, title, description, content_type, duration_minutes, order_index, status, content_text, video_url, cover_image_url)
 )
 INSERT INTO course_contents (
   course_id,
@@ -174,6 +232,7 @@ INSERT INTO course_contents (
   status,
   content_text,
   video_url,
+  cover_image_url,
   updated_at
 )
 SELECT
@@ -186,6 +245,7 @@ SELECT
   sample.status,
   sample.content_text,
   sample.video_url,
+  sample.cover_image_url,
   CURRENT_TIMESTAMP
 FROM sample_contents sample
 JOIN courses course ON course.title = sample.course_title
@@ -195,6 +255,31 @@ WHERE NOT EXISTS (
   WHERE existing.course_id = course.id
     AND existing.title = sample.title
 );
+
+-- Perbarui course_contents [DUMMY] yang masih memakai URL placeholder
+WITH sample_contents AS (
+  SELECT *
+  FROM (VALUES
+    ('[DUMMY] Dasar Sourdough', 'Pengenalan Starter', '/videos/bread/Mastering Sourdough Starter.mp4', '/pictures/courses/bread/sourdough.png'),
+    ('[DUMMY] Dasar Sourdough', 'Latihan Fermentasi', '/videos/bread/Dasar Fermentasi Ragi Roti.mp4', '/pictures/courses/bread/ragi_roti.png'),
+    ('[DUMMY] Croissant untuk Pemula', 'Pengenalan Laminasi', '/videos/french_pastry/Masterclass Classic Croissant.mp4', '/pictures/courses/french_pastry/croissant.png'),
+    ('[DUMMY] Dekorasi Buttercream', 'Dasar Ice Cream & Buttercream', '/videos/cakes_decor/Dasar Ice Cream & Buttercream.mp4', '/pictures/courses/cakes_decor/ice_cream.png')
+  ) AS data(course_title, title, video_url, cover_image_url)
+)
+UPDATE course_contents cc
+SET
+  video_url = sample.video_url,
+  cover_image_url = COALESCE(NULLIF(cc.cover_image_url, ''), sample.cover_image_url),
+  updated_at = CURRENT_TIMESTAMP
+FROM sample_contents sample
+JOIN courses c ON c.title = sample.course_title
+WHERE cc.course_id = c.id
+  AND cc.title = sample.title
+  AND (
+    cc.video_url IS NULL
+    OR cc.video_url = ''
+    OR cc.video_url LIKE 'https://example.invalid/%'
+  );
 
 WITH sample_sessions AS (
   SELECT *
@@ -328,7 +413,7 @@ WHERE student.email = 'dummy.student@yugyo.test'
 
 INSERT INTO system_settings (key_name, key_value)
 VALUES
-  ('dummy_seed_version', '1'),
+  ('dummy_seed_version', '2'),
   ('dummy_data_environment', 'development-only')
 ON CONFLICT (key_name) DO UPDATE SET
   key_value = EXCLUDED.key_value,
@@ -466,5 +551,179 @@ CROSS JOIN courses course
 WHERE student.email = 'dummy.student@yugyo.test'
   AND course.title = '[DUMMY] Dasar Sourdough'
 ON CONFLICT (student_id, course_id, content_key) DO NOTHING;
+
+-- =========================================================================
+-- SINKRONISASI GAMBAR KATEGORI, THUMBNAIL & VIDEO LOKAL (public/pictures & public/videos)
+-- =========================================================================
+
+UPDATE categories
+SET image_url = CASE
+  WHEN LOWER(name) LIKE '%bread%' OR LOWER(name) LIKE '%yeast%' OR LOWER(name) LIKE '%roti%'
+    THEN '/pictures/categories/bread&yeast_goods.png'
+  WHEN LOWER(name) LIKE '%cake%' OR LOWER(name) LIKE '%decor%' OR LOWER(name) LIKE '%dekor%'
+    THEN '/pictures/categories/cakes_decorating.png'
+  WHEN LOWER(name) LIKE '%cookie%' OR LOWER(name) LIKE '%kukis%'
+    THEN '/pictures/categories/cookies.png'
+  WHEN LOWER(name) LIKE '%indo%' OR LOWER(name) LIKE '%nusantara%' OR LOWER(name) LIKE '%tradisional%'
+    THEN '/pictures/categories/indonesian_cakes.png'
+  ELSE '/pictures/categories/french_patisserie.png'
+END
+WHERE image_url IS NULL OR TRIM(image_url) = '';
+
+UPDATE courses
+SET thumbnail_url = CASE
+  WHEN LOWER(title) LIKE '%bagel%' THEN '/pictures/courses/bread/bagel.png'
+  WHEN LOWER(title) LIKE '%brioche%' THEN '/pictures/courses/bread/brioche.png'
+  WHEN LOWER(title) LIKE '%ciabatta%' THEN '/pictures/courses/bread/ciabatta.png'
+  WHEN LOWER(title) LIKE '%focaccia%' THEN '/pictures/courses/bread/focaccia.png'
+  WHEN LOWER(title) LIKE '%milk bread%' OR LOWER(title) LIKE '%roti susu%' THEN '/pictures/courses/bread/milk_bread.png'
+  WHEN LOWER(title) LIKE '%campagne%' THEN '/pictures/courses/bread/Pain_de_Campagne.png'
+  WHEN LOWER(title) LIKE '%pretzel%' THEN '/pictures/courses/bread/pretzel.png'
+  WHEN LOWER(title) LIKE '%ragi%' THEN '/pictures/courses/bread/ragi_roti.png'
+  WHEN LOWER(title) LIKE '%roti tawar%' THEN '/pictures/courses/bread/roti_tawar.png'
+  WHEN LOWER(title) LIKE '%sourdough%' THEN '/pictures/courses/bread/sourdough.png'
+
+  WHEN LOWER(title) LIKE '%piping%' OR LOWER(title) LIKE '%spuit%' THEN '/pictures/courses/cakes_decor/cake_piping.png'
+  WHEN LOWER(title) LIKE '%floral%' OR LOWER(title) LIKE '%bunga%' THEN '/pictures/courses/cakes_decor/floral_painting.png'
+  WHEN LOWER(title) LIKE '%fondan%' OR LOWER(title) LIKE '%fondant%' THEN '/pictures/courses/cakes_decor/fondan_sugar.png'
+  WHEN LOWER(title) LIKE '%ganache%' OR LOWER(title) LIKE '%drip%' THEN '/pictures/courses/cakes_decor/ganache_drip.png'
+  WHEN LOWER(title) LIKE '%geomatric%' OR LOWER(title) LIKE '%geometric%' OR LOWER(title) LIKE '%metallic%' THEN '/pictures/courses/cakes_decor/geomatric_metallic.png'
+  WHEN LOWER(title) LIKE '%ice cream%' OR LOWER(title) LIKE '%es krim%' THEN '/pictures/courses/cakes_decor/ice_cream.png'
+  WHEN LOWER(title) LIKE '%mirror glaze%' OR LOWER(title) LIKE '%glaze%' THEN '/pictures/courses/cakes_decor/mirror_glaze.png'
+  WHEN LOWER(title) LIKE '%ombre%' THEN '/pictures/courses/cakes_decor/ombre_shadding.png'
+  WHEN LOWER(title) LIKE '%smoothing%' THEN '/pictures/courses/cakes_decor/smoothing_kue.png'
+  WHEN LOWER(title) LIKE '%wafer%' THEN '/pictures/courses/cakes_decor/wafer_paper.png'
+  WHEN LOWER(title) LIKE '%buttercream%' THEN '/pictures/courses/cakes_decor/cake_piping.png'
+
+  WHEN LOWER(title) LIKE '%biscotti%' THEN '/pictures/courses/cookies/biscotti.png'
+  WHEN LOWER(title) LIKE '%crinckle%' OR LOWER(title) LIKE '%crinkle%' THEN '/pictures/courses/cookies/crinckle.png'
+  WHEN LOWER(title) LIKE '%florentine%' THEN '/pictures/courses/cookies/florentines.png'
+  WHEN LOWER(title) LIKE '%kastengel%' THEN '/pictures/courses/cookies/kastengel.png'
+  WHEN LOWER(title) LIKE '%matcha%' OR LOWER(title) LIKE '%sabl%' THEN '/pictures/courses/cookies/matcha_sable.png'
+  WHEN LOWER(title) LIKE '%nastar%' THEN '/pictures/courses/cookies/nastar.png'
+  WHEN LOWER(title) LIKE '%peanut%' OR LOWER(title) LIKE '%kacang%' THEN '/pictures/courses/cookies/peanut_cookie.png'
+  WHEN LOWER(title) LIKE '%putri salju%' THEN '/pictures/courses/cookies/putri_salju.png'
+  WHEN LOWER(title) LIKE '%thumbprint%' THEN '/pictures/courses/cookies/thumbprint_jam.png'
+  WHEN LOWER(title) LIKE '%cookie%' OR LOWER(title) LIKE '%kukis%' THEN '/pictures/courses/cookies/cookie.png'
+
+  WHEN LOWER(title) LIKE '%choux%' OR LOWER(title) LIKE '%craquelin%' THEN '/pictures/courses/french_pastry/Choux_à_la_Crème_&Craquelin.png'
+  WHEN LOWER(title) LIKE '%croissant%' OR LOWER(title) LIKE '%lamination%' THEN '/pictures/courses/french_pastry/croissant.png'
+  WHEN LOWER(title) LIKE '%eclair%' OR LOWER(title) LIKE '%éclair%' THEN '/pictures/courses/french_pastry/eclair.png'
+  WHEN LOWER(title) LIKE '%tart%' THEN '/pictures/courses/french_pastry/Fruits_tartle.png'
+  WHEN LOWER(title) LIKE '%kouign%' THEN '/pictures/courses/french_pastry/Kouign-Amann_Bretons.png'
+  WHEN LOWER(title) LIKE '%macaron%' THEN '/pictures/courses/french_pastry/macaron.png'
+  WHEN LOWER(title) LIKE '%madeleine%' THEN '/pictures/courses/french_pastry/Madeleines.png'
+  WHEN LOWER(title) LIKE '%mille%' THEN '/pictures/courses/french_pastry/Mille-Feuille.png'
+  WHEN LOWER(title) LIKE '%opera%' THEN '/pictures/courses/french_pastry/opera_cake.png'
+  WHEN LOWER(title) LIKE '%pain au chocolat%' THEN '/pictures/courses/french_pastry/Pain_au_Chocolat.png'
+
+  WHEN LOWER(title) LIKE '%bolu kukus%' THEN '/pictures/courses/Indo_cakes/bolu_kukus.png'
+  WHEN LOWER(title) LIKE '%dadar%' THEN '/pictures/courses/Indo_cakes/dadar.png'
+  WHEN LOWER(title) LIKE '%getuk%' THEN '/pictures/courses/Indo_cakes/getuk_lindri.png'
+  WHEN LOWER(title) LIKE '%klepon%' THEN '/pictures/courses/Indo_cakes/klepon.png'
+  WHEN LOWER(title) LIKE '%lapis%' THEN '/pictures/courses/Indo_cakes/kue_lapis.png'
+  WHEN LOWER(title) LIKE '%talam%' THEN '/pictures/courses/Indo_cakes/kue_talam.png'
+  WHEN LOWER(title) LIKE '%nagasari%' THEN '/pictures/courses/Indo_cakes/nagasari.png'
+  WHEN LOWER(title) LIKE '%onde%' THEN '/pictures/courses/Indo_cakes/onde_onde.png'
+  WHEN LOWER(title) LIKE '%putu%' THEN '/pictures/courses/Indo_cakes/putu_ayu.png'
+  WHEN LOWER(title) LIKE '%serabi%' THEN '/pictures/courses/Indo_cakes/serabi.png'
+  ELSE '/pictures/courses/french_pastry/croissant.png'
+END
+WHERE thumbnail_url IS NULL OR TRIM(thumbnail_url) = '';
+
+UPDATE courses
+SET video_url = CASE
+  WHEN LOWER(title) LIKE '%bagel%' THEN '/videos/bread/Bagel ala New York.mp4'
+  WHEN LOWER(title) LIKE '%brioche%' THEN '/videos/bread/Brioche Roti Mewah Prancis.mp4'
+  WHEN LOWER(title) LIKE '%ciabatta%' THEN '/videos/bread/Ciabatta dengan Hidrasi Tinggi.mp4'
+  WHEN LOWER(title) LIKE '%ragi%' THEN '/videos/bread/Dasar Fermentasi Ragi Roti.mp4'
+  WHEN LOWER(title) LIKE '%focaccia%' THEN '/videos/bread/Focaccia Art & Rosemary.mp4'
+  WHEN LOWER(title) LIKE '%sourdough%' THEN '/videos/bread/Mastering Sourdough Starter.mp4'
+  WHEN LOWER(title) LIKE '%milk bread%' THEN '/videos/bread/Milk Bread Hokkaido.mp4'
+  WHEN LOWER(title) LIKE '%campagne%' THEN '/videos/bread/Pain de Campagne Klasik.mp4'
+  WHEN LOWER(title) LIKE '%pretzel%' THEN '/videos/bread/Pretzel Jerman Tradisional.mp4'
+  WHEN LOWER(title) LIKE '%roti tawar%' THEN '/videos/bread/Roti Tawar Gandum Utuh.mp4'
+
+  WHEN LOWER(title) LIKE '%ganache%' THEN '/videos/cakes_decor/Chocolate Ganache Drip.mp4'
+  WHEN LOWER(title) LIKE '%ice cream%' OR LOWER(title) LIKE '%buttercream%' AND LOWER(title) NOT LIKE '%floral%' AND LOWER(title) NOT LIKE '%ombre%' THEN '/videos/cakes_decor/Dasar Ice Cream & Buttercream.mp4'
+  WHEN LOWER(title) LIKE '%floral%' THEN '/videos/cakes_decor/Floral Buttercream Painting.mp4'
+  WHEN LOWER(title) LIKE '%fondant%' OR LOWER(title) LIKE '%fondan%' THEN '/videos/cakes_decor/Fondant Sugar Flowers.mp4'
+  WHEN LOWER(title) LIKE '%geometric%' OR LOWER(title) LIKE '%geomatric%' OR LOWER(title) LIKE '%metallic%' THEN '/videos/cakes_decor/Geometric Metallic Cakes.mp4'
+  WHEN LOWER(title) LIKE '%piping%' THEN '/videos/cakes_decor/Korean Vintage Cake Piping.mp4'
+  WHEN LOWER(title) LIKE '%mirror glaze%' THEN '/videos/cakes_decor/Mirror Glaze Cake Modern.mp4'
+  WHEN LOWER(title) LIKE '%ombre%' THEN '/videos/cakes_decor/Ombre Buttercream Shading.mp4'
+  WHEN LOWER(title) LIKE '%smoothing%' THEN '/videos/cakes_decor/Smoothing Kue Tepi Tajam.mp4'
+  WHEN LOWER(title) LIKE '%wafer%' THEN '/videos/cakes_decor/Wafer Paper Butterfly Decor.mp4'
+
+  WHEN LOWER(title) LIKE '%florentine%' THEN '/videos/cookies/Almond Florentine Cookies.mp4'
+  WHEN LOWER(title) LIKE '%biscotti%' THEN '/videos/cookies/Biscotti Italia Double Choc.mp4'
+  WHEN LOWER(title) LIKE '%choco chip%' THEN '/videos/cookies/Classic Choco Chip Cookies.mp4'
+  WHEN LOWER(title) LIKE '%kastengel%' THEN '/videos/cookies/Kastengel Gurih Keju Edam.mp4'
+  WHEN LOWER(title) LIKE '%matcha%' THEN '/videos/cookies/Matcha Sablé Cookies.mp4'
+  WHEN LOWER(title) LIKE '%nastar%' THEN '/videos/cookies/Nastar Selai Nanas Premium.mp4'
+  WHEN LOWER(title) LIKE '%peanut%' THEN '/videos/cookies/Peanut Butter Cookies.mp4'
+  WHEN LOWER(title) LIKE '%putri salju%' THEN '/videos/cookies/Putri Salju Mentega.mp4'
+  WHEN LOWER(title) LIKE '%crinkle%' OR LOWER(title) LIKE '%crinckle%' THEN '/videos/cookies/Red Velvet Crinkles.mp4'
+  WHEN LOWER(title) LIKE '%thumbprint%' THEN '/videos/cookies/Thumbprint Strawberry Jam.mp4'
+
+  WHEN LOWER(title) LIKE '%choux%' THEN '/videos/french_pastry/Choux à la Crème & Craquelin.mp4'
+  WHEN LOWER(title) LIKE '%tart%' THEN '/videos/french_pastry/Fruit Tartlet Crème Pâtissière.mp4'
+  WHEN LOWER(title) LIKE '%kouign%' THEN '/videos/french_pastry/Kouign-Amann Bretons.mp4'
+  WHEN LOWER(title) LIKE '%macaron%' THEN '/videos/french_pastry/Macaron Prancis Anti Gagal.mp4'
+  WHEN LOWER(title) LIKE '%madeleine%' THEN '/videos/french_pastry/Madeleine Lemon Keik Cangkang.mp4'
+  WHEN LOWER(title) LIKE '%croissant%' THEN '/videos/french_pastry/Masterclass Classic Croissant.mp4'
+  WHEN LOWER(title) LIKE '%mille%' THEN '/videos/french_pastry/Mille-Feuille Napoleon Klasik.mp4'
+  WHEN LOWER(title) LIKE '%opera%' THEN '/videos/french_pastry/Opera Cake Mewah Prancis.mp4'
+  WHEN LOWER(title) LIKE '%pain au chocolat%' THEN '/videos/french_pastry/Pain au Chocolat Otentik.mp4'
+  WHEN LOWER(title) LIKE '%clair%' THEN '/videos/french_pastry/Éclairs Cokelat Berkilau.mp4'
+
+  WHEN LOWER(title) LIKE '%bolu kukus%' THEN '/videos/indo_cakes/bolu kukus.mp4'
+  WHEN LOWER(title) LIKE '%dadar%' THEN '/videos/indo_cakes/dadar.mp4'
+  WHEN LOWER(title) LIKE '%getuk%' THEN '/videos/indo_cakes/getuk salindri.mp4'
+  WHEN LOWER(title) LIKE '%klepon%' THEN '/videos/indo_cakes/klepon.mp4'
+  WHEN LOWER(title) LIKE '%lapis%' THEN '/videos/indo_cakes/kue lapis.mp4'
+  WHEN LOWER(title) LIKE '%talam%' THEN '/videos/indo_cakes/kue talam.mp4'
+  WHEN LOWER(title) LIKE '%nagasari%' THEN '/videos/indo_cakes/nagasari.mp4'
+  WHEN LOWER(title) LIKE '%onde%' THEN '/videos/indo_cakes/onde-onde.mp4'
+  WHEN LOWER(title) LIKE '%putu%' THEN '/videos/indo_cakes/putu ayu.mp4'
+  WHEN LOWER(title) LIKE '%serabi%' THEN '/videos/indo_cakes/serabi.mp4'
+  ELSE video_url
+END
+WHERE video_url IS NULL
+   OR TRIM(video_url) = ''
+   OR video_url LIKE 'https://youtube.com/watch?v=sample%'
+   OR video_url LIKE 'https://example.invalid/%';
+
+INSERT INTO course_contents (
+  course_id,
+  title,
+  description,
+  content_type,
+  duration_minutes,
+  order_index,
+  status,
+  cover_image_url,
+  video_url,
+  updated_at
+)
+SELECT
+  c.id,
+  c.title,
+  COALESCE(NULLIF(TRIM(c.description), ''), 'Video pembelajaran ' || c.title || '.'),
+  'Video & Bacaan',
+  20,
+  1,
+  'published',
+  c.thumbnail_url,
+  c.video_url,
+  CURRENT_TIMESTAMP
+FROM courses c
+WHERE c.video_url LIKE '/videos/%'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM course_contents existing
+    WHERE existing.course_id = c.id
+      AND existing.video_url = c.video_url
+  );
 
 COMMIT;

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { getCategoryImage, getCourseImage } from '@/lib/mediaMapper';
+import { getCategoryImage, getCourseImage } from '@/lib/mediaHelper';
 
 export async function POST() {
   try {
