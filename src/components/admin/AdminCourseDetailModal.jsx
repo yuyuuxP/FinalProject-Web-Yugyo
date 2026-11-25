@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import AdminDeleteConfirmModal from '@/components/admin/AdminDeleteConfirmModal';
 
 function cleanStr(val) {
   const s = String(val ?? '').trim();
@@ -51,6 +52,7 @@ export default function AdminCourseDetailModal({
   const [fetchedModules, setFetchedModules] = useState([]);
   const [expandedUid, setExpandedUid] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const activeCourseId = course?.id ?? courseId;
   const hasPropContents =
@@ -113,12 +115,17 @@ export default function AdminCourseDetailModal({
 
   const handleDeleteClick = async () => {
     if (!activeCourseId || deleting) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const executeDeleteCourse = async () => {
     if (typeof onDelete === 'function') {
       setDeleting(true);
       try {
         await onDelete(course);
       } finally {
         setDeleting(false);
+        setShowDeleteConfirm(false);
       }
       return;
     }
@@ -134,6 +141,7 @@ export default function AdminCourseDetailModal({
       }
     } finally {
       setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -341,6 +349,14 @@ export default function AdminCourseDetailModal({
           )}
         </div>
       </div>
+      <AdminDeleteConfirmModal
+        open={showDeleteConfirm}
+        title="Hapus Kursus"
+        message={`Hapus kursus "${course?.title || 'ini'}"? Materi, data kursus, dan file terkait yang terhubung akan ikut dihapus. Tindakan ini tidak dapat dibatalkan.`}
+        loading={deleting}
+        onCancel={() => !deleting && setShowDeleteConfirm(false)}
+        onConfirm={executeDeleteCourse}
+      />
     </div>
   );
 }

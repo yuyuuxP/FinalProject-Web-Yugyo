@@ -637,7 +637,7 @@ export default function TeacherScheduleClient({
       </section>
 
       {/* Daftar Partisipan Siswa */}
-      <section className="space-y-3">
+      <section id="participants" className="space-y-3 scroll-mt-24">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="font-editorial text-xl font-bold text-[#341D17]">

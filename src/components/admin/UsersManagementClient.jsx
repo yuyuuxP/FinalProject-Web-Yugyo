@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import AdminDeleteConfirmModal from '@/components/admin/AdminDeleteConfirmModal';
 import {
   FaUsers,
   FaGraduationCap,
@@ -111,6 +112,7 @@ export default function UsersManagementClient(props = {}) {
   const [statusInput, setStatusInput] = useState('active');
   const [saving, setSaving] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   useEffect(() => {
     if (propSeedUsers.length > 0) return;
@@ -220,6 +222,10 @@ export default function UsersManagementClient(props = {}) {
 
   const handleRejectPendingUser = async (user) => {
     if (!user || isAdminUser(user) || actionLoadingId) return;
+    setDeleteConfirm({ user, mode: 'reject' });
+  };
+
+  const executeRejectPendingUser = async (user) => {
     setActionLoadingId(user.id);
     try {
       const res = await fetch(`/api/admin/users/${user.id}`, {
@@ -235,6 +241,7 @@ export default function UsersManagementClient(props = {}) {
       }
     } finally {
       setActionLoadingId(null);
+      setDeleteConfirm(null);
     }
   };
 
@@ -299,16 +306,26 @@ export default function UsersManagementClient(props = {}) {
 
   const handleDeleteUser = async (user) => {
     if (!user || isAdminUser(user)) return;
-    const res = await fetch(`/api/admin/users/${user.id}`, {
-      method: 'DELETE',
-    });
-    if (res.ok) {
-      setDeletedIds((prev) => {
-        const next = new Set(prev);
-        next.add(String(user.id));
-        return next;
+    setDeleteConfirm({ user, mode: 'delete' });
+  };
+
+  const executeDeleteUser = async (user) => {
+    setActionLoadingId(user.id);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'DELETE',
       });
-      router.refresh();
+      if (res.ok) {
+        setDeletedIds((prev) => {
+          const next = new Set(prev);
+          next.add(String(user.id));
+          return next;
+        });
+        router.refresh();
+      }
+    } finally {
+      setActionLoadingId(null);
+      setDeleteConfirm(null);
     }
   };
 
@@ -821,6 +838,32 @@ export default function UsersManagementClient(props = {}) {
           </div>
         </div>
       )}
+
+      <AdminDeleteConfirmModal
+        open={Boolean(deleteConfirm)}
+        title={
+          deleteConfirm?.mode === 'reject'
+            ? 'Tolak Pengajuan Akun'
+            : 'Hapus Pengguna'
+        }
+        message={
+          deleteConfirm
+            ? deleteConfirm.mode === 'reject'
+              ? `Tolak dan hapus pengajuan akun "${getUserDisplayName(deleteConfirm.user)}"? Tindakan ini tidak dapat dibatalkan.`
+              : `Hapus pengguna "${getUserDisplayName(deleteConfirm.user)}" dari sistem? Tindakan ini tidak dapat dibatalkan.`
+            : ''
+        }
+        loading={Boolean(deleteConfirm && actionLoadingId === deleteConfirm.user.id)}
+        onCancel={() => !actionLoadingId && setDeleteConfirm(null)}
+        onConfirm={() => {
+          if (!deleteConfirm) return;
+          if (deleteConfirm.mode === 'reject') {
+            executeRejectPendingUser(deleteConfirm.user);
+          } else {
+            executeDeleteUser(deleteConfirm.user);
+          }
+        }}
+      />
     </div>
   );
 }

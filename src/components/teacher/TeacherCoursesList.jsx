@@ -121,7 +121,7 @@ export default function TeacherCoursesList({ courses = [] }) {
               {/* Tombol Aksi */}
               <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
                 <Link
-                  href={`/dashboard/teacher/courses/${course.id}/students`}
+                  href="/dashboard/teacher/schedule#participants"
                   className="rounded-xl border border-[#341D17]/20 bg-[#FFFDF9]/95 hover:bg-[#F9DDBB] px-3.5 py-2 text-xs font-bold text-[#341D17] shadow-xs transition"
                 >
                   Lihat Progres Siswa

@@ -369,4 +369,7 @@ ALTER TABLE public.course_contents
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
 
-select * from users;
+  select * from users;
+  DELETE FROM users
+WHERE LOWER(email) = 'madel@gmail.com'
+   OR LOWER(full_name) = 'madeline';

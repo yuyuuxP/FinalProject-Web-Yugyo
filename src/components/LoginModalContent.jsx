@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   FaChevronLeft,
   FaArrowLeft,
@@ -71,7 +70,6 @@ function buildLoginSessionPayload(data, rawIdentifier) {
 }
 
 export default function LoginModalContent({ backHref = '/' }) {
-  const router = useRouter();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -107,8 +105,7 @@ export default function LoginModalContent({ backHref = '/' }) {
         // Abaikan jika storage diblokir browser
       }
 
-      router.push(data.redirectUrl);
-      router.refresh();
+      window.location.href = data.redirectUrl;
     } catch {
       setErrorMsg('Gagal terhubung ke server.');
       setIsLoading(false);
@@ -182,7 +179,7 @@ export default function LoginModalContent({ backHref = '/' }) {
                   ATELIER PÂTISSERIE &amp; BOULANGERIE
                 </p>
                 <h1 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17] leading-snug">
-                  Selamat Datang di YUGYO Atelier
+                  Selamat Datang Kembali di YUGYO Atelier
                 </h1>
               </div>
             </div>

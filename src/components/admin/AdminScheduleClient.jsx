@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import AdminDeleteConfirmModal from '@/components/admin/AdminDeleteConfirmModal';
 
 function normalizeStatus(item) {
   const rawStatus = String(item?.status || '').toLowerCase();
@@ -37,6 +38,7 @@ export default function AdminScheduleClient({
   const [busyId, setBusyId] = useState(null);
   const [feedbackMsg, setFeedbackMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState(null);
@@ -135,8 +137,8 @@ export default function AdminScheduleClient({
 
     try {
       const isEditing = Boolean(editingSessionId);
-      const endpoint = isEditing ? '/api/teacher/schedule' : '/api/admin/schedule';
-      const method = isEditing ? 'PUT' : 'POST';
+      const endpoint = '/api/teacher/schedule';
+      const method = isEditing ? 'PATCH' : 'POST';
 
       const res = await fetch(endpoint, {
         method,
@@ -148,7 +150,7 @@ export default function AdminScheduleClient({
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.message || 'Gagal menyimpan jadwal sesi.');
+        throw new Error(data?.error || data?.message || 'Gagal menyimpan jadwal sesi.');
       }
 
       const matchedCourse = courses.find((c) => String(c.id) === String(formData.course_id));
@@ -226,10 +228,8 @@ export default function AdminScheduleClient({
     }
 
     if (actionType === 'delete') {
-      const ok = window.confirm(
-        `Hapus permanen kelas yang dibatalkan "${item.title}"?`
-      );
-      if (!ok) return;
+      setDeleteConfirm(item);
+      return;
     }
 
     setBusyId(item.id);
@@ -243,7 +243,7 @@ export default function AdminScheduleClient({
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(data?.message || 'Gagal menghapus kelas.');
+          throw new Error(data?.error || data?.message || 'Gagal menghapus kelas.');
         }
 
         setSessions((prev) => prev.filter((s) => s.id !== item.id));
@@ -259,7 +259,7 @@ export default function AdminScheduleClient({
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(data?.message || 'Gagal memperbarui status sesi di database.');
+          throw new Error(data?.error || data?.message || 'Gagal memperbarui status sesi di database.');
         }
 
         const nextStatus =
@@ -564,6 +564,42 @@ export default function AdminScheduleClient({
           })}
         </div>
       )}
+
+      <AdminDeleteConfirmModal
+        open={Boolean(deleteConfirm)}
+        title="Hapus Jadwal Sesi"
+        message={
+          deleteConfirm
+            ? `Hapus permanen kelas yang dibatalkan "${deleteConfirm.title}"? Tindakan ini tidak dapat dibatalkan.`
+            : ''
+        }
+        loading={Boolean(deleteConfirm && busyId === deleteConfirm.id)}
+        onCancel={() => !busyId && setDeleteConfirm(null)}
+        onConfirm={async () => {
+          if (!deleteConfirm) return;
+          const item = deleteConfirm;
+          setBusyId(item.id);
+          setErrorMsg('');
+          setFeedbackMsg('');
+          try {
+            const res = await fetch(`/api/teacher/schedule?session_id=${item.id}`, {
+              method: 'DELETE',
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              throw new Error(data?.error || data?.message || 'Gagal menghapus kelas.');
+            }
+            setSessions((prev) => prev.filter((s) => s.id !== item.id));
+            setFeedbackMsg(`Kelas "${item.title}" berhasil dihapus dari database.`);
+            setDeleteConfirm(null);
+            startTransition(() => router.refresh());
+          } catch (err) {
+            setErrorMsg(err?.message || 'Terjadi kesalahan saat menghapus kelas.');
+          } finally {
+            setBusyId(null);
+          }
+        }}
+      />
 
       {/* MODAL BUAT / EDIT JADWAL ADMIN */}
       {isModalOpen && (

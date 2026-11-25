@@ -7,7 +7,6 @@ import {
   FaTriangleExclamation,
   FaBreadSlice,
   FaArrowRight,
-  FaCheck,
   FaGraduationCap,
   FaHourglassHalf,
   FaUsers,
@@ -293,14 +292,6 @@ export default async function AdminDashboardPage() {
           >
             <span>Tinjau Sekarang</span>
             <FaArrowRight className="h-3.5 w-3.5 text-[#802924]" />
-          </Link>
-
-          <Link
-            href="/dashboard/admin/courses"
-            aria-label="Setujui Pengajuan"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#661F1B] hover:bg-[#341D17] text-[#F9DDBB] border border-[#F9DDBB]/15 transition"
-          >
-            <FaCheck className="h-4 w-4" />
           </Link>
         </div>
       </section>

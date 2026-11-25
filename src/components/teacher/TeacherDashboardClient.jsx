@@ -298,7 +298,7 @@ export default function TeacherDashboardClient({
 
                     <div className="flex flex-wrap items-center gap-2.5 pt-1">
                       <Link
-                        href={`/dashboard/teacher/courses/${course.id}/students`}
+                        href="/dashboard/teacher/schedule#participants"
                         className="rounded-full bg-[#FFFDF9] hover:bg-[#F9DDBB] px-4 py-2 text-xs font-extrabold text-[#341D17] transition"
                       >
                         Lihat Progres Siswa
