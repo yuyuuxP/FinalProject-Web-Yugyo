@@ -2,6 +2,7 @@ import Link from 'next/link';
 import pool from '@/lib/db';
 import CourseFilterDropdown from '@/components/CourseFilterDropdown';
 import AdminCourseApprovalActions from '@/components/admin/AdminCourseApprovalActions';
+import AdminCourseDeleteButton from '@/components/admin/AdminCourseDeleteButton';
 
 const COURSE_IMAGE_RULES = [
   // Bread & Yeast Goods (/pictures/courses/bread/...)
@@ -425,6 +426,10 @@ export default async function AdminCoursesPage({ searchParams }) {
                         >
                           Detail
                         </Link>
+                        <AdminCourseDeleteButton
+                          courseId={course.id}
+                          courseTitle={course.title}
+                        />
                       </div>
                     </div>
                   </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import TeacherDeleteConfirmModal from '@/components/teacher/TeacherDeleteConfirmModal';
 
 const DAY_NAMES_ID = ['SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB', 'MIN'];
 
@@ -163,6 +164,7 @@ export default function TeacherScheduleClient({
   );
   const [busySessionId, setBusySessionId] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const [isCreateSessionOpen, setIsCreateSessionOpen] = useState(false);
   const [formCourseId, setFormCourseId] = useState(() =>
@@ -174,6 +176,7 @@ export default function TeacherScheduleClient({
   const [formLocation, setFormLocation] = useState('Atelier Live');
   const [formNotes, setFormNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPopupSession, setIsPopupSession] = useState(false);
 
   const refreshScheduleData = useCallback(async () => {
     const params = new URLSearchParams();
@@ -317,8 +320,18 @@ export default function TeacherScheduleClient({
     }
   };
 
-  const handleDeleteSession = async (sessionId) => {
+  const handleDeleteSession = (sessionId) => {
     if (busySessionId === sessionId) return;
+    const session = sessions.find((item) => item.id === sessionId);
+    if (!session) return;
+
+    setDeleteConfirm(session);
+    setErrorMsg('');
+  };
+
+  const confirmDeleteSession = async () => {
+    if (!deleteConfirm || busySessionId === deleteConfirm.id) return;
+    const sessionId = deleteConfirm.id;
     setBusySessionId(sessionId);
     setErrorMsg('');
 
@@ -335,6 +348,7 @@ export default function TeacherScheduleClient({
       setErrorMsg(err?.message || 'Terjadi kesalahan saat menghapus sesi.');
     } finally {
       setBusySessionId(null);
+      setDeleteConfirm(null);
     }
   };
 
@@ -359,7 +373,7 @@ export default function TeacherScheduleClient({
           sessionTime: formTime.trim() || '15:00 WITA',
           locationLabel: formLocation.trim() || 'Atelier Live',
           notes: formNotes.trim(),
-          isPopup: false,
+          isPopup: isPopupSession,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -467,15 +481,32 @@ export default function TeacherScheduleClient({
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#341D17]/8">
           <p className="text-xs text-[#341D17]/65">
-            Tambahkan sesi kelas yang sudah terjadwal.
+            Pilih jenis sesi yang ingin ditambahkan.
           </p>
-          <button
-            type="button"
-            onClick={() => setIsCreateSessionOpen((prev) => !prev)}
-            className="rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition cursor-pointer"
-          >
-            + Tambah Sesi Terjadwal
-          </button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsPopupSession(false);
+                setIsCreateSessionOpen(true);
+                setErrorMsg('');
+              }}
+              className="rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition cursor-pointer"
+            >
+              + Tambah Sesi Terjadwal
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsPopupSession(true);
+                setIsCreateSessionOpen(true);
+                setErrorMsg('');
+              }}
+              className="rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition cursor-pointer"
+            >
+              + Tambah Sesi Dadakan
+            </button>
+          </div>
         </div>
 
         {isCreateSessionOpen && (
@@ -483,6 +514,16 @@ export default function TeacherScheduleClient({
             onSubmit={handleCreateSession}
             className="rounded-2xl bg-[#FAF6F0] border border-[#341D17]/12 p-4 space-y-3"
           >
+            <div>
+              <h3 className="text-sm font-extrabold text-[#341D17]">
+                {isPopupSession ? 'Tambah Sesi Dadakan' : 'Tambah Sesi Terjadwal'}
+              </h3>
+              {isPopupSession && (
+                <p className="mt-1 text-xs text-[#341D17]/65">
+                  Sesi ini akan ditandai sebagai sesi dadakan pada daftar jadwal.
+                </p>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-bold text-[#341D17]/75 mb-1">
@@ -579,7 +620,11 @@ export default function TeacherScheduleClient({
                 disabled={isSubmitting}
                 className="rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] cursor-pointer disabled:opacity-60"
               >
-                {isSubmitting ? 'Menyimpan...' : 'Simpan Sesi'}
+                {isSubmitting
+                  ? 'Menyimpan...'
+                  : isPopupSession
+                  ? 'Simpan Sesi Dadakan'
+                  : 'Simpan Sesi Terjadwal'}
               </button>
             </div>
           </form>
@@ -771,6 +816,14 @@ export default function TeacherScheduleClient({
           </div>
         )}
       </section>
+
+      <TeacherDeleteConfirmModal
+        open={Boolean(deleteConfirm)}
+        message={`Batalkan sesi "${deleteConfirm?.title || 'ini'}"? Sesi akan dihapus permanen dari jadwal.`}
+        loading={Boolean(deleteConfirm && busySessionId === deleteConfirm.id)}
+        onCancel={() => setDeleteConfirm(null)}
+        onConfirm={confirmDeleteSession}
+      />
     </div>
   );
 }

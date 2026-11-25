@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import StudentDeleteConfirmModal from '@/components/student/StudentDeleteConfirmModal';
 import {
   FaTriangleExclamation,
   FaPen,
@@ -281,6 +282,7 @@ export default function StudentReviewsClient(props = {}) {
   const [reports, setReports] = useState(initialReports);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [feedbackBanner, setFeedbackBanner] = useState('');
 
   useEffect(() => {
@@ -327,28 +329,50 @@ export default function StudentReviewsClient(props = {}) {
     e.target.value = '';
   };
 
-  const handleDeleteHistoryItem = async (reportId) => {
-    if (deletingId === reportId) return;
+  const handleDeleteHistoryItem = (report) => {
+    if (!report || deletingId === report.id) return;
+    setDeleteConfirm(report);
+    setFeedbackBanner('');
+  };
+
+  const confirmDeleteHistoryItem = async () => {
+    if (!deleteConfirm || deletingId === deleteConfirm.id) return;
+    const reportId = deleteConfirm.id;
     setDeletingId(reportId);
     setFeedbackBanner('');
 
-    setReports((prev) => prev.filter((r) => String(r.id) !== String(reportId)));
-
     try {
-      const res = await fetch(`/api/student/reports/${reportId}`, {
-        method: 'DELETE',
-      }).catch(() => null);
-
-      if (!res || !res.ok) {
-        await fetch(`/api/admin/reports/${reportId}`, {
+      let response = null;
+      try {
+        response = await fetch(`/api/student/reports/${reportId}`, {
           method: 'DELETE',
-        }).catch(() => null);
+        });
+      } catch {
+        response = null;
       }
 
+      if (!response || !response.ok) {
+        try {
+          response = await fetch(`/api/admin/reports/${reportId}`, {
+            method: 'DELETE',
+          });
+        } catch {
+          response = null;
+        }
+      }
+
+      if (!response?.ok) {
+        throw new Error('Gagal menghapus riwayat report. Silakan coba lagi.');
+      }
+
+      setReports((prev) => prev.filter((r) => String(r.id) !== String(reportId)));
       setFeedbackBanner('Riwayat report berhasil dihapus.');
       router.refresh();
+    } catch (error) {
+      setFeedbackBanner(error?.message || 'Gagal menghapus riwayat report.');
     } finally {
       setDeletingId(null);
+      setDeleteConfirm(null);
     }
   };
 
@@ -701,7 +725,7 @@ export default function StudentReviewsClient(props = {}) {
                       <button
                         type="button"
                         disabled={deletingId === item.id}
-                        onClick={() => handleDeleteHistoryItem(item.id)}
+                        onClick={() => handleDeleteHistoryItem(item)}
                         className="rounded-full border border-[#802924]/25 bg-[#FAF6F0] hover:bg-[#802924] hover:text-[#FFFDF9] px-2.5 py-1 text-[11px] font-bold text-[#802924] transition cursor-pointer disabled:opacity-50"
                       >
                         {deletingId === item.id ? 'Menghapus...' : 'Hapus'}
@@ -755,6 +779,15 @@ export default function StudentReviewsClient(props = {}) {
           )}
         </div>
       )}
+      <StudentDeleteConfirmModal
+        open={Boolean(deleteConfirm)}
+        title="Hapus riwayat report?"
+        message={`Report "${deleteConfirm?.title || 'ini'}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`}
+        confirmLabel="Ya, hapus report"
+        loading={Boolean(deleteConfirm && deletingId === deleteConfirm.id)}
+        onCancel={() => setDeleteConfirm(null)}
+        onConfirm={confirmDeleteHistoryItem}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import AdminCourseDeleteButton from '@/components/admin/AdminCourseDeleteButton';
 
 export default function AdminCourseApprovalActions({ course }) {
   const router = useRouter();
@@ -44,6 +45,11 @@ export default function AdminCourseApprovalActions({ course }) {
         >
           Detail
         </Link>
+        <AdminCourseDeleteButton
+          courseId={course.id}
+          courseTitle={course.title}
+          size="regular"
+        />
         <button
           type="button"
           disabled={Boolean(pendingAction)}

@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import TeacherDeleteConfirmModal from '@/components/teacher/TeacherDeleteConfirmModal';
 import { FaPenToSquare, FaXmark } from 'react-icons/fa6';
 
 function TrashIcon({ className = 'w-4 h-4' }) {
@@ -299,6 +300,7 @@ export default function ContentManagementClient({
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const draftCount = safeContents.filter(
     (c) => String(c?.status || '').toLowerCase() === 'draft'
@@ -410,9 +412,16 @@ export default function ContentManagementClient({
     setFeedback('');
   };
 
-  const handleDeleteModule = async (e, item) => {
+  const handleDeleteModule = (e, item) => {
     e.stopPropagation();
     if (saving) return;
+    setDeleteConfirm(item);
+    setFeedback('');
+  };
+
+  const confirmDeleteModule = async () => {
+    if (!deleteConfirm || saving) return;
+    const item = deleteConfirm;
     const uid = item.__uid || String(item.id);
 
     setSaving(true);
@@ -455,6 +464,7 @@ export default function ContentManagementClient({
       setFeedback(err?.message || 'Terjadi kesalahan saat menghapus modul.');
     } finally {
       setSaving(false);
+      setDeleteConfirm(null);
     }
   };
 
@@ -819,6 +829,14 @@ export default function ContentManagementClient({
           {feedback}
         </div>
       )}
+
+      <TeacherDeleteConfirmModal
+        open={Boolean(deleteConfirm)}
+        message={`Hapus materi "${deleteConfirm?.title || 'ini'}" secara permanen? File video terunggah yang terkait juga dapat terhapus.`}
+        loading={Boolean(deleteConfirm && saving)}
+        onCancel={() => setDeleteConfirm(null)}
+        onConfirm={confirmDeleteModule}
+      />
 
       {isEditorOpen && (
         <div

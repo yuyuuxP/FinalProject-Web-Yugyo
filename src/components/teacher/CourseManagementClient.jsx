@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import TeacherDeleteConfirmModal from '@/components/teacher/TeacherDeleteConfirmModal';
 
 const FALLBACK_IMAGES = [
   '/pictures/courses/french_patisserie/Madeleines.png',
@@ -77,20 +78,23 @@ export default function CourseManagementClient({ courses = [], teacherName = 'Ch
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState(null);
   const [actionError, setActionError] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   if (courses !== prevCoursesRef) {
     setPrevCoursesRef(courses);
     setCourseList(Array.isArray(courses) ? courses : []);
   }
 
-  const handleDeleteCourse = async (course) => {
+  const handleDeleteCourse = (course) => {
     if (!course?.id || deletingId) return;
 
-    const confirmed = window.confirm(
-      `Yakin ingin menghapus kursus "${course.title || 'ini'}"? File gambar dan data kursus akan dihapus.`
-    );
-    if (!confirmed) return;
+    setDeleteConfirm(course);
+    setActionError('');
+  };
 
+  const confirmDeleteCourse = async () => {
+    if (!deleteConfirm?.id || deletingId) return;
+    const course = deleteConfirm;
     setDeletingId(course.id);
     setActionError('');
 
@@ -122,6 +126,7 @@ export default function CourseManagementClient({ courses = [], teacherName = 'Ch
       setActionError(err?.message || 'Gagal menghapus kursus.');
     } finally {
       setDeletingId(null);
+      setDeleteConfirm(null);
     }
   };
 
@@ -367,6 +372,13 @@ export default function CourseManagementClient({ courses = [], teacherName = 'Ch
           })}
         </div>
       )}
+      <TeacherDeleteConfirmModal
+        open={Boolean(deleteConfirm)}
+        message={`Yakin ingin menghapus kursus "${deleteConfirm?.title || 'ini'}" secara permanen? File gambar dan data kursus akan ikut dihapus.`}
+        loading={Boolean(deleteConfirm && deletingId === deleteConfirm.id)}
+        onCancel={() => setDeleteConfirm(null)}
+        onConfirm={confirmDeleteCourse}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import TeacherDeleteConfirmModal from '@/components/teacher/TeacherDeleteConfirmModal';
 import {
   FaShieldHalved,
   FaCheck,
@@ -65,6 +66,7 @@ export default function InstructorProfileClient({
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const initials = String(baseName)
     .split(' ')
@@ -94,10 +96,28 @@ export default function InstructorProfileClient({
   };
 
   const handleRemovePhoto = () => {
-    setAvatarUrl('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    if (!avatarUrl || saving) return;
+    setDeleteConfirm({ type: 'photo' });
+  };
+
+  const handleRemoveCategory = (target) => {
+    if (saving) return;
+    setDeleteConfirm({ type: 'specialty', value: target });
+  };
+
+  const confirmProfileDelete = () => {
+    if (!deleteConfirm) return;
+
+    if (deleteConfirm.type === 'photo') {
+      setAvatarUrl('');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } else if (deleteConfirm.type === 'specialty') {
+      setSpecialties((prev) => prev.filter((item) => item !== deleteConfirm.value));
     }
+
+    setDeleteConfirm(null);
   };
 
   const handleAddCategory = (e) => {
@@ -109,10 +129,6 @@ export default function InstructorProfileClient({
     }
     setNewCategoryDraft('');
     setAddingCategory(false);
-  };
-
-  const handleRemoveCategory = (target) => {
-    setSpecialties((prev) => prev.filter((item) => item !== target));
   };
 
   const handleSaveProfile = async (e) => {
@@ -304,7 +320,8 @@ export default function InstructorProfileClient({
             <button
               type="button"
               onClick={handleRemovePhoto}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-red-700 hover:underline cursor-pointer"
+              disabled={!avatarUrl}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-red-700 hover:underline cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
             >
               <FaTrash className="w-3 h-3 shrink-0" />
               <span>Hapus</span>
@@ -509,6 +526,18 @@ export default function InstructorProfileClient({
           </button>
         </div>
       </form>
+      <TeacherDeleteConfirmModal
+        open={Boolean(deleteConfirm)}
+        title={deleteConfirm?.type === 'photo' ? 'Hapus Foto Profil?' : 'Hapus Spesialisasi?'}
+        message={
+          deleteConfirm?.type === 'photo'
+            ? 'Foto profil akan dihapus dari perubahan saat ini. Perubahan diterapkan setelah profil disimpan.'
+            : `Spesialisasi "${deleteConfirm?.value || ''}" akan dihapus dari perubahan saat ini. Perubahan diterapkan setelah profil disimpan.`
+        }
+        confirmLabel="Ya, Hapus"
+        onCancel={() => setDeleteConfirm(null)}
+        onConfirm={confirmProfileDelete}
+      />
     </div>
   );
 }
