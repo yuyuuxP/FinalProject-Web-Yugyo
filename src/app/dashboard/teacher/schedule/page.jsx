@@ -82,6 +82,7 @@ export default async function TeacherSchedulePage() {
          TO_CHAR(cs.session_date, 'YYYY-MM-DD') AS session_date,
          cs.session_time,
          cs.location_label,
+         COALESCE(cs.is_popup, FALSE) AS is_popup,
          cs.status,
          COALESCE(cs.is_done, FALSE) AS is_done,
          c.title AS course_title,

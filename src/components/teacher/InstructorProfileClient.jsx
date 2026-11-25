@@ -332,6 +332,7 @@ export default function InstructorProfileClient({
             </label>
             <input
               type="text"
+              data-allow-punctuation="title"
               value={displayNameTitle}
               onChange={(e) => setDisplayNameTitle(e.target.value)}
               className="w-full rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3.5 py-2.5 text-xs sm:text-sm text-[#341D17] focus:border-[#802924] focus:outline-none"
@@ -361,7 +362,7 @@ export default function InstructorProfileClient({
               Nomor Whatsapp Studio Atelier <span className="text-[#802924]">*</span>
             </label>
             <input
-              type="text"
+              type="tel"
               value={whatsappNumber}
               onChange={(e) => setWhatsappNumber(e.target.value)}
               className="w-full rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3.5 py-2.5 text-xs sm:text-sm text-[#341D17] focus:border-[#802924] focus:outline-none"

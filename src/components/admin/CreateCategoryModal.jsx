@@ -46,6 +46,11 @@ export default function CreateCategoryModal({
       return;
     }
 
+    if (!iconFile) {
+      setErrorMsg('Foto profil atau ikon kategori wajib diunggah.');
+      return;
+    }
+
     if (!selectedTeacherId) {
       setErrorMsg(
         'Silakan pilih guru yang bertanggung jawab atas kategori ini terlebih dahulu.'
@@ -71,9 +76,7 @@ export default function CreateCategoryModal({
       formData.append('name', trimmedName);
       formData.append('instructor_id', String(selectedTeacherId));
       formData.append('description', description.trim());
-      if (iconFile) {
-        formData.append('icon', iconFile);
-      }
+      formData.append('icon', iconFile);
 
       const res = await fetch('/api/admin/categories', {
         method: 'POST',
@@ -225,15 +228,19 @@ export default function CreateCategoryModal({
 
           <div className="space-y-1.5">
             <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/70">
-              FOTO PROFIL / IKON KATEGORI
+              FOTO PROFIL / IKON KATEGORI (WAJIB)
             </label>
             <div className="w-full rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3 py-2 flex items-center gap-3 text-xs">
               <label className="rounded-lg border border-[#341D17]/20 bg-[#F3F1ED] hover:bg-[#E7E4DE] px-3 py-1.5 font-semibold text-[#341D17] cursor-pointer shrink-0">
                 Choose File
                 <input
                   type="file"
-                  accept="image/*"
-                  onChange={(e) => setIconFile(e.target.files?.[0] || null)}
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  aria-required="true"
+                  onChange={(e) => {
+                    setIconFile(e.target.files?.[0] || null);
+                    if (errorMsg) setErrorMsg('');
+                  }}
                   className="hidden"
                 />
               </label>

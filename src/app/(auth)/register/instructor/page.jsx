@@ -1,5 +1,4 @@
 import pool from '@/lib/db';
-import YugyoLandingPage from '@/app/page';
 import RegisterInstructorCard from '@/components/RegisterInstructorCard';
 
 export default async function RegisterInstructorPage() {
@@ -13,14 +12,7 @@ export default async function RegisterInstructorPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#F9DDBB] overflow-hidden">
-      <div
-        aria-hidden="true"
-        className="opacity-45 pointer-events-none select-none max-h-screen overflow-hidden"
-      >
-        <YugyoLandingPage />
-      </div>
-
+    <div className="min-h-screen bg-[#F9DDBB]">
       <RegisterInstructorCard categories={dbCategories} />
     </div>
   );

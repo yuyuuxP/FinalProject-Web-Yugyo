@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { FaPenToSquare, FaXmark } from 'react-icons/fa6';
 
 function TrashIcon({ className = 'w-4 h-4' }) {
   return (
@@ -98,78 +99,55 @@ function toPlayableVideoSrc(url) {
 async function updateExistingModuleInDb({ itemId, payload }) {
   const numericId = Number(itemId);
   if (!Number.isInteger(numericId) || numericId <= 0) {
-    return { savedToDb: false, record: payload };
+    throw new Error('ID materi tidak valid.');
   }
 
-  try {
-    const res = await fetch(`/api/teacher/contents/${numericId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data?.success !== false) {
-      return {
-        savedToDb: true,
-        record: data?.content || payload,
-      };
-    }
-  } catch {
-    // Fallback jika error jaringan
+  const res = await fetch(`/api/teacher/contents/${numericId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.success === false) {
+    throw new Error(data?.message || data?.error || 'Gagal memperbarui materi di database.');
   }
 
-  return { savedToDb: false, record: payload };
+  return {
+    record: data?.content || payload,
+  };
 }
 
 async function createNewModuleInDb({ payload }) {
-  try {
-    const res = await fetch('/api/teacher/contents', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data?.success !== false) {
-      return {
-        savedToDb: true,
-        record: data?.content || payload,
-      };
-    }
-  } catch {
-    // Fallback jika error jaringan
+  const res = await fetch('/api/teacher/contents', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.success === false) {
+    throw new Error(data?.message || data?.error || 'Gagal menyimpan materi ke database.');
   }
 
-  return { savedToDb: false, record: payload };
+  return {
+    record: data?.content || payload,
+  };
 }
 
-async function deleteModuleInDb({ itemId, videoUrl }) {
+async function deleteModuleInDb({ itemId }) {
   const numericId = Number(itemId);
-  if (Number.isInteger(numericId) && numericId > 0) {
-    try {
-      const res = await fetch(`/api/teacher/contents/${numericId}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) return true;
-    } catch {
-      // Lanjut coba hapus file upload jika ada
-    }
+  if (!Number.isInteger(numericId) || numericId <= 0) {
+    return false;
   }
 
-  if (String(videoUrl || '').startsWith('/videos/upload/')) {
-    try {
-      const res = await fetch(
-        `/api/teacher/contents/upload?file=${encodeURIComponent(videoUrl)}`,
-        { method: 'DELETE' }
-      );
-      return res.ok;
-    } catch {
-      return false;
-    }
+  const res = await fetch(`/api/teacher/contents/${numericId}`, {
+    method: 'DELETE',
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.success === false) {
+    throw new Error(data?.message || data?.error || 'Gagal menghapus materi dari database.');
   }
 
-  return false;
+  return true;
 }
 
 export default function ContentManagementClient({
@@ -182,12 +160,7 @@ export default function ContentManagementClient({
   const router = useRouter();
   const activeVideoRef = useRef(null);
   const fileInputRef = useRef(null);
-  const localSeqRef = useRef(1);
-
-  const nextLocalId = () => {
-    localSeqRef.current += 1;
-    return `added-${localSeqRef.current}`;
-  };
+  const moduleTitleInputRef = useRef(null);
 
   const safeCourses = useMemo(() => {
     const list = Array.isArray(courses) ? courses : [];
@@ -316,6 +289,7 @@ export default function ContentManagementClient({
 
   const [editingUid, setEditingUid] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [expandedUid, setExpandedUid] = useState(null);
 
   const [moduleTitle, setModuleTitle] = useState('');
@@ -343,6 +317,7 @@ export default function ContentManagementClient({
   const resetEditorFields = (nextOrderValue = '') => {
     setEditingUid(null);
     setEditingItem(null);
+    setIsEditorOpen(false);
     setModuleTitle('');
     setSortOrderInput(String(nextOrderValue || safeContents.length + 1));
     setVideoUrlInput('');
@@ -360,13 +335,6 @@ export default function ContentManagementClient({
     const itemIsYouTube = isYouTubeUrl(vidUrl);
 
     setExpandedUid(willOpen ? uid : null);
-    setEditingUid(uid);
-    setEditingItem(item);
-    setModuleTitle(item?.title || '');
-    setSortOrderInput(String(getItemOrder(item, 0)));
-    setVideoUrlInput(vidUrl);
-    setDescriptionInput(getItemDescription(item));
-    setFeedback('');
 
     if (willOpen && itemIsYouTube) {
       const targetUrl = normalizeExternalUrl(vidUrl);
@@ -378,6 +346,22 @@ export default function ContentManagementClient({
         }
       }, 50);
     }
+  };
+
+  const handleEditModule = (item) => {
+    const uid = item.__uid || String(item.id);
+    setExpandedUid(null);
+    setEditingUid(uid);
+    setEditingItem(item);
+    setModuleTitle(item?.title || '');
+    setSortOrderInput(String(getItemOrder(item, 0)));
+    setVideoUrlInput(getItemVideoUrl(item));
+    setDescriptionInput(getItemDescription(item));
+    setFeedback('');
+    setIsEditorOpen(true);
+    window.requestAnimationFrame(() => {
+      moduleTitleInputRef.current?.focus({ preventScroll: true });
+    });
   };
 
   const handleUploadVideoFile = async (e) => {
@@ -414,50 +398,64 @@ export default function ContentManagementClient({
     setExpandedUid(null);
     resetEditorFields(String(safeContents.length + 1));
     setFeedback('');
+    setIsEditorOpen(true);
+    window.requestAnimationFrame(() => {
+      moduleTitleInputRef.current?.focus({ preventScroll: true });
+    });
+  };
+
+  const handleCloseEditor = () => {
+    if (saving || uploadingVideo) return;
+    resetEditorFields();
+    setFeedback('');
   };
 
   const handleDeleteModule = async (e, item) => {
     e.stopPropagation();
+    if (saving) return;
     const uid = item.__uid || String(item.id);
-    const vidUrl = getItemVideoUrl(item);
 
-    const deletedDb = await deleteModuleInDb({
-      itemId: item.id,
-      videoUrl: vidUrl,
-    });
+    setSaving(true);
+    setFeedback('');
+    try {
+      const deletedDb = await deleteModuleInDb({ itemId: item.id });
+      if (!deletedDb) {
+        throw new Error('Video dari folder belum disimpan sebagai modul dan tidak dapat dihapus di sini.');
+      }
 
-    setMutatedByCourse((prev) => {
-      const currentState = prev[courseKey] || {
-        added: [],
-        editedByUid: {},
-        deletedUids: [],
-      };
+      setMutatedByCourse((prev) => {
+        const currentState = prev[courseKey] || {
+          added: [],
+          editedByUid: {},
+          deletedUids: [],
+        };
 
-      const nextDeleted = Array.from(
-        new Set([...(currentState.deletedUids || []), uid])
-      );
+        const nextDeleted = Array.from(
+          new Set([...(currentState.deletedUids || []), uid])
+        );
 
-      return {
-        ...prev,
-        [courseKey]: {
-          ...currentState,
-          deletedUids: nextDeleted,
-        },
-      };
-    });
+        return {
+          ...prev,
+          [courseKey]: {
+            ...currentState,
+            deletedUids: nextDeleted,
+          },
+        };
+      });
 
-    if (editingUid === uid) {
-      resetEditorFields(String(Math.max(1, safeContents.length)));
+      if (editingUid === uid) {
+        resetEditorFields(String(Math.max(1, safeContents.length)));
+      }
+      if (expandedUid === uid) {
+        setExpandedUid(null);
+      }
+
+      setFeedback(`Modul "${item.title}" dan file video terupload (jika ada) berhasil dihapus.`);
+    } catch (err) {
+      setFeedback(err?.message || 'Terjadi kesalahan saat menghapus modul.');
+    } finally {
+      setSaving(false);
     }
-    if (expandedUid === uid) {
-      setExpandedUid(null);
-    }
-
-    setFeedback(
-      deletedDb
-        ? `Modul "${item.title}" dan file video terupload (jika ada) berhasil dihapus.`
-        : `Modul "${item.title}" dihapus dari daftar.`
-    );
   };
 
   const handleCourseDropdownChange = (e) => {
@@ -499,23 +497,64 @@ export default function ContentManagementClient({
     setSaving(true);
     setFeedback('');
 
-    const isEditMode = Boolean(editingUid && editingItem);
+    try {
+      const isEditMode = Boolean(editingUid && editingItem);
 
-    if (isEditMode) {
-      const numericId = Number(editingItem.id);
-      const hasNumericId = Number.isInteger(numericId) && numericId > 0;
+      if (isEditMode) {
+        const numericId = Number(editingItem.id);
+        const hasNumericId = Number.isInteger(numericId) && numericId > 0;
 
-      if (!hasNumericId) {
-        const { savedToDb, record } = await createNewModuleInDb({ payload });
-        const realId = record?.id ?? editingItem.id;
-        const nextUid = realId ? String(realId) : editingUid;
+        if (!hasNumericId) {
+          const { record } = await createNewModuleInDb({ payload });
+          const realId = record?.id;
+          if (!realId) throw new Error('Server tidak mengembalikan ID modul yang tersimpan.');
+          const nextUid = String(realId);
+
+          const updatedRecord = {
+            ...editingItem,
+            ...(record || {}),
+            ...payload,
+            id: realId,
+            __uid: nextUid,
+          };
+
+          setMutatedByCourse((prev) => {
+            const currentState = prev[courseKey] || {
+              added: [],
+              editedByUid: {},
+              deletedUids: [],
+            };
+
+            const nextDeleted = Array.from(
+              new Set([...(currentState.deletedUids || []), editingUid])
+            );
+
+            return {
+              ...prev,
+              [courseKey]: {
+                ...currentState,
+                added: [...currentState.added, updatedRecord],
+                deletedUids: nextDeleted,
+              },
+            };
+          });
+
+          resetEditorFields(String(safeContents.length + 1));
+          setFeedback('Modul tersimpan permanen di database.');
+          return;
+        }
+
+        const { record } = await updateExistingModuleInDb({
+          itemId: numericId,
+          payload,
+        });
 
         const updatedRecord = {
           ...editingItem,
           ...(record || {}),
           ...payload,
-          id: realId,
-          __uid: nextUid,
+          id: numericId,
+          __uid: editingUid,
         };
 
         setMutatedByCourse((prev) => {
@@ -525,41 +564,36 @@ export default function ContentManagementClient({
             deletedUids: [],
           };
 
-          const nextDeleted = Array.from(
-            new Set([...(currentState.deletedUids || []), editingUid])
-          );
-
           return {
             ...prev,
             [courseKey]: {
               ...currentState,
-              added: [...currentState.added, updatedRecord],
-              deletedUids: nextDeleted,
+              editedByUid: {
+                ...currentState.editedByUid,
+                [editingUid]: updatedRecord,
+              },
             },
           };
         });
 
         resetEditorFields(String(safeContents.length + 1));
-        setSaving(false);
         setFeedback(
-          savedToDb
-            ? 'Modul tersimpan permanen di database.'
-            : 'Modul diperbarui.'
+          isDraft
+            ? 'Draf modul tersimpan dan kolom dikosongkan.'
+            : 'Perubahan modul tersimpan permanen di database.'
         );
         return;
       }
 
-      const { savedToDb, record } = await updateExistingModuleInDb({
-        itemId: numericId,
-        payload,
-      });
-
-      const updatedRecord = {
-        ...editingItem,
+      const { record } = await createNewModuleInDb({ payload });
+      const newId = record?.id;
+      if (!newId) throw new Error('Server tidak mengembalikan ID modul yang tersimpan.');
+      const newUid = String(newId);
+      const createdRecord = {
         ...(record || {}),
         ...payload,
-        id: numericId,
-        __uid: editingUid,
+        id: newId,
+        __uid: newUid,
       };
 
       setMutatedByCourse((prev) => {
@@ -573,61 +607,22 @@ export default function ContentManagementClient({
           ...prev,
           [courseKey]: {
             ...currentState,
-            editedByUid: {
-              ...currentState.editedByUid,
-              [editingUid]: updatedRecord,
-            },
+            added: [...currentState.added, createdRecord],
           },
         };
       });
 
-      resetEditorFields(String(safeContents.length + 1));
-      setSaving(false);
+      resetEditorFields(String(safeContents.length + 2));
       setFeedback(
         isDraft
-          ? 'Draf modul tersimpan dan kolom dikosongkan.'
-          : savedToDb
-          ? 'Perubahan modul tersimpan permanen di database.'
-          : 'Perubahan modul diterapkan.'
+          ? 'Draf modul disimpan dan kolom dikosongkan.'
+          : 'Modul baru tersimpan permanen di database.'
       );
-      return;
+    } catch (err) {
+      setFeedback(err?.message || 'Terjadi kesalahan saat menyimpan modul.');
+    } finally {
+      setSaving(false);
     }
-
-    const { savedToDb, record } = await createNewModuleInDb({ payload });
-    const newId = record?.id ?? nextLocalId();
-    const newUid = String(newId);
-    const createdRecord = {
-      ...(record || {}),
-      ...payload,
-      id: newId,
-      __uid: newUid,
-    };
-
-    setMutatedByCourse((prev) => {
-      const currentState = prev[courseKey] || {
-        added: [],
-        editedByUid: {},
-        deletedUids: [],
-      };
-
-      return {
-        ...prev,
-        [courseKey]: {
-          ...currentState,
-          added: [...currentState.added, createdRecord],
-        },
-      };
-    });
-
-    resetEditorFields(String(safeContents.length + 2));
-    setSaving(false);
-    setFeedback(
-      isDraft
-        ? 'Draf modul disimpan dan kolom dikosongkan.'
-        : savedToDb
-        ? 'Modul baru tersimpan permanen di database.'
-        : 'Modul baru ditambahkan.'
-    );
   };
 
   const currentCourse =
@@ -696,14 +691,14 @@ export default function ContentManagementClient({
               Struktur &amp; Urutan Materi
             </h2>
             <span className="text-[11px] text-[#341D17]/55">
-              Klik 1x buka deskripsi/video/YouTube, klik lagi tutup
+              Klik materi untuk melihat isi. Gunakan ikon pensil untuk mengedit.
             </span>
           </div>
 
           {safeContents.length === 0 ? (
             <div className="rounded-2xl border border-[#341D17]/10 bg-[#FAF6F0]/70 px-4 py-6 text-center text-xs text-[#341D17]/65">
               Belum ada modul materi untuk kursus &ldquo;
-              {currentCourse?.title || 'ini'}&rdquo;. Silakan tambahkan melalui editor di bawah.
+              {currentCourse?.title || 'ini'}&rdquo;. Gunakan tombol + Tambah Materi untuk membuat modul.
             </div>
           ) : (
             <div className="space-y-2.5">
@@ -743,15 +738,30 @@ export default function ContentManagementClient({
                         )}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteModule(e, item)}
-                        aria-label={`Hapus modul ${item.title}`}
-                        title="Hapus modul"
-                        className="shrink-0 rounded-xl border border-[#341D17]/12 bg-[#FFFDF9] hover:border-[#802924] hover:bg-[#802924] hover:text-[#FFFDF9] p-2 text-[#802924] transition cursor-pointer"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditModule(item);
+                          }}
+                          aria-label={`Edit materi ${item.title}`}
+                          title="Edit materi"
+                          className="rounded-xl border border-[#341D17]/12 bg-[#FFFDF9] p-2 text-[#802924] transition hover:border-[#802924] hover:bg-[#802924] hover:text-[#FFFDF9]"
+                        >
+                          <FaPenToSquare className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={(e) => handleDeleteModule(e, item)}
+                          aria-label={`Hapus modul ${item.title}`}
+                          title="Hapus modul"
+                          className="rounded-xl border border-[#341D17]/12 bg-[#FFFDF9] p-2 text-[#802924] transition hover:border-[#802924] hover:bg-[#802924] hover:text-[#FFFDF9] disabled:opacity-50"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     {isExpanded && (
@@ -810,22 +820,57 @@ export default function ContentManagementClient({
         </div>
       )}
 
-      {/* KARTU BAWAH: EDITOR EDIT / TAMBAH MODUL */}
-      <section className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/10 p-5 sm:p-6 shadow-2xs space-y-4">
+      {isEditorOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="teacher-module-editor-title"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) handleCloseEditor();
+          }}
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-[#341D17]/50 p-4 backdrop-blur-sm"
+        >
+          <section
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border border-[#341D17]/10 bg-[#FFFDF9] p-5 shadow-2xl sm:p-6"
+          >
         <div className="flex items-center justify-between gap-2">
           <div>
             <span className="block text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
-              EDITOR MATERI AKTIF
+              {editingItem ? 'EDIT MATERI' : 'TAMBAH MATERI'}
             </span>
-            <h2 className="font-editorial text-xl font-bold text-[#341D17]">
+            <h2
+              id="teacher-module-editor-title"
+              className="font-editorial text-xl font-bold text-[#341D17]"
+            >
               {editingItem ? `Edit: ${editingItem.title}` : 'Modul Pembelajaran Baru'}
             </h2>
           </div>
 
-          <span className="rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] px-3 py-1 text-[11px] font-bold text-[#341D17]/75">
-            Order Index: {sortOrderInput || safeContents.length + 1}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] px-3 py-1 text-[11px] font-bold text-[#341D17]/75">
+              Order Index: {sortOrderInput || safeContents.length + 1}
+            </span>
+            <button
+              type="button"
+              onClick={handleCloseEditor}
+              disabled={saving || uploadingVideo}
+              aria-label="Tutup editor materi"
+              className="rounded-xl border border-[#341D17]/12 bg-[#FFFDF9] p-2 text-[#341D17]/65 transition hover:bg-[#FAF6F0] disabled:opacity-50"
+            >
+              <FaXmark className="h-4 w-4" />
+            </button>
+          </div>
         </div>
+
+        {feedback && (
+          <div
+            role="status"
+            className="rounded-2xl border border-[#341D17]/15 bg-[#FAF6F0] px-4 py-2.5 text-xs font-bold text-[#802924]"
+          >
+            {feedback}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2 space-y-1.5">
@@ -833,6 +878,7 @@ export default function ContentManagementClient({
               JUDUL MATERI
             </label>
             <input
+              ref={moduleTitleInputRef}
               type="text"
               value={moduleTitle}
               onChange={(e) => setModuleTitle(e.target.value)}
@@ -935,7 +981,9 @@ export default function ContentManagementClient({
             {editingItem ? 'Simpan Perubahan Modul' : 'Terbitkan Modul'}
           </button>
         </div>
-      </section>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

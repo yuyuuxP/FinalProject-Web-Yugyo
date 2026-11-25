@@ -4,45 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
   FaStar,
-  FaPlay,
-  FaClipboardCheck,
   FaCheck,
   FaCircleDot,
 } from 'react-icons/fa6';
 
-const DAYS_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-const MONTHS_ID = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'Mei',
-  'Jun',
-  'Jul',
-  'Agu',
-  'Sep',
-  'Okt',
-  'Nov',
-  'Des',
-];
-
-function formatSessionDate(rawDate) {
-  if (!rawDate) return 'Hari Ini';
-  const parsed = new Date(rawDate);
-  if (Number.isNaN(parsed.getTime())) {
-    return String(rawDate);
-  }
-  const dayName = DAYS_ID[parsed.getDay()];
-  const dateNum = String(parsed.getDate()).padStart(2, '0');
-  const monthName = MONTHS_ID[parsed.getMonth()];
-  const year = parsed.getFullYear();
-  return `${dayName}, ${dateNum} ${monthName} ${year}`;
-}
-
 export default function TeacherDashboardClient({
   teacher,
   stats,
-  upcomingSession,
   courses = [],
   discussions = [],
 }) {
@@ -62,10 +30,6 @@ export default function TeacherDashboardClient({
   const visibleDiscussions = showAllDiscussions
     ? discussions
     : discussions.slice(0, 2);
-
-  const formattedSessionSchedule = upcomingSession?.session_time
-    ? `${formatSessionDate(upcomingSession.session_date)} • ${upcomingSession.session_time}`
-    : 'Hari Ini • 15:00 WITA';
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 text-[#341D17] pb-6">
@@ -179,48 +143,6 @@ export default function TeacherDashboardClient({
         </div>
       </div>
 
-      {/* BANNER JADWAL LIVE SESI MENDATANG */}
-      <div className="rounded-3xl bg-[#802924] text-[#FFFDF9] p-5 sm:p-6 shadow-md space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-2 rounded-full bg-[#341D17]/55 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#F9DDBB]">
-            <span className="h-2 w-2 rounded-full bg-[#82882B]" />
-            <span>JADWAL LIVE SESI MENDATANG (DATABASE SYNC)</span>
-          </span>
-          <span className="rounded-full bg-[#FFFDF9]/12 px-3 py-1 text-xs font-bold text-[#F9DDBB]">
-            {formattedSessionSchedule}
-          </span>
-        </div>
-
-        <div className="space-y-1">
-          <h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#FFFDF9]">
-            {upcomingSession?.title
-              ? `Sesi Mentoring & Troubleshooting: ${upcomingSession.title}`
-              : 'Sesi Mentoring & Troubleshooting: Madeleine Lemon Cake'}
-          </h2>
-          <p className="text-xs sm:text-sm text-[#F9DDBB]/85">
-            {upcomingSession?.notes ||
-              'Koreksi teknik dan evaluasi modul pastry bersama kohort siswa Anda hari ini.'}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5 pt-1">
-          <Link
-            href="/dashboard/teacher/schedule"
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#FFFDF9] hover:bg-[#F9DDBB] px-5 py-2.5 text-xs font-extrabold text-[#341D17] shadow-2xs transition"
-          >
-            <FaPlay className="w-3 h-3 shrink-0" />
-            <span>Mulai Sesi Live</span>
-          </Link>
-          <Link
-            href="/dashboard/teacher/schedule"
-            className="inline-flex items-center gap-2 rounded-2xl border border-[#F9DDBB]/30 bg-[#661F1B] hover:bg-[#341D17] px-5 py-2.5 text-xs font-bold text-[#F9DDBB] transition"
-          >
-            <FaClipboardCheck className="w-3.5 h-3.5 shrink-0" />
-            <span>Cek Presensi Kohort</span>
-          </Link>
-        </div>
-      </div>
-
       {/* KURSUS YANG DIAJARKAN */}
       <section className="space-y-4 pt-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -304,7 +226,7 @@ export default function TeacherDashboardClient({
                         Lihat Progres Siswa
                       </Link>
                       <Link
-                        href={`/dashboard/teacher/courses/${course.id}/contents`}
+                        href={`/dashboard/teacher/contents?courseId=${course.id}`}
                         className="rounded-full bg-[#FFFDF9]/90 hover:bg-[#F9DDBB] px-4 py-2 text-xs font-extrabold text-[#341D17] transition"
                       >
                         Kelola Materi

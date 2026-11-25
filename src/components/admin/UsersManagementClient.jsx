@@ -7,10 +7,8 @@ import AdminDeleteConfirmModal from '@/components/admin/AdminDeleteConfirmModal'
 import {
   FaUsers,
   FaGraduationCap,
-  FaClipboardList,
   FaUtensils,
   FaPlus,
-  FaUserPen,
   FaCheck,
   FaXmark,
   FaPenToSquare,
@@ -51,18 +49,60 @@ function isAdminUser(user) {
   return String(user?.role || '').trim().toLowerCase() === 'admin';
 }
 
+function hasTeacherProfile(user) {
+  return [
+    user?.specialty,
+    user?.portfolio_url,
+    user?.portfolio_file_path,
+    user?.portfolio_file_name,
+  ].some((value) => String(value || '').trim() !== '');
+}
+
 function isTeacherUser(user) {
   const r = String(user?.role || '').trim().toLowerCase();
-  return r === 'teacher' || r === 'instructor' || r === 'guru';
+  return (
+    r === 'teacher' ||
+    r === 'instructor' ||
+    r === 'guru' ||
+    hasTeacherProfile(user)
+  );
 }
 
 function isStudentUser(user) {
   const r = String(user?.role || '').trim().toLowerCase();
-  return r === 'student' || r === 'siswa';
+  return (r === 'student' || r === 'siswa') && !hasTeacherProfile(user);
 }
 
 function isPendingStatus(user) {
   return String(user?.status || 'active').trim().toLowerCase() === 'pending';
+}
+
+function isActiveStatus(user) {
+  return String(user?.status || 'active').trim().toLowerCase() === 'active';
+}
+
+function matchesUserSearch(user, query) {
+  const search = query.trim().toLowerCase();
+  if (!search) return true;
+
+  return [
+    getUserDisplayName(user),
+    user.email || '',
+    user.specialty || '',
+    user.role || '',
+  ]
+    .join(' ')
+    .toLowerCase()
+    .includes(search);
+}
+
+function getSafePortfolioUrl(rawUrl) {
+  try {
+    const url = new URL(String(rawUrl || ''));
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch {
+    return '';
+  }
 }
 
 function extractArrayCandidate(val) {
@@ -103,7 +143,7 @@ export default function UsersManagementClient(props = {}) {
   const [userOverrides, setUserOverrides] = useState({});
   const [deletedIds, setDeletedIds] = useState(() => new Set());
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [activeFilter, setActiveFilter] = useState('teacher');
   const [editingUser, setEditingUser] = useState(null);
   const [usernameInput, setUsernameInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
@@ -113,6 +153,7 @@ export default function UsersManagementClient(props = {}) {
   const [saving, setSaving] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     if (propSeedUsers.length > 0) return;
@@ -145,105 +186,58 @@ export default function UsersManagementClient(props = {}) {
       .filter((u) => !isAdminUser(u));
   }, [propSeedUsers, fetchedUsers, userOverrides, deletedIds]);
 
-  const allTeachers = useMemo(
-    () => nonAdminUsers.filter((u) => isTeacherUser(u)),
+  const activeUsers = useMemo(
+    () => nonAdminUsers.filter((user) => isActiveStatus(user)),
     [nonAdminUsers]
   );
 
   const pendingTeachers = useMemo(
-    () => allTeachers.filter((u) => isPendingStatus(u)),
-    [allTeachers]
-  );
-
-  const studentsList = useMemo(
-    () => nonAdminUsers.filter((u) => isStudentUser(u)),
-    [nonAdminUsers]
+    () =>
+      nonAdminUsers.filter(
+        (user) =>
+          isPendingStatus(user) &&
+          isTeacherUser(user) &&
+          matchesUserSearch(user, searchQuery)
+      ),
+    [nonAdminUsers, searchQuery]
   );
 
   const pendingStudents = useMemo(
-    () => studentsList.filter((u) => isPendingStatus(u)),
-    [studentsList]
+    () =>
+      nonAdminUsers.filter(
+        (user) =>
+          isPendingStatus(user) &&
+          isStudentUser(user) &&
+          matchesUserSearch(user, searchQuery)
+      ),
+    [nonAdminUsers, searchQuery]
   );
 
-  const totalPendingCount = pendingTeachers.length + pendingStudents.length;
+  const allTeachers = useMemo(
+    () => activeUsers.filter((user) => isTeacherUser(user)),
+    [activeUsers]
+  );
+
+  const studentsList = useMemo(
+    () => activeUsers.filter((user) => isStudentUser(user)),
+    [activeUsers]
+  );
 
   const filteredUsers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
 
-    return nonAdminUsers.filter((u) => {
-      if (isAdminUser(u)) return false;
-
-      if (activeFilter === 'pending_chef') {
-        if (!isTeacherUser(u) || !isPendingStatus(u)) return false;
-      } else if (activeFilter === 'pending_student') {
-        if (!isStudentUser(u) || !isPendingStatus(u)) return false;
-      } else if (activeFilter === 'teacher' && !isTeacherUser(u)) {
+    return activeUsers.filter((user) => {
+      if (activeFilter === 'teacher' && !isTeacherUser(user)) {
         return false;
-      } else if (activeFilter === 'student' && !isStudentUser(u)) {
+      } else if (activeFilter === 'student' && !isStudentUser(user)) {
         return false;
-      } else if (activeFilter === 'admin') {
+      } else if (activeFilter !== 'teacher' && activeFilter !== 'student') {
         return false;
       }
 
-      if (!q) return true;
-      const hay = [
-        getUserDisplayName(u),
-        u.email || '',
-        u.specialty || '',
-        u.role || '',
-      ]
-        .join(' ')
-        .toLowerCase();
-
-      return hay.includes(q);
+      return matchesUserSearch(user, q);
     });
-  }, [nonAdminUsers, searchQuery, activeFilter]);
-
-  const handleActivatePendingUser = async (user) => {
-    if (!user || isAdminUser(user) || actionLoadingId) return;
-    setActionLoadingId(user.id);
-    try {
-      const res = await fetch(`/api/admin/users/${user.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'active' }),
-      });
-      if (res.ok) {
-        setUserOverrides((prev) => ({
-          ...prev,
-          [String(user.id)]: { ...(prev[String(user.id)] || {}), status: 'active' },
-        }));
-        router.refresh();
-      }
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
-  const handleRejectPendingUser = async (user) => {
-    if (!user || isAdminUser(user) || actionLoadingId) return;
-    setDeleteConfirm({ user, mode: 'reject' });
-  };
-
-  const executeRejectPendingUser = async (user) => {
-    setActionLoadingId(user.id);
-    try {
-      const res = await fetch(`/api/admin/users/${user.id}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
-        setDeletedIds((prev) => {
-          const next = new Set(prev);
-          next.add(String(user.id));
-          return next;
-        });
-        router.refresh();
-      }
-    } finally {
-      setActionLoadingId(null);
-      setDeleteConfirm(null);
-    }
-  };
+  }, [activeUsers, searchQuery, activeFilter]);
 
   const openEditModal = (user) => {
     if (!user || isAdminUser(user)) return;
@@ -306,7 +300,42 @@ export default function UsersManagementClient(props = {}) {
 
   const handleDeleteUser = async (user) => {
     if (!user || isAdminUser(user)) return;
-    setDeleteConfirm({ user, mode: 'delete' });
+    setActionError('');
+    setDeleteConfirm(user);
+  };
+
+  const handleApprovePendingUser = async (user) => {
+    if (!user || !isPendingStatus(user) || isAdminUser(user)) return;
+
+    setActionError('');
+    setActionLoadingId(user.id);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setActionError(data.message || 'Gagal menyetujui akun.');
+        return;
+      }
+
+      setUserOverrides((prev) => ({
+        ...prev,
+        [String(user.id)]: {
+          ...(prev[String(user.id)] || {}),
+          status: 'active',
+        },
+      }));
+      router.refresh();
+    } catch (error) {
+      console.error('Error approving pending user:', error);
+      setActionError('Tidak dapat menghubungi server untuk menyetujui akun.');
+    } finally {
+      setActionLoadingId(null);
+    }
   };
 
   const executeDeleteUser = async (user) => {
@@ -315,14 +344,22 @@ export default function UsersManagementClient(props = {}) {
       const res = await fetch(`/api/admin/users/${user.id}`, {
         method: 'DELETE',
       });
-      if (res.ok) {
-        setDeletedIds((prev) => {
-          const next = new Set(prev);
-          next.add(String(user.id));
-          return next;
-        });
-        router.refresh();
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setActionError(data.message || 'Gagal menghapus akun.');
+        return;
       }
+
+      setDeletedIds((prev) => {
+        const next = new Set(prev);
+        next.add(String(user.id));
+        return next;
+      });
+      router.refresh();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      setActionError('Tidak dapat menghubungi server untuk menghapus akun.');
     } finally {
       setActionLoadingId(null);
       setDeleteConfirm(null);
@@ -339,10 +376,10 @@ export default function UsersManagementClient(props = {}) {
             <span>DIREKTORI CIVITAS ATELIER</span>
           </span>
           <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
-            Kelola Akses Siswa &amp; Verifikasi Pengajar
+            Kelola Akun Pengguna
           </h1>
           <p className="text-xs sm:text-sm text-[#341D17]/65">
-            Kurasi instruktur berkualifikasi maestro pastry dan monitor seluruh pengguna ekosistem Yugyo.
+            Setujui akun baru dan kelola daftar pengguna aktif.
           </p>
         </div>
 
@@ -356,14 +393,14 @@ export default function UsersManagementClient(props = {}) {
       </div>
 
       {/* PANEL STATISTIK RINGKAS (SEMUA PUTIH DENGAN PEMISAH) */}
-      <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#341D17]/12 overflow-hidden">
+      <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[#341D17]/12 overflow-hidden">
         <div className="bg-[#FFFDF9] p-4 sm:p-5 flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/55">
-              TOTAL PENGGUNA
+              TOTAL PENGGUNA AKTIF
             </p>
             <p className="text-xl sm:text-2xl font-extrabold text-[#341D17] mt-1">
-              {nonAdminUsers.length}
+              {activeUsers.length}
             </p>
           </div>
           <span className="w-8 h-8 rounded-lg bg-[#FFFDF9] border border-[#341D17]/10 text-[#802924] flex items-center justify-center shrink-0">
@@ -382,21 +419,6 @@ export default function UsersManagementClient(props = {}) {
           </div>
           <span className="w-8 h-8 rounded-lg bg-[#FFFDF9] border border-[#341D17]/10 text-[#341D17] flex items-center justify-center shrink-0">
             <FaGraduationCap className="w-4 h-4" />
-          </span>
-        </div>
-
-        <div className="bg-[#FFFDF9] p-4 sm:p-5 flex items-center justify-between gap-3 border-t lg:border-t-0 border-[#341D17]/12">
-          <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/55">
-              MENUNGGU PENDING
-            </p>
-            <p className="text-xl sm:text-2xl font-extrabold text-[#341D17] mt-1 flex items-center gap-1.5">
-              <span>{totalPendingCount}</span>
-              <span className="w-2 h-2 rounded-full bg-[#EA580C] inline-block" />
-            </p>
-          </div>
-          <span className="w-8 h-8 rounded-lg bg-[#FFFDF9] border border-[#341D17]/10 text-[#802924] flex items-center justify-center shrink-0">
-            <FaClipboardList className="w-4 h-4" />
           </span>
         </div>
 
@@ -430,48 +452,6 @@ export default function UsersManagementClient(props = {}) {
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <button
           type="button"
-          onClick={() => setActiveFilter('all')}
-          className={`rounded-full px-3.5 py-1 font-bold transition cursor-pointer ${
-            activeFilter === 'all'
-              ? 'bg-[#802924] text-[#FFFDF9]'
-              : 'bg-[#FFFDF9] border border-[#341D17]/12 text-[#341D17]/75 hover:bg-[#FAF6F0]'
-          }`}
-        >
-          Semua ({nonAdminUsers.length})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveFilter('pending_chef')}
-          className={`rounded-full px-3.5 py-1 font-bold transition cursor-pointer inline-flex items-center gap-1.5 ${
-            activeFilter === 'pending_chef'
-              ? 'bg-[#802924] text-[#FFFDF9]'
-              : 'bg-[#FFFDF9] border border-[#341D17]/12 text-[#341D17]/75 hover:bg-[#FAF6F0]'
-          }`}
-        >
-          <span>Pending Chef</span>
-          <span className="rounded-full bg-[#F9DDBB] px-1.5 py-0.5 text-[10px] font-extrabold text-[#802924]">
-            {pendingTeachers.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveFilter('pending_student')}
-          className={`rounded-full px-3.5 py-1 font-bold transition cursor-pointer inline-flex items-center gap-1.5 ${
-            activeFilter === 'pending_student'
-              ? 'bg-[#802924] text-[#FFFDF9]'
-              : 'bg-[#FFFDF9] border border-[#341D17]/12 text-[#341D17]/75 hover:bg-[#FAF6F0]'
-          }`}
-        >
-          <span>Pending Student</span>
-          <span className="rounded-full bg-[#F9DDBB] px-1.5 py-0.5 text-[10px] font-extrabold text-[#802924]">
-            {pendingStudents.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
           onClick={() => setActiveFilter('teacher')}
           className={`rounded-full px-3.5 py-1 font-bold transition cursor-pointer ${
             activeFilter === 'teacher'
@@ -479,7 +459,7 @@ export default function UsersManagementClient(props = {}) {
               : 'bg-[#FFFDF9] border border-[#341D17]/12 text-[#341D17]/75 hover:bg-[#FAF6F0]'
           }`}
         >
-          Instruktur Chef ({allTeachers.length})
+          Instruktur ({allTeachers.length})
         </button>
 
         <button
@@ -493,174 +473,216 @@ export default function UsersManagementClient(props = {}) {
         >
           Siswa ({studentsList.length})
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveFilter('pending_teacher')}
+          className={`rounded-full px-3.5 py-1 font-bold transition cursor-pointer ${
+            activeFilter === 'pending_teacher'
+              ? 'bg-[#802924] text-[#FFFDF9]'
+              : 'bg-[#FFFDF9] border border-[#341D17]/12 text-[#341D17]/75 hover:bg-[#FAF6F0]'
+          }`}
+        >
+          Pending Chef ({pendingTeachers.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveFilter('pending_student')}
+          className={`rounded-full px-3.5 py-1 font-bold transition cursor-pointer ${
+            activeFilter === 'pending_student'
+              ? 'bg-[#802924] text-[#FFFDF9]'
+              : 'bg-[#FFFDF9] border border-[#341D17]/12 text-[#341D17]/75 hover:bg-[#FAF6F0]'
+          }`}
+        >
+          Pending Siswa ({pendingStudents.length})
+        </button>
       </div>
 
-      {/* DAFTAR PENDING CHEF (TEACHER BERSTATUS PENDING) */}
-      {pendingTeachers.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="font-editorial text-lg font-bold text-[#341D17] flex items-center gap-2">
-              <FaUserPen className="w-4 h-4 text-[#802924] shrink-0" />
-              <span>Pending Chef &bull; Verifikasi Calon Pengajar</span>
-            </h2>
-            <span className="rounded-md bg-[#802924] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#FFFDF9]">
-              PENDING CHEF ({pendingTeachers.length})
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {pendingTeachers.map((cand) => {
-              const displayName = getUserDisplayName(cand);
-              return (
-                <div
-                  key={cand.id}
-                  className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 sm:p-5 space-y-4 shadow-2xs"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-[#802924] text-[#FFFDF9] flex items-center justify-center text-sm font-extrabold shrink-0">
-                        {String(displayName || 'P').charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0 space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm sm:text-base font-bold text-[#341D17] truncate">
-                            {displayName}
-                          </p>
-                          <span className="rounded-md bg-[#802924] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#FFFDF9]">
-                            PENDING CHEF
-                          </span>
-                        </div>
-                        <p className="text-xs text-[#341D17]/65 truncate">
-                          Spesialisasi: {cand.specialty || 'Atelier Baking'}
-                        </p>
-                        <p className="text-xs text-[#341D17]/55 truncate">
-                          {cand.email}
-                        </p>
-                      </div>
-                    </div>
-
-                    <span className="text-[11px] text-[#341D17]/45 shrink-0">
-                      Diajukan baru-baru ini
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-                    <button
-                      type="button"
-                      disabled={actionLoadingId === cand.id}
-                      onClick={() => handleActivatePendingUser(cand)}
-                      className="sm:col-span-3 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#5C6B2E] hover:bg-[#4B5824] py-2.5 px-4 text-xs sm:text-sm font-bold text-white transition cursor-pointer disabled:opacity-60"
-                    >
-                      <FaCheck className="w-3.5 h-3.5 shrink-0" />
-                      <span>Setujui Pengajar</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={actionLoadingId === cand.id}
-                      onClick={() => handleRejectPendingUser(cand)}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#FAF6F0] py-2.5 px-4 text-xs sm:text-sm font-bold text-[#341D17]/80 transition cursor-pointer disabled:opacity-60"
-                    >
-                      <FaXmark className="w-3.5 h-3.5 shrink-0" />
-                      <span>Tolak</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      {actionError && (
+        <p
+          role="alert"
+          className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          {actionError}
+        </p>
       )}
 
-      {/* DAFTAR PENDING STUDENT (STUDENT BERSTATUS PENDING) */}
-      {pendingStudents.length > 0 && (
-        <div className="space-y-3">
+      {/* ANTREAN AKUN PENDING */}
+      <div className="space-y-5">
+        <section
+          className={`space-y-3 ${
+            activeFilter === 'pending_teacher' ? '' : 'hidden'
+          }`}
+        >
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-editorial text-lg font-bold text-[#341D17] flex items-center gap-2">
-              <FaGraduationCap className="w-4 h-4 text-[#802924] shrink-0" />
-              <span>Pending Student &bull; Antrean Status Siswa</span>
+            <h2 className="font-editorial text-lg font-bold text-[#341D17]">
+              Pending Chef
             </h2>
-            <span className="rounded-md bg-[#802924] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#FFFDF9]">
-              PENDING STUDENT ({pendingStudents.length})
+            <span className="rounded-full bg-[#F9DDBB] px-2.5 py-1 text-xs font-extrabold text-[#802924]">
+              {pendingTeachers.length}
             </span>
           </div>
+          {pendingTeachers.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-[#341D17]/20 bg-[#FFFDF9]/70 p-4 text-sm text-[#341D17]/55">
+              Tidak ada akun teacher yang menunggu persetujuan.
+            </p>
+          ) : (
+            pendingTeachers.map((user) => {
+              const displayName = getUserDisplayName(user);
+              const portfolioUrl = getSafePortfolioUrl(user.portfolio_url);
 
-          <div className="space-y-3">
-            {pendingStudents.map((stu) => {
-              const displayName = getUserDisplayName(stu);
               return (
-                <div
-                  key={stu.id}
-                  className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 sm:p-5 space-y-4 shadow-2xs"
+                <article
+                  key={user.id}
+                  className="space-y-3 rounded-2xl border border-[#341D17]/12 bg-[#FFFDF9] p-4"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-[#802924] text-[#FFFDF9] flex items-center justify-center text-sm font-extrabold shrink-0">
-                        {String(displayName || 'S').charAt(0).toUpperCase()}
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-[#341D17]">
+                      {displayName}
+                    </p>
+                    <p className="truncate text-xs text-[#341D17]/60">
+                      {user.email}
+                    </p>
+                    <p className="text-xs text-[#341D17]/60">
+                      Spesialisasi: {user.specialty || 'Belum diisi'}
+                    </p>
+                    {(portfolioUrl || user.portfolio_file_path) && (
+                      <div className="mt-1 flex flex-wrap gap-3 text-xs font-semibold">
+                        {portfolioUrl && (
+                          <a
+                            href={portfolioUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[#802924] underline underline-offset-2"
+                          >
+                            Lihat portofolio
+                          </a>
+                        )}
+                        {user.portfolio_file_path && (
+                          <a
+                            href={`/api/admin/users/${user.id}/portfolio`}
+                            className="text-[#802924] underline underline-offset-2"
+                          >
+                            Unduh {user.portfolio_file_name || 'CV/portofolio'}
+                          </a>
+                        )}
                       </div>
-                      <div className="min-w-0 space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm sm:text-base font-bold text-[#341D17] truncate">
-                            {displayName}
-                          </p>
-                          <span className="rounded-md bg-[#F9DDBB]/85 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
-                            PENDING STUDENT
-                          </span>
-                        </div>
-                        <p className="text-xs text-[#341D17]/55 truncate">
-                          {stu.email}
-                        </p>
-                      </div>
-                    </div>
-
-                    <span className="text-[11px] text-[#341D17]/45 shrink-0">
-                      Status: pending
-                    </span>
+                    )}
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                  <div className="flex gap-2">
                     <button
                       type="button"
-                      disabled={actionLoadingId === stu.id}
-                      onClick={() => handleActivatePendingUser(stu)}
-                      className="sm:col-span-3 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#5C6B2E] hover:bg-[#4B5824] py-2.5 px-4 text-xs sm:text-sm font-bold text-white transition cursor-pointer disabled:opacity-60"
+                      disabled={actionLoadingId === user.id}
+                      onClick={() => handleApprovePendingUser(user)}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#5C6B2E] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#4B5824] disabled:opacity-60"
                     >
-                      <FaCheck className="w-3.5 h-3.5 shrink-0" />
-                      <span>Aktifkan Siswa</span>
+                      <FaCheck className="h-3.5 w-3.5" />
+                      {actionLoadingId === user.id ? 'Memproses...' : 'Setujui'}
                     </button>
-
                     <button
                       type="button"
-                      disabled={actionLoadingId === stu.id}
-                      onClick={() => handleRejectPendingUser(stu)}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#FAF6F0] py-2.5 px-4 text-xs sm:text-sm font-bold text-[#341D17]/80 transition cursor-pointer disabled:opacity-60"
+                      disabled={actionLoadingId === user.id}
+                      onClick={() => handleDeleteUser(user)}
+                      className="rounded-xl border border-[#341D17]/15 px-3 py-2 text-xs font-bold text-[#802924] transition hover:bg-[#FAF6F0] disabled:opacity-60"
                     >
-                      <FaXmark className="w-3.5 h-3.5 shrink-0" />
-                      <span>Hapus</span>
+                      Tolak
                     </button>
                   </div>
-                </div>
+                </article>
               );
-            })}
-          </div>
-        </div>
-      )}
+            })
+          )}
+        </section>
 
-      {/* DAFTAR SELURUH PENGGUNA (TANPA AKUN ADMIN) */}
-      <div className="space-y-3 pt-1">
+        <section
+          className={`space-y-3 ${
+            activeFilter === 'pending_student' ? '' : 'hidden'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-editorial text-lg font-bold text-[#341D17]">
+              Pending Siswa
+            </h2>
+            <span className="rounded-full bg-[#F9DDBB] px-2.5 py-1 text-xs font-extrabold text-[#802924]">
+              {pendingStudents.length}
+            </span>
+          </div>
+          {pendingStudents.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-[#341D17]/20 bg-[#FFFDF9]/70 p-4 text-sm text-[#341D17]/55">
+              Tidak ada akun siswa yang menunggu persetujuan.
+            </p>
+          ) : (
+            pendingStudents.map((user) => {
+              const displayName = getUserDisplayName(user);
+
+              return (
+                <article
+                  key={user.id}
+                  className="space-y-3 rounded-2xl border border-[#341D17]/12 bg-[#FFFDF9] p-4"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-[#341D17]">
+                      {displayName}
+                    </p>
+                    <p className="truncate text-xs text-[#341D17]/60">
+                      {user.email}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={actionLoadingId === user.id}
+                      onClick={() => handleApprovePendingUser(user)}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#5C6B2E] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#4B5824] disabled:opacity-60"
+                    >
+                      <FaCheck className="h-3.5 w-3.5" />
+                      {actionLoadingId === user.id ? 'Memproses...' : 'Setujui'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoadingId === user.id}
+                      onClick={() => handleDeleteUser(user)}
+                      className="rounded-xl border border-[#341D17]/15 px-3 py-2 text-xs font-bold text-[#802924] transition hover:bg-[#FAF6F0] disabled:opacity-60"
+                    >
+                      Tolak
+                    </button>
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </section>
+      </div>
+
+      {/* DAFTAR PENGGUNA AKTIF */}
+      <div
+        className={`space-y-3 pt-1 ${
+          activeFilter === 'teacher' || activeFilter === 'student'
+            ? ''
+            : 'hidden'
+        }`}
+      >
         <div>
           <h2 className="font-editorial text-lg font-bold text-[#341D17]">
-            Daftar Seluruh Pengguna
+            {activeFilter === 'teacher'
+              ? 'Daftar Instruktur Aktif'
+              : 'Daftar Siswa Aktif'}
           </h2>
           <p className="text-xs text-[#341D17]/55">
-            Sinkronisasi langsung dengan sistem otentikasi
+            Hanya menampilkan akun dengan status aktif
           </p>
         </div>
 
         <div className="space-y-3">
-          {filteredUsers.map((user) => {
-            const roleLabel = String(user.role || 'TEACHER').toUpperCase();
-            const pending = isPendingStatus(user);
+          {filteredUsers.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-[#341D17]/20 bg-[#FFFDF9]/70 p-4 text-sm text-[#341D17]/55">
+              Tidak ada akun yang sesuai dengan kategori atau pencarian.
+            </p>
+          ) : filteredUsers.map((user) => {
+            const roleLabel = isTeacherUser(user)
+              ? 'TEACHER'
+              : String(user.role || 'STUDENT').toUpperCase();
             const displayName = getUserDisplayName(user);
 
             return (
@@ -681,11 +703,6 @@ export default function UsersManagementClient(props = {}) {
                       <span className="rounded-md bg-[#F9DDBB]/75 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
                         {roleLabel}
                       </span>
-                      {pending && (
-                        <span className="rounded-md bg-[#802924] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#FFFDF9]">
-                          {isTeacherUser(user) ? 'PENDING CHEF' : 'PENDING STUDENT'}
-                        </span>
-                      )}
                     </div>
 
                     <p className="text-xs text-[#341D17]/60 truncate">
@@ -842,26 +859,22 @@ export default function UsersManagementClient(props = {}) {
       <AdminDeleteConfirmModal
         open={Boolean(deleteConfirm)}
         title={
-          deleteConfirm?.mode === 'reject'
+          isPendingStatus(deleteConfirm)
             ? 'Tolak Pengajuan Akun'
             : 'Hapus Pengguna'
         }
         message={
           deleteConfirm
-            ? deleteConfirm.mode === 'reject'
-              ? `Tolak dan hapus pengajuan akun "${getUserDisplayName(deleteConfirm.user)}"? Tindakan ini tidak dapat dibatalkan.`
-              : `Hapus pengguna "${getUserDisplayName(deleteConfirm.user)}" dari sistem? Tindakan ini tidak dapat dibatalkan.`
+            ? isPendingStatus(deleteConfirm)
+              ? `Tolak dan hapus pengajuan akun "${getUserDisplayName(deleteConfirm)}"? Tindakan ini tidak dapat dibatalkan.`
+              : `Hapus pengguna "${getUserDisplayName(deleteConfirm)}" dari sistem? Tindakan ini tidak dapat dibatalkan.`
             : ''
         }
-        loading={Boolean(deleteConfirm && actionLoadingId === deleteConfirm.user.id)}
+        loading={Boolean(deleteConfirm && actionLoadingId === deleteConfirm.id)}
         onCancel={() => !actionLoadingId && setDeleteConfirm(null)}
         onConfirm={() => {
           if (!deleteConfirm) return;
-          if (deleteConfirm.mode === 'reject') {
-            executeRejectPendingUser(deleteConfirm.user);
-          } else {
-            executeDeleteUser(deleteConfirm.user);
-          }
+          executeDeleteUser(deleteConfirm);
         }}
       />
     </div>

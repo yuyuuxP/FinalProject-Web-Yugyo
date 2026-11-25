@@ -151,12 +151,13 @@ export default async function CreateCoursePage() {
 
             <div className="space-y-1.5">
               <label className="block text-xs font-extrabold uppercase text-[#341D17]">
-                Foto Profil / Cover Kursus
+                Foto Profil / Cover Kursus (Wajib)
               </label>
               <input
                 type="file"
                 name="image_file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                required
                 className="w-full bg-[#FFFDF9] border border-[#341D17]/20 rounded-2xl px-3 py-2 text-xs text-[#341D17] file:mr-3 file:py-1 file:px-2.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#802924] file:text-[#F9DDBB] hover:file:bg-[#661F1B] transition shadow-2xs cursor-pointer"
               />
             </div>

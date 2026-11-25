@@ -85,7 +85,7 @@ function buildCourseDetailHref(course) {
   if (course.category) {
     params.set('category', course.category);
   }
-  return `/dashboard/student/courses?${params.toString()}#silabus-kurikulum`;
+  return `/dashboard/student/courses?${params.toString()}`;
 }
 
 function normalizeCourse(row, idx = 0) {

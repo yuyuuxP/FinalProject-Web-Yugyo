@@ -73,7 +73,6 @@ export default async function TeacherDashboardPage() {
 
   let courses = [];
   let discussions = [];
-  let upcomingSession = null;
   let stats = {
     totalStudents: 0,
     totalCourses: 0,
@@ -138,26 +137,6 @@ export default async function TeacherDashboardPage() {
       [teacher.id]
     );
 
-    const sessionRes = await pool.query(
-      `SELECT
-        cs.id,
-        cs.title,
-        cs.notes,
-        cs.session_date,
-        cs.session_time,
-        cs.location_label,
-        c.title AS course_title
-       FROM course_sessions cs
-       INNER JOIN courses c ON c.id = cs.course_id
-       WHERE c.instructor_id = $1
-         AND COALESCE(cs.status, 'scheduled') = 'scheduled'
-         AND COALESCE(cs.is_done, FALSE) = FALSE
-       ORDER BY cs.session_date ASC, cs.id ASC
-       LIMIT 1;`,
-      [teacher.id]
-    );
-    upcomingSession = sessionRes.rows[0] || null;
-
     const discussionsRes = await pool.query(
       `SELECT
         ct.id,
@@ -205,7 +184,6 @@ export default async function TeacherDashboardPage() {
     <TeacherDashboardClient
       teacher={teacher}
       stats={stats}
-      upcomingSession={upcomingSession}
       courses={courses}
       discussions={discussions}
     />

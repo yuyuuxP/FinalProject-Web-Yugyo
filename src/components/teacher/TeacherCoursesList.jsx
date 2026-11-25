@@ -128,7 +128,7 @@ export default function TeacherCoursesList({ courses = [] }) {
                 </Link>
 
                 <Link
-                  href={`/dashboard/teacher/courses/${course.id}/modules`}
+                  href={`/dashboard/teacher/contents?courseId=${course.id}`}
                   className="rounded-xl border border-[#341D17]/20 bg-[#FFFDF9]/95 hover:bg-[#F9DDBB] px-3.5 py-2 text-xs font-bold text-[#341D17] shadow-xs transition"
                 >
                   Kelola Materi

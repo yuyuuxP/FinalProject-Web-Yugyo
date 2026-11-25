@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { deleteInstructorPortfolio } from '@/lib/instructorPortfolioStorage';
 
 async function getTableColumns(tableName) {
   const res = await pool.query(
@@ -171,8 +172,15 @@ export async function DELETE(request, { params }) {
       );
     }
 
+    const userCols = await getTableColumns('users');
+    const portfolioFileExpr = userCols.has('portfolio_file_path')
+      ? 'portfolio_file_path'
+      : 'NULL::text AS portfolio_file_path';
     const existingRes = await pool.query(
-      `SELECT id, role FROM users WHERE id = $1 LIMIT 1;`,
+      `SELECT id, role, ${portfolioFileExpr}
+       FROM users
+       WHERE id = $1
+       LIMIT 1;`,
       [numericId]
     );
 
@@ -195,8 +203,25 @@ export async function DELETE(request, { params }) {
 
     await pool.query(`DELETE FROM users WHERE id = $1;`, [numericId]);
 
+    let cleanupFailed = false;
+    if (existingRes.rows[0].portfolio_file_path) {
+      try {
+        await deleteInstructorPortfolio(
+          existingRes.rows[0].portfolio_file_path
+        );
+      } catch (cleanupError) {
+        cleanupFailed = true;
+        console.error('Failed to remove deleted instructor portfolio:', cleanupError);
+      }
+    }
+
     return NextResponse.json(
-      { success: true, message: 'Pengguna berhasil dihapus.' },
+      {
+        success: true,
+        message: cleanupFailed
+          ? 'Pengguna berhasil dihapus, tetapi file CV atau portofolio gagal dibersihkan.'
+          : 'Pengguna berhasil dihapus.',
+      },
       { status: 200 }
     );
   } catch (err) {

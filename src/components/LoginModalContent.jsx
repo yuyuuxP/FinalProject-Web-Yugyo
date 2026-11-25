@@ -113,10 +113,10 @@ export default function LoginModalContent({ backHref = '/' }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#341D17]/35 backdrop-blur-[2px] overflow-y-auto flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-2xl bg-[#FFFDF9] rounded-3xl shadow-2xl border border-[#341D17]/20 overflow-hidden my-auto">
+    <div className="login-overlay fixed inset-0 z-50 bg-[#F9DDBB] overflow-hidden flex items-center justify-center p-4 sm:p-6">
+      <div className="login-card w-full max-w-lg max-h-full bg-[#FFFDF9] rounded-3xl shadow-2xl border border-[#341D17]/20 overflow-hidden">
         {/* 1. TOP BAR DI DALAM CARD */}
-        <div className="px-5 sm:px-7 py-3.5 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-between">
+        <div className="login-header px-5 sm:px-7 py-3.5 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               href={backHref}
@@ -143,7 +143,7 @@ export default function LoginModalContent({ backHref = '/' }) {
         </div>
 
         {/* 2. BODY CONTENT DI DALAM CARD */}
-        <div className="p-5 sm:p-7 space-y-5">
+        <div className="login-content p-5 sm:p-7 space-y-5">
           {/* Sub-header */}
           <div className="flex items-center justify-between gap-2">
             <Link
@@ -165,7 +165,7 @@ export default function LoginModalContent({ backHref = '/' }) {
           </div>
 
           {/* Welcome Box */}
-          <div className="bg-[#F9DDBB]/40 border border-[#341D17]/10 rounded-2xl p-4 sm:p-5">
+          <div className="login-welcome bg-[#F9DDBB]/40 border border-[#341D17]/10 rounded-2xl p-4 sm:p-5">
             <div className="flex items-start gap-3.5 mb-2.5">
               <div className="w-11 h-11 rounded-2xl overflow-hidden bg-[#FFFDF9] border border-[#341D17]/15 shrink-0 shadow-2xs">
                 <img
@@ -191,7 +191,7 @@ export default function LoginModalContent({ backHref = '/' }) {
           {/* Form Box */}
           <form
             onSubmit={handleLogin}
-            className="bg-white border border-[#341D17]/10 rounded-2xl p-4 sm:p-5 space-y-4 shadow-2xs"
+            className="login-form bg-white border border-[#341D17]/10 rounded-2xl p-4 sm:p-5 space-y-4 shadow-2xs"
           >
             {errorMsg && (
               <div className="p-3 rounded-xl bg-[#802924]/15 border border-[#802924] text-[#802924] text-xs font-bold text-center">
@@ -214,6 +214,7 @@ export default function LoginModalContent({ backHref = '/' }) {
                 </span>
                 <input
                   type="text"
+                  data-validation-exempt="email"
                   required
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
@@ -233,6 +234,7 @@ export default function LoginModalContent({ backHref = '/' }) {
                 </span>
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  data-validation-exempt="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -254,17 +256,11 @@ export default function LoginModalContent({ backHref = '/' }) {
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center text-xs">
               <label className="flex items-center gap-2 cursor-pointer text-[#341D17]/85">
                 <input type="checkbox" className="rounded accent-[#802924]" />
                 <span>Ingat Saya</span>
               </label>
-              <Link
-                href="#"
-                className="font-bold text-[#802924] hover:underline"
-              >
-                Lupa Password?
-              </Link>
             </div>
 
             <button
@@ -278,7 +274,7 @@ export default function LoginModalContent({ backHref = '/' }) {
               <FaUtensils className="w-3.5 h-3.5 shrink-0" />
             </button>
 
-            <div className="bg-[#F9DDBB]/35 border border-[#341D17]/10 rounded-xl px-3.5 py-2.5 flex items-center gap-2 text-[11px] text-[#341D17]/80">
+            <div className="login-trust bg-[#F9DDBB]/35 border border-[#341D17]/10 rounded-xl px-3.5 py-2.5 flex items-center gap-2 text-[11px] text-[#341D17]/80">
               <FaShieldHalved className="w-3.5 h-3.5 text-[#82882B] shrink-0" />
               <span>
                 Akses aman terenkripsi untuk masterclass sourdough, viennoiserie, dan cokelat.
@@ -287,7 +283,7 @@ export default function LoginModalContent({ backHref = '/' }) {
           </form>
 
           {/* Guest Mode Card */}
-          <div className="bg-[#F9DDBB]/45 border border-[#341D17]/10 rounded-2xl p-4 text-center space-y-1">
+          <div className="login-guest bg-[#F9DDBB]/45 border border-[#341D17]/10 rounded-2xl p-4 text-center space-y-1">
             <p className="text-[11px] text-[#341D17]/70">
               Belum ingin mendaftar kursus?
             </p>
@@ -304,7 +300,7 @@ export default function LoginModalContent({ backHref = '/' }) {
           </div>
 
           {/* Footer Register Links */}
-          <div className="text-center space-y-2 pt-1">
+          <div className="login-footer text-center space-y-2 pt-1">
             <p className="text-xs text-[#341D17]/80">
               Belum punya akun?{' '}
               <Link

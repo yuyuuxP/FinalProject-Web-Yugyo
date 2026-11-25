@@ -140,6 +140,7 @@ export default function CreateUserModal({
             </label>
             <input
               type="text"
+              data-allow-punctuation="title"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Contoh: Chef Pierre L'Homme"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   FaChevronLeft,
@@ -24,8 +24,12 @@ import {
   FaEye,
   FaEyeSlash,
   FaClipboardList,
-  FaCircleCheck,
 } from 'react-icons/fa6';
+import RegistrationSuccessModal from '@/components/RegistrationSuccessModal';
+import {
+  INSTRUCTOR_PORTFOLIO_ACCEPT,
+  validateInstructorPortfolioFile,
+} from '@/lib/instructorPortfolioValidation';
 
 const CATEGORY_META = {
   'Bread & Yeast Goods': {
@@ -86,6 +90,7 @@ export default function RegisterInstructorCard({ categories = [] }) {
   const [whatsapp, setWhatsapp] = useState('');
   const [selectedSpecs, setSelectedSpecs] = useState(defaultSpec);
   const [portfolioUrl, setPortfolioUrl] = useState('');
+  const [portfolioFile, setPortfolioFile] = useState(null);
   const [password, setPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
 
@@ -93,6 +98,7 @@ export default function RegisterInstructorCard({ categories = [] }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const portfolioFileInputRef = useRef(null);
 
   const toggleSpecialization = (title) => {
     setSelectedSpecs((prev) =>
@@ -137,22 +143,31 @@ export default function RegisterInstructorCard({ categories = [] }) {
       return;
     }
 
+    const portfolioFileError = validateInstructorPortfolioFile(portfolioFile);
+    if (portfolioFileError) {
+      setErrorMsg(portfolioFileError);
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      const formData = new FormData();
+      formData.set('fullName', cleanFullName);
+      formData.set('username', String(username || '').trim());
+      formData.set('email', cleanEmail);
+      formData.set('whatsapp', String(whatsapp || '').trim());
+      formData.set('specialty', selectedSpecs.join(', '));
+      formData.set('portfolioUrl', String(portfolioUrl || '').trim());
+      formData.set('password', password);
+      formData.set('role', 'teacher');
+      if (portfolioFile) {
+        formData.set('portfolioFile', portfolioFile);
+      }
+
       const res = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName: cleanFullName,
-          username: String(username || '').trim(),
-          email: cleanEmail,
-          whatsapp: String(whatsapp || '').trim(),
-          specialty: selectedSpecs.join(', '),
-          portfolioUrl: String(portfolioUrl || '').trim(),
-          password,
-          role: 'teacher',
-        }),
+        body: formData,
       });
 
       const contentType = res.headers.get('content-type') || '';
@@ -176,11 +191,17 @@ export default function RegisterInstructorCard({ categories = [] }) {
       setWhatsapp('');
       setSelectedSpecs(defaultSpec);
       setPortfolioUrl('');
+      setPortfolioFile(null);
+      if (portfolioFileInputRef.current) {
+        portfolioFileInputRef.current.value = '';
+      }
       setPassword('');
       setAgreed(false);
       setShowPass(false);
 
-      setSuccessMsg('Akun telah terdaftar!');
+      setSuccessMsg(
+        'Akun berhasil didaftarkan! Tunggu persetujuan admin sebelum login.'
+      );
       setIsLoading(false);
     } catch {
       setErrorMsg('Terjadi kesalahan koneksi ke server.');
@@ -189,7 +210,8 @@ export default function RegisterInstructorCard({ categories = [] }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#341D17]/35 backdrop-blur-[2px] overflow-y-auto flex items-start justify-center px-4 py-6 sm:py-10">
+    <>
+    <div className="fixed inset-0 z-50 bg-[#F9DDBB] overflow-y-auto flex items-start justify-center px-4 py-6 sm:py-10">
       <div className="w-full max-w-2xl bg-[#FFFDF9] rounded-3xl shadow-2xl border border-[#341D17]/20 overflow-hidden">
         <div className="px-5 sm:px-7 py-3.5 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -316,16 +338,6 @@ export default function RegisterInstructorCard({ categories = [] }) {
               </div>
             )}
 
-            {successMsg && (
-              <div
-                role="status"
-                className="p-3.5 rounded-xl bg-[#82882B]/15 border border-[#82882B] text-[#2F330D] text-xs font-bold flex items-center gap-2"
-              >
-                <FaCircleCheck className="w-4 h-4 text-[#82882B] shrink-0" />
-                <span>{successMsg}</span>
-              </div>
-            )}
-
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label
@@ -345,6 +357,7 @@ export default function RegisterInstructorCard({ categories = [] }) {
                 <input
                   id="instructor-reg-fullname"
                   type="text"
+                  data-allow-punctuation="title"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -481,35 +494,75 @@ export default function RegisterInstructorCard({ categories = [] }) {
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="min-w-0">
+                <div className="min-h-12 mb-1">
+                  <label
+                    htmlFor="instructor-reg-portfolio"
+                    className="block text-xs font-bold leading-4 text-[#341D17]"
+                  >
+                    Portofolio / Tautan Sertifikasi
+                  </label>
+                  <span className="block text-[10px] leading-3 text-[#802924] font-semibold">
+                    Instagram pastry / Drive PDF
+                  </span>
+                </div>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45">
+                    <FaLink className="w-3.5 h-3.5" />
+                  </span>
+                  <input
+                    id="instructor-reg-portfolio"
+                    type="url"
+                    value={portfolioUrl}
+                    onChange={(e) => setPortfolioUrl(e.target.value)}
+                    placeholder="https://instagram.com/chef_bakes atau tautan portfolio"
+                    className="w-full bg-[#F9DDBB]/30 border border-[#341D17]/15 rounded-xl pl-10 pr-4 py-2.5 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition"
+                  />
+                </div>
+              </div>
+
+              <div className="min-w-0">
                 <label
-                  htmlFor="instructor-reg-portfolio"
-                  className="text-xs font-bold text-[#341D17]"
+                  htmlFor="instructor-reg-portfolio-file"
+                  className="mb-1 block min-h-12 text-xs font-bold leading-4 text-[#341D17]"
                 >
-                  Portofolio / Tautan Sertifikasi
+                  Upload CV / Portofolio (Opsional)
                 </label>
-                <span className="text-[10px] text-[#802924] font-semibold">
-                  Instagram pastry / Drive PDF
-                </span>
-              </div>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45">
-                  <FaLink className="w-3.5 h-3.5" />
-                </span>
                 <input
-                  id="instructor-reg-portfolio"
-                  type="url"
-                  value={portfolioUrl}
-                  onChange={(e) => setPortfolioUrl(e.target.value)}
-                  placeholder="https://instagram.com/chef_bakes atau tautan portfolio"
-                  className="w-full bg-[#F9DDBB]/30 border border-[#341D17]/15 rounded-xl pl-10 pr-4 py-2.5 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition"
+                  ref={portfolioFileInputRef}
+                  id="instructor-reg-portfolio-file"
+                  name="portfolioFile"
+                  type="file"
+                  accept={INSTRUCTOR_PORTFOLIO_ACCEPT}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    const validationError =
+                      validateInstructorPortfolioFile(file);
+                    if (validationError) {
+                      setPortfolioFile(null);
+                      e.target.value = '';
+                      setErrorMsg(validationError);
+                      return;
+                    }
+                    setPortfolioFile(file);
+                    setErrorMsg('');
+                  }}
+                  className="w-full bg-[#F9DDBB]/30 border border-[#341D17]/15 rounded-xl px-3 py-2 text-xs text-[#341D17] file:mr-3 file:rounded-lg file:border-0 file:bg-[#802924] file:px-3 file:py-1.5 file:text-[11px] file:font-bold file:text-[#FFFDF9]"
                 />
+                <p className="text-[10px] text-[#341D17]/60 mt-1">
+                  PDF, DOC, DOCX, JPG, atau PNG; maksimal 10 MB.
+                </p>
+                {portfolioFile && (
+                  <p className="text-[10px] text-[#341D17]/75 mt-1 truncate">
+                    File dipilih: {portfolioFile.name}
+                  </p>
+                )}
               </div>
-              <p className="text-[10px] text-[#341D17]/60 mt-1">
-                Admin kurikulum YUGYO akan memvalidasi portofolio atau sertifikat institusi kuliner Anda dalam 1×24 jam kerja.
-              </p>
             </div>
+            <p className="text-[10px] text-[#341D17]/60 mt-1">
+              Admin kurikulum YUGYO akan memvalidasi portofolio atau sertifikat institusi kuliner Anda dalam 1×24 jam kerja.
+            </p>
 
             <div>
               <label
@@ -585,5 +638,7 @@ export default function RegisterInstructorCard({ categories = [] }) {
         </div>
       </div>
     </div>
+    {successMsg && <RegistrationSuccessModal message={successMsg} />}
+    </>
   );
 }

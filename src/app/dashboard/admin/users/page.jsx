@@ -38,6 +38,15 @@ export default async function AdminUsersPage() {
   const createdAtExpr = userCols.has('created_at')
     ? 'u.created_at'
     : 'NULL::timestamp AS created_at';
+  const portfolioUrlExpr = userCols.has('portfolio_url')
+    ? 'u.portfolio_url'
+    : 'NULL::text AS portfolio_url';
+  const portfolioFilePathExpr = userCols.has('portfolio_file_path')
+    ? 'u.portfolio_file_path'
+    : 'NULL::text AS portfolio_file_path';
+  const portfolioFileNameExpr = userCols.has('portfolio_file_name')
+    ? 'u.portfolio_file_name'
+    : 'NULL::text AS portfolio_file_name';
 
   let users = [];
   try {
@@ -49,7 +58,10 @@ export default async function AdminUsersPage() {
         COALESCE(NULLIF(TRIM(u.role), ''), 'student') AS role,
         ${statusExpr} AS status,
         ${specialtyExpr},
-        ${createdAtExpr}
+        ${createdAtExpr},
+        ${portfolioUrlExpr},
+        ${portfolioFilePathExpr},
+        ${portfolioFileNameExpr}
       FROM users u
       WHERE LOWER(COALESCE(u.role, '')) <> 'admin'
       ORDER BY u.id ASC;`

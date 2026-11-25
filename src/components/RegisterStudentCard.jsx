@@ -16,8 +16,8 @@ import {
   FaEyeSlash,
   FaRotate,
   FaCookieBite,
-  FaCircleCheck,
 } from 'react-icons/fa6';
+import RegistrationSuccessModal from '@/components/RegistrationSuccessModal';
 
 function toTitleCase(value) {
   return String(value || '')
@@ -135,7 +135,9 @@ export default function RegisterStudentCard() {
       setAgreed(false);
       setShowPass(false);
       setShowConfirmPass(false);
-      setSuccessMsg('Akun telah terdaftar!');
+      setSuccessMsg(
+        'Akun berhasil didaftarkan! Tunggu persetujuan admin sebelum login.'
+      );
       setIsLoading(false);
     } catch {
       setErrorMsg('Tidak dapat terhubung ke server. Periksa status server Next.js.');
@@ -144,7 +146,8 @@ export default function RegisterStudentCard() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#341D17]/35 backdrop-blur-[2px] overflow-y-auto flex items-center justify-center p-4 sm:p-6">
+    <>
+    <div className="fixed inset-0 z-50 bg-[#F9DDBB] overflow-y-auto flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-2xl bg-[#FFFDF9] rounded-3xl shadow-2xl border border-[#341D17]/20 overflow-hidden my-auto">
         <div className="px-5 sm:px-7 py-3.5 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -272,25 +275,6 @@ export default function RegisterStudentCard() {
                 className="p-3 rounded-xl bg-[#802924]/15 border border-[#802924] text-[#802924] text-xs font-bold text-center"
               >
                 {errorMsg}
-              </div>
-            )}
-
-            {successMsg && (
-              <div
-                role="status"
-                className="p-3.5 rounded-xl bg-[#82882B]/15 border border-[#82882B] text-[#2F330D] text-xs font-bold flex flex-wrap items-center justify-between gap-2"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <FaCircleCheck className="w-4 h-4 text-[#82882B] shrink-0" />
-                  <span>{successMsg}</span>
-                </span>
-                <Link
-                  href="/login"
-                  className="inline-flex items-center gap-1 rounded-lg bg-[#802924] hover:bg-[#661F1B] px-3 py-1.5 text-[11px] font-bold text-[#F9DDBB] transition"
-                >
-                  <span>Silakan Login</span>
-                  <FaArrowRight className="w-2.5 h-2.5" />
-                </Link>
               </div>
             )}
 
@@ -488,5 +472,7 @@ export default function RegisterStudentCard() {
         </div>
       </div>
     </div>
+    {successMsg && <RegistrationSuccessModal message={successMsg} />}
+    </>
   );
 }

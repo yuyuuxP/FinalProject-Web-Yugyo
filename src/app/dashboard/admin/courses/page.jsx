@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import pool from '@/lib/db';
 import CourseFilterDropdown from '@/components/CourseFilterDropdown';
+import AdminCourseApprovalActions from '@/components/admin/AdminCourseApprovalActions';
 
 const COURSE_IMAGE_RULES = [
   // Bread & Yeast Goods (/pictures/courses/bread/...)
@@ -318,16 +319,16 @@ export default async function AdminCoursesPage({ searchParams }) {
             {pendingList.map((course, idx) => (
               <div
                 key={course.id}
-                className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4"
+                className="bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-4 sm:p-6 shadow-sm"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3.5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 flex-1 items-center gap-3.5">
                     <img
                       src={resolveCourseImage(course, idx)}
                       alt={course.title}
                       className="w-16 h-16 rounded-2xl object-cover border border-[#341D17]/15 shrink-0"
                     />
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="bg-[#F9DDBB] text-[#802924] px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider">
                           {course.category_name || 'PASTRI'}
@@ -342,16 +343,9 @@ export default async function AdminCoursesPage({ searchParams }) {
                       </p>
                     </div>
                   </div>
+                  <AdminCourseApprovalActions course={course} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5 pt-1">
-                  <Link
-                    href={`/dashboard/admin/courses/${course.id}`}
-                    className="col-span-2 bg-[#F9DDBB]/50 hover:bg-[#F9DDBB] text-[#341D17] font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-2"
-                  >
-                    Review Detail &amp; Kurasi
-                  </Link>
-                </div>
               </div>
             ))}
           </div>

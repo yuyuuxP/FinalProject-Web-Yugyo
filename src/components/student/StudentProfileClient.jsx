@@ -834,7 +834,7 @@ export default function StudentProfileClient({ initialProfile = null }) {
               <input
                 ref={nameInputRef}
                 id="student-fullname-input"
-                type="text"
+                type="tel"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 className="w-full rounded-xl border border-[#341D17]/15 bg-[#FAF6F0]/75 px-4 py-2.5 pr-10 text-xs sm:text-sm font-semibold text-[#341D17] focus:border-[#802924] focus:bg-[#FFFDF9] focus:outline-none"

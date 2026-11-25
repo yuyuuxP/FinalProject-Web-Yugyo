@@ -1,25 +1,6 @@
 import { NextResponse } from 'next/server';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import pool from '@/lib/db';
-
-const ICON_UPLOAD_DIR = path.join(
-  process.cwd(),
-  'public',
-  'pictures',
-  'categories'
-);
-
-function sanitizeIconName(rawName) {
-  const base = path.basename(String(rawName || 'category.png'));
-  const ext = path.extname(base).toLowerCase() || '.png';
-  const stem =
-    base
-      .slice(0, base.length - path.extname(base).length)
-      .replace(/[^a-zA-Z0-9_-]+/g, '_')
-      .replace(/^_+|_+$/g, '') || 'kategori_icon';
-  return `${Date.now()}_${stem}${ext}`;
-}
+import { saveUploadedImage } from '@/lib/mediaStorage';
 
 async function getTableColumns(tableName) {
   const res = await pool.query(
@@ -143,19 +124,16 @@ export async function POST(request) {
       );
     }
 
-    let iconUrl = null;
-    if (
-      iconFile &&
-      typeof iconFile === 'object' &&
-      typeof iconFile.arrayBuffer === 'function' &&
-      iconFile.size > 0
-    ) {
-      await fs.mkdir(ICON_UPLOAD_DIR, { recursive: true });
-      const fileName = sanitizeIconName(iconFile.name);
-      const targetPath = path.join(ICON_UPLOAD_DIR, fileName);
-      const buffer = Buffer.from(await iconFile.arrayBuffer());
-      await fs.writeFile(targetPath, buffer);
-      iconUrl = `/pictures/categories/${fileName}`;
+    const iconUrl = await saveUploadedImage(iconFile, 'category');
+    if (!iconUrl) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            'Foto profil atau ikon kategori wajib diunggah dengan format gambar yang didukung.',
+        },
+        { status: 400 }
+      );
     }
 
     const insertCols = [];

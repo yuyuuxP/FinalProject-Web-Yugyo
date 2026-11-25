@@ -20,6 +20,13 @@ function formatDateIso(dateObj) {
   return `${y}-${m}-${d}`;
 }
 
+function formatMonthYear(dateObj) {
+  return new Intl.DateTimeFormat('id-ID', {
+    month: 'long',
+    year: 'numeric',
+  }).format(dateObj);
+}
+
 function getMondayOfWeek(dateObj) {
   const copy = new Date(
     dateObj.getFullYear(),
@@ -70,6 +77,9 @@ function normalizeSession(row, idx = 0) {
     locationLabel: String(
       row?.location_label ?? row?.locationLabel ?? 'Atelier Live'
     ).trim(),
+    isPopup:
+      Boolean(row?.is_popup ?? row?.isPopup) ||
+      /^sesi dadakan\b/i.test(String(row?.title || '').trim()),
     isDone,
   };
 }
@@ -152,8 +162,9 @@ export default function TeacherScheduleClient({
     formatDateIso(initialAnchor)
   );
   const [busySessionId, setBusySessionId] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [isCreateSessionOpen, setIsCreateSessionOpen] = useState(false);
   const [formCourseId, setFormCourseId] = useState(() =>
     initialCourses?.[0]?.id ? String(initialCourses[0].id) : ''
   );
@@ -165,35 +176,32 @@ export default function TeacherScheduleClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const refreshScheduleData = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      if (teacher?.id) params.set('teacherId', String(teacher.id));
-      if (teacher?.full_name) params.set('teacherName', teacher.full_name);
+    const params = new URLSearchParams();
+    if (teacher?.id) params.set('teacherId', String(teacher.id));
+    if (teacher?.full_name) params.set('teacherName', teacher.full_name);
 
-      const res = await fetch(`/api/teacher/schedule?${params.toString()}`, {
-        cache: 'no-store',
-      });
-      if (!res.ok) return;
-      const data = await res.json().catch(() => null);
-      if (!data) return;
+    const res = await fetch(`/api/teacher/schedule?${params.toString()}`, {
+      cache: 'no-store',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.error || 'Gagal memuat ulang jadwal.');
+    }
 
-      if (Array.isArray(data.courses)) {
-        setCourses(data.courses);
-        const firstCourseId = data.courses[0]?.id;
-        if (firstCourseId) {
-          setFormCourseId((prev) => prev || String(firstCourseId));
-        }
+    if (Array.isArray(data.courses)) {
+      setCourses(data.courses);
+      const firstCourseId = data.courses[0]?.id;
+      if (firstCourseId) {
+        setFormCourseId((prev) => prev || String(firstCourseId));
       }
-      if (Array.isArray(data.sessions)) {
-        setSessions(data.sessions.map((r, i) => normalizeSession(r, i)));
-      }
-      if (Array.isArray(data.participants)) {
-        setParticipants(
-          data.participants.map((r, i) => normalizeParticipant(r, i))
-        );
-      }
-    } catch {
-      // Abaikan gangguan jaringan sementara
+    }
+    if (Array.isArray(data.sessions)) {
+      setSessions(data.sessions.map((r, i) => normalizeSession(r, i)));
+    }
+    if (Array.isArray(data.participants)) {
+      setParticipants(
+        data.participants.map((r, i) => normalizeParticipant(r, i))
+      );
     }
   }, [teacher]);
 
@@ -262,6 +270,14 @@ export default function TeacherScheduleClient({
     });
   }, [weekStart, datesWithSessions]);
 
+  const weekEnd = addDays(weekStart, 6);
+  const startMonthYear = formatMonthYear(weekStart);
+  const endMonthYear = formatMonthYear(weekEnd);
+  const calendarPeriodLabel =
+    startMonthYear === endMonthYear
+      ? startMonthYear
+      : `${startMonthYear} – ${endMonthYear}`;
+
   const daySessions = useMemo(
     () => sessions.filter((s) => s.sessionDate === selectedDate),
     [sessions, selectedDate]
@@ -278,6 +294,7 @@ export default function TeacherScheduleClient({
   const handleToggleDone = async (sessionItem) => {
     if (busySessionId === sessionItem.id) return;
     setBusySessionId(sessionItem.id);
+    setErrorMsg('');
 
     try {
       const res = await fetch('/api/teacher/schedule', {
@@ -288,9 +305,13 @@ export default function TeacherScheduleClient({
           isDone: !sessionItem.isDone,
         }),
       });
-      if (res.ok) {
-        await refreshScheduleData();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || data?.message || 'Gagal memperbarui status sesi.');
       }
+      await refreshScheduleData();
+    } catch (err) {
+      setErrorMsg(err?.message || 'Terjadi kesalahan saat memperbarui sesi.');
     } finally {
       setBusySessionId(null);
     }
@@ -299,14 +320,19 @@ export default function TeacherScheduleClient({
   const handleDeleteSession = async (sessionId) => {
     if (busySessionId === sessionId) return;
     setBusySessionId(sessionId);
+    setErrorMsg('');
 
     try {
       const res = await fetch(`/api/teacher/schedule?sessionId=${sessionId}`, {
         method: 'DELETE',
       });
-      if (res.ok) {
-        await refreshScheduleData();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || data?.message || 'Gagal menghapus sesi.');
       }
+      await refreshScheduleData();
+    } catch (err) {
+      setErrorMsg(err?.message || 'Terjadi kesalahan saat menghapus sesi.');
     } finally {
       setBusySessionId(null);
     }
@@ -314,9 +340,14 @@ export default function TeacherScheduleClient({
 
   const handleCreateSession = async (e) => {
     e.preventDefault();
-    if (!formCourseId || !formTitle.trim() || !formDate || isSubmitting) return;
+    if (isSubmitting) return;
+    if (!formCourseId || !formTitle.trim() || !formDate) {
+      setErrorMsg('Pilih kursus, isi judul, dan tentukan tanggal sesi.');
+      return;
+    }
 
     setIsSubmitting(true);
+    setErrorMsg('');
     try {
       const res = await fetch('/api/teacher/schedule', {
         method: 'POST',
@@ -328,16 +359,21 @@ export default function TeacherScheduleClient({
           sessionTime: formTime.trim() || '15:00 WITA',
           locationLabel: formLocation.trim() || 'Atelier Live',
           notes: formNotes.trim(),
+          isPopup: false,
         }),
       });
-      if (res.ok) {
-        setFormTitle('');
-        setFormNotes('');
-        setIsPopupOpen(false);
-        setSelectedDate(formDate);
-        setWeekStart(getMondayOfWeek(parseIsoDateLocal(formDate)));
-        await refreshScheduleData();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || data?.message || 'Gagal membuat sesi.');
       }
+      setFormTitle('');
+      setFormNotes('');
+      setIsCreateSessionOpen(false);
+      setSelectedDate(formDate);
+      setWeekStart(getMondayOfWeek(parseIsoDateLocal(formDate)));
+      await refreshScheduleData();
+    } catch (err) {
+      setErrorMsg(err?.message || 'Terjadi kesalahan saat membuat sesi.');
     } finally {
       setIsSubmitting(false);
     }
@@ -345,12 +381,29 @@ export default function TeacherScheduleClient({
 
   return (
     <div className="space-y-6 text-[#341D17] pb-12">
-      {/* Kalender Mingguan & Tombol Pop-up Sesi */}
+      {errorMsg && (
+        <div
+          role="alert"
+          className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-xs font-bold text-red-800"
+        >
+          {errorMsg}
+        </div>
+      )}
+
+      {/* Kalender Mingguan & Tambah Sesi */}
       <section className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 sm:p-6 shadow-2xs space-y-4">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-extrabold uppercase tracking-wider text-[#802924]">
-            Kalender Kelas &amp; Sesi Atelier
-          </p>
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-wider text-[#802924]">
+              Kalender Kelas &amp; Sesi Atelier
+            </p>
+            <p
+              aria-live="polite"
+              className="mt-1 text-sm font-bold capitalize text-[#341D17]"
+            >
+              {calendarPeriodLabel}
+            </p>
+          </div>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -414,18 +467,18 @@ export default function TeacherScheduleClient({
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#341D17]/8">
           <p className="text-xs text-[#341D17]/65">
-            Butuh membuka sesi mentoring atau kelas dadakan di luar jadwal reguler?
+            Tambahkan sesi kelas yang sudah terjadwal.
           </p>
           <button
             type="button"
-            onClick={() => setIsPopupOpen((prev) => !prev)}
+            onClick={() => setIsCreateSessionOpen((prev) => !prev)}
             className="rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition cursor-pointer"
           >
-            + Pop-up Sesi
+            + Tambah Sesi Terjadwal
           </button>
         </div>
 
-        {isPopupOpen && (
+        {isCreateSessionOpen && (
           <form
             onSubmit={handleCreateSession}
             className="rounded-2xl bg-[#FAF6F0] border border-[#341D17]/12 p-4 space-y-3"
@@ -485,6 +538,7 @@ export default function TeacherScheduleClient({
                     type="text"
                     value={formTime}
                     onChange={(e) => setFormTime(e.target.value)}
+                    data-validation-exempt="time"
                     placeholder="15:00 WITA"
                     className="w-full rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3 py-2 text-xs text-[#341D17]"
                   />
@@ -515,7 +569,7 @@ export default function TeacherScheduleClient({
             <div className="flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setIsPopupOpen(false)}
+                onClick={() => setIsCreateSessionOpen(false)}
                 className="rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3.5 py-2 text-xs font-bold text-[#341D17] cursor-pointer"
               >
                 Batal
@@ -532,15 +586,15 @@ export default function TeacherScheduleClient({
         )}
       </section>
 
-      {/* Sesi Kelas Terjadwal */}
+      {/* Sesi Kelas */}
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="font-editorial text-xl font-bold text-[#341D17]">
-              Sesi Kelas Terjadwal
+              Sesi Kelas
             </h2>
             <p className="text-xs text-[#341D17]/60">
-              Tandai kelas yang telah selesai dengan Mark as Done untuk memperbarui progres keaktifan siswa.
+              Daftar sesi terjadwal dan dadakan untuk tanggal yang dipilih.
             </p>
           </div>
           <span className="rounded-full bg-[#F9DDBB]/80 border border-[#802924]/15 px-3 py-1 text-[11px] font-extrabold text-[#802924]">
@@ -550,9 +604,7 @@ export default function TeacherScheduleClient({
 
         {daySessions.length === 0 ? (
           <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 text-center text-xs text-[#341D17]/60">
-            Belum ada sesi kelas untuk pilihan tanggal ini. Klik{' '}
-            <span className="font-bold text-[#802924]">+ Pop-up Sesi</span>{' '}
-            untuk menambahkan.
+            Belum ada sesi kelas untuk pilihan tanggal ini.
           </div>
         ) : (
           <div className="space-y-3">
@@ -572,7 +624,11 @@ export default function TeacherScheduleClient({
                             : 'bg-[#F9DDBB] text-[#802924]'
                         }`}
                       >
-                        {item.isDone ? 'SELESAI (DONE)' : 'TERJADWAL'}
+                        {item.isDone
+                          ? 'SELESAI (DONE)'
+                          : item.isPopup
+                            ? 'SESI DADAKAN'
+                            : 'TERJADWAL'}
                       </span>
                       <span className="font-semibold text-[#341D17]/65">
                         {item.sessionDate} &bull; {item.sessionTime}

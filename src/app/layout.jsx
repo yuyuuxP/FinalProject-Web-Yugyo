@@ -1,4 +1,5 @@
 import { Meddon, Homemade_Apple } from 'next/font/google';
+import InputSymbolValidation from '@/components/InputSymbolValidation';
 import './globals.css';
 
 const meddon = Meddon({
@@ -24,6 +25,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="id" className={`${meddon.variable} ${homemadeApple.variable}`}>
       <body className="bg-[var(--color-light-silver)] text-[var(--color-prussian)] antialiased">
+        <InputSymbolValidation />
         {children}
       </body>
     </html>

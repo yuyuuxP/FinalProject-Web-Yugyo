@@ -56,16 +56,12 @@ export async function POST(request) {
     const startDate = normalizeNullableDate(body.start_date ?? body.startDate);
     const endDate = normalizeNullableDate(body.end_date ?? body.endDate);
 
-    let thumbnailUrl =
-      typeof body.thumbnail_url === 'string' && body.thumbnail_url.trim() !== ''
-        ? body.thumbnail_url.trim()
-        : null;
-
-    if (uploadedFile && typeof uploadedFile === 'object' && uploadedFile.size > 0) {
-      const savedPath = await saveUploadedImage(uploadedFile, 'course');
-      if (savedPath) {
-        thumbnailUrl = savedPath;
-      }
+    const thumbnailUrl = await saveUploadedImage(uploadedFile, 'course');
+    if (!thumbnailUrl) {
+      return NextResponse.json(
+        { error: 'Foto profil atau cover kursus gagal disimpan.' },
+        { status: 400 }
+      );
     }
 
     const insertRes = await pool.query(

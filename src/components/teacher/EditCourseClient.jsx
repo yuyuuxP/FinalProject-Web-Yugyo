@@ -4,6 +4,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+function formatDateInput(value) {
+  if (!value) return '';
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? '' : value.toISOString().slice(0, 10);
+  }
+  return String(value).slice(0, 10);
+}
+
 export default function EditCourseClient({ course, categories }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -16,8 +24,8 @@ export default function EditCourseClient({ course, categories }) {
     title: course.title || '',
     description: course.description || '',
     category_id: course.category_id || currentCategory?.id || '',
-    start_date: course.start_date ? course.start_date.split('T')[0] : '',
-    end_date: course.end_date ? course.end_date.split('T')[0] : '',
+    start_date: formatDateInput(course.start_date),
+    end_date: formatDateInput(course.end_date),
   });
 
   const handleChange = (e) => {

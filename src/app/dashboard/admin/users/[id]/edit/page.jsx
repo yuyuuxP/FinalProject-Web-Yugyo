@@ -65,6 +65,7 @@ export default async function EditUserPage({ params }) {
             </label>
             <input
               type="text"
+              data-allow-punctuation="title"
               name="full_name"
               defaultValue={user.full_name}
               required

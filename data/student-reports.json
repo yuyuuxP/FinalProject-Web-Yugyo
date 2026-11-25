@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "id": 2,
+    "studentId": 14,
+    "username": "Salwa",
+    "code": "#STU-1002",
+    "title": "Keluhan pada Course & Video Player",
+    "featureArea": "Course & Video Player",
+    "severity": "low",
+    "description": "terkadang video materi yg ingin diputar mengalami delay",
+    "status": "Selesai",
+    "photoUrl": "",
+    "photoLabel": "",
+    "adminReply": {
+      "name": "Admin Yugyo Atelier",
+      "initials": "AD",
+      "message": "Terima kasih telah melaporkan! Laporanmu telah kami tanggapi dan atasi."
+    },
+    "reportedAt": "25/11/2026, 19.20.49",
+    "createdAt": "2026-11-25T11:20:49.677Z"
+  }
+]

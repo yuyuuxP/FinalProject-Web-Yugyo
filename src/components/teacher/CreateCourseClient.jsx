@@ -66,7 +66,7 @@ export default function CreateCourseClient({ teacher, assignedCategory }) {
       payload.append('end_date', formData.end_date);
       payload.append('image_file', selectedFile);
 
-      const res = await fetch('/api/teacher', {
+      const res = await fetch('/api/teacher/courses', {
         method: 'POST',
         body: payload,
       });

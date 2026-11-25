@@ -68,10 +68,49 @@ export async function GET(request) {
            ORDER BY cs.session_date ASC, cs.session_time ASC, cs.id ASC`
         );
 
+    const participantsRes = teacherFilter
+      ? await pool.query(
+           `SELECT
+              u.id AS student_id,
+              u.full_name AS student_name,
+              u.email AS student_email,
+              COALESCE(SUM(course_stats.total_sessions), 0)::int AS total_sessions,
+              COALESCE(SUM(course_stats.done_sessions), 0)::int AS completed_sessions
+            FROM student_enrollments se
+            INNER JOIN users u
+              ON u.id = se.student_id
+              AND LOWER(COALESCE(u.role, '')) = 'student'
+            INNER JOIN courses c
+              ON c.id = se.course_id
+              AND c.instructor_id = $1
+            LEFT JOIN LATERAL (
+              SELECT
+                COUNT(*)::int AS total_sessions,
+                COUNT(*) FILTER (
+                  WHERE COALESCE(cs.is_done, FALSE)
+                     OR LOWER(COALESCE(cs.status, '')) IN ('done', 'completed', 'selesai')
+                     OR EXISTS (
+                       SELECT 1
+                       FROM session_student_completions ssc
+                       WHERE ssc.session_id = cs.id
+                         AND ssc.student_id = u.id
+                     )
+                )::int AS done_sessions
+              FROM course_sessions cs
+              WHERE cs.course_id = c.id
+                AND LOWER(COALESCE(cs.status, 'scheduled')) <> 'canceled'
+            ) course_stats ON TRUE
+            WHERE LOWER(COALESCE(se.status, 'active')) <> 'dropped'
+            GROUP BY u.id, u.full_name, u.email
+            ORDER BY u.full_name ASC`,
+           [teacherFilter]
+        )
+      : { rows: [] };
+
     return NextResponse.json({
       courses: coursesRes.rows,
       sessions: sessionsRes.rows,
-      participants: [],
+      participants: participantsRes.rows,
     });
   } catch (err) {
     return NextResponse.json(

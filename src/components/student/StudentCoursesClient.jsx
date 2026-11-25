@@ -1,16 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
   FaGem,
-  FaPlus,
   FaCheck,
   FaClock,
   FaArrowRight,
-  FaChevronUp,
-  FaChevronDown,
 } from 'react-icons/fa6';
 import {
   getActiveStudentIdentity,
@@ -246,6 +243,22 @@ function deduplicateModules(items) {
   return result;
 }
 
+function getCourseModules(course, sourceList) {
+  if (!course) return [];
+  const activeTitle = String(course.title || '').toLowerCase();
+  const matched = sourceList.filter((item) => {
+    const itemCourseTitle = String(item.courseTitle || '').toLowerCase();
+    return (
+      matchesCourseId(item.courseId, course) ||
+      (itemCourseTitle && itemCourseTitle === activeTitle)
+    );
+  });
+
+  return deduplicateModules(
+    [...matched].sort((a, b) => a.orderIndex - b.orderIndex)
+  );
+}
+
 export default function StudentCoursesClient({
   initialCourses = [],
   initialContents = [],
@@ -430,11 +443,7 @@ export default function StudentCoursesClient({
   }, [allCourses, queryCourseId]);
 
   const [manualCategory, setManualCategory] = useState(null);
-  const [manualCourseId, setManualCourseId] = useState(null);
-  const [openItemId, setOpenItemId] = useState('');
-  const [isCourseListOpen, setIsCourseListOpen] = useState(false);
-  const [searchMaterial, setSearchMaterial] = useState('');
-  const videoRef = useRef(null);
+  const detailMode = Boolean(queryCourseId);
 
   const selectedCategory = useMemo(() => {
     if (manualCategory) return manualCategory;
@@ -450,72 +459,28 @@ export default function StudentCoursesClient({
     return 'Bread & Yeast Goods';
   }, [manualCategory, targetCourseFromQuery, queryCategory, enrolledCourses]);
 
-  const selectedCourseId = useMemo(() => {
-    if (manualCourseId !== null) return manualCourseId;
-    if (targetCourseFromQuery) return String(targetCourseFromQuery.id);
-    return '';
-  }, [manualCourseId, targetCourseFromQuery]);
-
-  useEffect(() => {
-    if (!queryCourseId) return;
-    const timer = window.setTimeout(() => {
-      const targetEl = document.getElementById('silabus-kurikulum');
-      if (targetEl) {
-        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [queryCourseId]);
-
   const filteredCourses = useMemo(() => {
     return enrolledCourses.filter(
       (c) => normalizeCategory(c.category) === selectedCategory
     );
   }, [enrolledCourses, selectedCategory]);
 
-  const activeCourse =
-    filteredCourses.find(
-      (c) =>
-        String(c.id) === String(selectedCourseId) ||
-        String(c.numericId) === String(selectedCourseId)
-    ) ||
-    filteredCourses[0] ||
-    null;
+  const activeCourse = detailMode
+    ? enrolledCourses.find(
+        (course) =>
+          String(course.id) === String(targetCourseFromQuery?.id) ||
+          String(course.numericId) === String(targetCourseFromQuery?.numericId)
+      ) || null
+    : null;
 
   const handleSelectCategory = (cat) => {
     setManualCategory(cat);
-    const matching = enrolledCourses.filter(
-      (c) => normalizeCategory(c.category) === cat
-    );
-    setManualCourseId(matching.length > 0 ? String(matching[0].id) : '');
-    setOpenItemId('');
-    setIsCourseListOpen(false);
   };
 
-  const handleSelectCourse = (course) => {
-    setManualCategory(normalizeCategory(course.category));
-    setManualCourseId(String(course.id));
-    setOpenItemId('');
-    setIsCourseListOpen(false);
-  };
-
+  const contentSource = liveContents.length > 0 ? liveContents : serverContents;
   const courseContents = useMemo(() => {
-    if (!activeCourse) return [];
-    const activeTitle = String(activeCourse.title).toLowerCase();
-
-    const sourceList = liveContents.length > 0 ? liveContents : serverContents;
-    const matched = sourceList.filter((item) => {
-      const itemCourseTitle = String(item.courseTitle || '').toLowerCase();
-      return (
-        matchesCourseId(item.courseId, activeCourse) ||
-        (itemCourseTitle && itemCourseTitle === activeTitle)
-      );
-    });
-
-    return deduplicateModules(
-      [...matched].sort((a, b) => a.orderIndex - b.orderIndex)
-    );
-  }, [activeCourse, liveContents, serverContents]);
+    return getCourseModules(activeCourse, contentSource);
+  }, [activeCourse, contentSource]);
 
   const completedKeySet = useMemo(
     () => new Set(completedKeys.map(String)),
@@ -544,35 +509,6 @@ export default function StudentCoursesClient({
     completedModulesCount,
     progressByCourse,
   ]);
-
-  const visibleModules = useMemo(() => {
-    const q = searchMaterial.trim().toLowerCase();
-    return courseContents.filter(
-      (m) =>
-        !q ||
-        m.title.toLowerCase().includes(q) ||
-        m.textContent.toLowerCase().includes(q)
-    );
-  }, [courseContents, searchMaterial]);
-
-  const handleToggleItem = (mod) => {
-    const isVideo = mod.type === 'VIDEO' || mod.type === 'YOUTUBE';
-    const hasText = Boolean(mod.textContent);
-    if (!isVideo && !hasText) return;
-
-    setOpenItemId((prev) => {
-      const nextId = String(prev) === String(mod.id) ? '' : String(mod.id);
-      if (nextId && mod.type === 'VIDEO' && mod.mediaUrl?.startsWith('/')) {
-        window.requestAnimationFrame(() => {
-          const playPromise = videoRef.current?.play?.();
-          if (playPromise && typeof playPromise.catch === 'function') {
-            playPromise.catch(() => {});
-          }
-        });
-      }
-      return nextId;
-    });
-  };
 
   const handleToggleModuleDone = async (mod) => {
     if (!activeCourse) return;
@@ -640,44 +576,157 @@ export default function StudentCoursesClient({
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="space-y-1">
             <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
-              Materi Pembelajaran Saya
+              {detailMode
+                ? activeCourse?.title || 'Kurikulum Kursus'
+                : 'Materi Pembelajaran Saya'}
             </h1>
             <p className="text-xs sm:text-sm text-[#341D17]/75">
-              Eksplorasi silabus pastry, video teknik, dan modul formula resep terdaftar dengan standar atelier profesional.
+              {detailMode
+                ? 'Pelajari setiap modul dan pantau progres belajar kursus ini.'
+                : 'Pantau progres belajar dari kursus yang telah Anda ikuti.'}
             </p>
           </div>
 
-          <Link
-            href="/dashboard/student/catalog"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFFDF9] hover:bg-[#F9DDBB]/70 border border-[#341D17]/15 px-3.5 py-2 text-xs font-bold text-[#341D17] transition shrink-0"
-          >
-            <FaPlus className="w-3 h-3 text-[#802924] shrink-0" />
-            <span>Tambah Kursus</span>
-          </Link>
+          {detailMode && (
+            <Link
+              href={`/dashboard/student/courses?category=${encodeURIComponent(activeCourse?.category || selectedCategory)}`}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFFDF9] hover:bg-[#F9DDBB]/70 border border-[#341D17]/15 px-3.5 py-2 text-xs font-bold text-[#341D17] transition shrink-0"
+            >
+              &larr; Kembali ke Kursus Saya
+            </Link>
+          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          {CATEGORY_TABS.map((cat) => {
-            const isActive = selectedCategory === cat;
-            return (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => handleSelectCategory(cat)}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition cursor-pointer border ${
-                  isActive
-                    ? 'bg-[#802924] text-[#FFFDF9] border-[#802924]'
-                    : 'bg-[#FFFDF9] text-[#341D17]/80 hover:bg-[#F9DDBB]/55 border-[#341D17]/15'
-                }`}
-              >
-                {cat}
-              </button>
-            );
-          })}
-        </div>
+        {!detailMode && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {CATEGORY_TABS.map((cat) => {
+              const isActive = selectedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => handleSelectCategory(cat)}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition cursor-pointer border ${
+                    isActive
+                      ? 'bg-[#802924] text-[#FFFDF9] border-[#802924]'
+                      : 'bg-[#FFFDF9] text-[#341D17]/80 hover:bg-[#F9DDBB]/55 border-[#341D17]/15'
+                  }`}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {activeCourse ? (
+      {!detailMode ? (
+        <section className="space-y-4">
+          {filteredCourses.length === 0 ? (
+            <div className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-6 text-center space-y-3">
+              <p className="text-sm font-bold text-[#341D17]">
+                Belum ada kursus yang diikuti pada kategori {selectedCategory}
+              </p>
+              <p className="text-xs text-[#341D17]/65">
+                Ikuti kursus melalui katalog agar kursus dan progresnya tampil di sini.
+              </p>
+              <Link
+                href="/dashboard/student/catalog"
+                className="inline-flex items-center rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition"
+              >
+                Buka Course Catalog
+              </Link>
+            </div>
+          ) : (
+            filteredCourses.map((course) => {
+              const modules = getCourseModules(course, contentSource);
+              const completedCount = modules.filter((mod) =>
+                completedKeySet.has(`${course.numericId}:${mod.id}`)
+              ).length;
+              const savedProgress =
+                Number(progressByCourse[String(course.numericId)] ?? 0) || 0;
+              const progressPercent = modules.length
+                ? Math.round((completedCount / modules.length) * 100)
+                : Math.min(100, Math.max(0, savedProgress));
+
+              return (
+                <article
+                  key={course.id}
+                  className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 sm:p-6 shadow-2xs space-y-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex items-start gap-4 min-w-0">
+                      <div className="w-20 h-16 rounded-2xl bg-[#F9DDBB] border border-[#341D17]/10 flex items-center justify-center text-[11px] font-bold text-[#802924] shrink-0 text-center px-2">
+                        {course.badge}
+                      </div>
+                      <div className="min-w-0 space-y-1">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
+                          {course.category}
+                        </span>
+                        <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
+                          {course.title}
+                        </h2>
+                        <p className="inline-flex items-center gap-1.5 text-xs text-[#341D17]/65">
+                          <ChefHatIcon className="w-3.5 h-3.5 text-[#802924] shrink-0" />
+                          {course.instructor}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#82882B]">
+                      <FaCheck className="w-3 h-3" />
+                      Terakreditasi Yugyo Atelier
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-semibold text-[#341D17]/75">
+                        Progres Pembelajaran
+                      </span>
+                      <span className="font-bold text-[#341D17]">
+                        {progressPercent}% Selesai
+                        {modules.length > 0 && (
+                          <>
+                            {' '}
+                            &bull; {completedCount}/{modules.length} Modul
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    <div
+                      className="h-2.5 w-full rounded-full bg-[#F9DDBB]/70 overflow-hidden"
+                      role="progressbar"
+                      aria-label={`Progres ${course.title}`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={progressPercent}
+                    >
+                      <div
+                        className="h-full rounded-full bg-[#802924] transition-all duration-300"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#341D17]/10 pt-3">
+                    <span className="inline-flex items-center gap-1.5 text-xs text-[#341D17]/60">
+                      <FaClock className="w-3 h-3 shrink-0" />
+                      Sisa Waktu Akses: {course.remainingDays} Hari
+                    </span>
+                    <Link
+                      href={`/dashboard/student/courses?courseId=${encodeURIComponent(course.numericId)}&category=${encodeURIComponent(course.category)}`}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition"
+                    >
+                      Lanjutkan Belajar
+                      <FaArrowRight className="w-3 h-3 shrink-0" />
+                    </Link>
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </section>
+      ) : activeCourse ? (
         <section className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 sm:p-6 shadow-2xs space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
             <div className="flex items-center gap-2">
@@ -736,105 +785,34 @@ export default function StudentCoursesClient({
               <FaClock className="w-3 h-3 shrink-0" />
               <span>Sisa Waktu Akses: {activeCourse.remainingDays} Hari</span>
             </span>
-            <a
-              href="#silabus-kurikulum"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition"
-            >
-              <span>Lanjutkan Belajar</span>
-              <FaArrowRight className="w-3 h-3 shrink-0" />
-            </a>
           </div>
         </section>
       ) : (
         <section className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-6 text-center space-y-3">
-          <p className="text-sm font-bold text-[#341D17]">
-            Belum ada kursus yang diikuti pada kategori {selectedCategory}
-          </p>
+          <p className="text-sm font-bold text-[#341D17]">Kursus tidak ditemukan di daftar kursus yang Anda ikuti.</p>
           <p className="text-xs text-[#341D17]/65">
-            Tekan tombol &ldquo;Ikuti Kursus&rdquo; pada halaman Course Catalog agar kursus muncul di sini.
+            Kembali ke daftar kursus untuk memilih materi yang tersedia.
           </p>
-          <div>
-            <Link
-              href="/dashboard/student/catalog"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition"
-            >
-              <span>Buka Course Catalog</span>
-            </Link>
-          </div>
+          <Link
+            href="/dashboard/student/courses"
+            className="inline-flex items-center rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition"
+          >
+            Kembali ke Kursus Saya
+          </Link>
         </section>
       )}
-
-      <div className="space-y-3">
-        <input
-          type="text"
-          value={searchMaterial}
-          onChange={(e) => setSearchMaterial(e.target.value)}
-          placeholder="Cari materi atau topik resep..."
-          className="w-full rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-4 py-2.5 text-xs sm:text-sm text-[#341D17] placeholder:text-[#341D17]/45 focus:border-[#802924] focus:outline-none"
-        />
-
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={() => setIsCourseListOpen((prev) => !prev)}
-            className="w-full sm:w-auto inline-flex items-center justify-between gap-3 rounded-xl bg-[#FFFDF9] hover:bg-[#F9DDBB]/45 border border-[#341D17]/15 px-4 py-2.5 text-xs font-bold text-[#341D17] transition cursor-pointer"
-          >
-            <span>
-              {activeCourse?.title ||
-                `Belum Ada Kursus Diikuti (${selectedCategory})`}
-            </span>
-            {isCourseListOpen ? (
-              <FaChevronUp className="w-3 h-3 text-[#802924] shrink-0" />
-            ) : (
-              <FaChevronDown className="w-3 h-3 text-[#802924] shrink-0" />
-            )}
-          </button>
-
-          {isCourseListOpen && (
-            <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-2 space-y-1.5 max-w-xl">
-              {filteredCourses.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-[#341D17]/60">
-                  Belum ada kursus yang diikuti pada kategori {selectedCategory}.
-                </p>
-              ) : (
-                filteredCourses.map((course) => {
-                  const isSelected =
-                    String(activeCourse?.id) === String(course.id);
-                  return (
-                    <button
-                      key={course.id}
-                      type="button"
-                      onClick={() => handleSelectCourse(course)}
-                      className={`w-full text-left rounded-xl px-3.5 py-2.5 text-xs transition cursor-pointer flex items-center justify-between gap-3 ${
-                        isSelected
-                          ? 'bg-[#F9DDBB] text-[#802924] font-extrabold'
-                          : 'hover:bg-[#FAF6F0] text-[#341D17] font-semibold'
-                      }`}
-                    >
-                      <span className="truncate">{course.title}</span>
-                      <span className="text-[11px] opacity-70 shrink-0">
-                        {course.instructor}
-                      </span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <section id="silabus-kurikulum" className="space-y-2.5">
+      {detailMode && activeCourse && (
+        <section id="silabus-kurikulum" className="space-y-2.5">
         <div className="flex items-center justify-between">
           <h2 className="font-editorial text-lg font-bold text-[#341D17]">
             Silabus Kurikulum{' '}
             <span className="ml-1.5 rounded-full bg-[#FFFDF9] border border-[#341D17]/12 px-2.5 py-0.5 text-[11px] font-bold text-[#802924]">
-              {visibleModules.length} Konten
+              {courseContents.length} Konten
             </span>
           </h2>
         </div>
 
-        {visibleModules.length === 0 ? (
+        {courseContents.length === 0 ? (
           <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 text-xs text-[#341D17]/65">
             {activeCourse
               ? `Belum ada modul yang ditambahkan instruktur pada Content Management untuk kursus "${activeCourse.title}".`
@@ -842,11 +820,9 @@ export default function StudentCoursesClient({
           </div>
         ) : (
           <div className="space-y-3">
-            {visibleModules.map((mod, index) => {
+            {courseContents.map((mod, index) => {
               const isVideo = mod.type === 'VIDEO' || mod.type === 'YOUTUBE';
               const hasText = Boolean(mod.textContent);
-              const isInteractive = isVideo || hasText;
-              const isOpen = String(openItemId) === String(mod.id);
               const orderLabel = String(
                 mod.orderIndex || index + 1
               ).padStart(2, '0');
@@ -857,14 +833,6 @@ export default function StudentCoursesClient({
                 : String(mod.id);
               const isDone = completedKeySet.has(compositeKey);
               const isSavingDone = togglingKey === compositeKey;
-
-              const actionLabel = isVideo
-                ? isOpen
-                  ? 'Tutup Video'
-                  : 'Putar Video'
-                : isOpen
-                  ? 'Tutup Teks'
-                  : 'Baca Teks';
 
               const youtubeEmbed = mod.isYouTube
                 ? toYoutubeEmbedUrl(mod.rawMediaUrl)
@@ -877,23 +845,7 @@ export default function StudentCoursesClient({
                     isDone ? 'border-[#82882B]/45' : 'border-[#341D17]/12'
                   }`}
                 >
-                  <div
-                    role={isInteractive ? 'button' : undefined}
-                    tabIndex={isInteractive ? 0 : undefined}
-                    onClick={() => handleToggleItem(mod)}
-                    onKeyDown={(e) => {
-                      if (
-                        isInteractive &&
-                        (e.key === 'Enter' || e.key === ' ')
-                      ) {
-                        e.preventDefault();
-                        handleToggleItem(mod);
-                      }
-                    }}
-                    className={`px-5 py-4 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 ${
-                      isInteractive ? 'cursor-pointer hover:bg-[#FAF6F0]/80' : ''
-                    }`}
-                  >
+                  <div className="px-5 py-4 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
                         URUTAN #{orderLabel} &bull; {typeLabel}
@@ -905,23 +857,18 @@ export default function StudentCoursesClient({
                         <p className="text-xs text-[#341D17]/55 truncate">
                           {mod.rawMediaUrl}
                         </p>
-                      ) : (
+                      ) : hasText ? (
                         <p className="text-xs text-[#341D17]/55 truncate">
-                          {isOpen
-                            ? 'Klik untuk menutup teks modul'
-                            : 'Klik untuk membaca isi teks modul'}
+                          Materi modul ditampilkan di bawah.
                         </p>
-                      )}
+                      ) : null}
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         type="button"
                         disabled={isSavingDone}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleModuleDone(mod);
-                        }}
+                        onClick={() => handleToggleModuleDone(mod)}
                         className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-bold border transition cursor-pointer disabled:opacity-60 ${
                           isDone
                             ? 'bg-[#82882B] text-[#FFFDF9] border-[#82882B]'
@@ -931,16 +878,10 @@ export default function StudentCoursesClient({
                         {isDone && <FaCheck className="w-2.5 h-2.5 shrink-0" />}
                         <span>{isDone ? 'Selesai' : 'Mark as Done'}</span>
                       </button>
-
-                      {isInteractive && (
-                        <span className="rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] px-3 py-1.5 text-[11px] font-bold text-[#802924]">
-                          {actionLabel}
-                        </span>
-                      )}
                     </div>
                   </div>
 
-                  {isOpen && isVideo && (
+                  {isVideo && (
                     <div className="px-5 pb-5 pt-1 space-y-3">
                       {youtubeEmbed ? (
                         <div className="overflow-hidden rounded-xl border border-[#341D17]/12 bg-[#0B0B0C] aspect-video">
@@ -955,7 +896,6 @@ export default function StudentCoursesClient({
                       ) : mod.mediaUrl ? (
                         <div className="overflow-hidden rounded-xl border border-[#341D17]/12 bg-[#0B0B0C]">
                           <video
-                            ref={videoRef}
                             key={mod.mediaUrl}
                             src={mod.mediaUrl}
                             controls
@@ -966,7 +906,11 @@ export default function StudentCoursesClient({
                             Browser Anda tidak mendukung pemutar video HTML5.
                           </video>
                         </div>
-                      ) : null}
+                      ) : (
+                        <p className="text-xs text-[#341D17]/65">
+                          Video modul belum tersedia.
+                        </p>
+                      )}
 
                       {hasText && (
                         <div className="rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] p-4 text-xs sm:text-sm text-[#341D17]/85 whitespace-pre-line leading-relaxed">
@@ -974,51 +918,13 @@ export default function StudentCoursesClient({
                         </div>
                       )}
 
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          disabled={isSavingDone}
-                          onClick={() => handleToggleModuleDone(mod)}
-                          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold border transition cursor-pointer ${
-                            isDone
-                              ? 'bg-[#82882B] text-[#FFFDF9] border-[#82882B]'
-                              : 'bg-[#802924] hover:bg-[#661F1B] text-[#FFFDF9] border-[#802924]'
-                          }`}
-                        >
-                          {isDone && <FaCheck className="w-3 h-3 shrink-0" />}
-                          <span>
-                            {isDone
-                              ? 'Modul Sudah Selesai'
-                              : 'Tandai Modul Selesai (Mark as Done)'}
-                          </span>
-                        </button>
-                      </div>
                     </div>
                   )}
 
-                  {isOpen && !isVideo && hasText && (
-                    <div className="px-5 pb-5 pt-1 space-y-3">
+                  {!isVideo && hasText && (
+                    <div className="px-5 pb-5 pt-1">
                       <div className="rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] p-4 text-xs sm:text-sm text-[#341D17]/85 whitespace-pre-line leading-relaxed">
                         {mod.textContent}
-                      </div>
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          disabled={isSavingDone}
-                          onClick={() => handleToggleModuleDone(mod)}
-                          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold border transition cursor-pointer ${
-                            isDone
-                              ? 'bg-[#82882B] text-[#FFFDF9] border-[#82882B]'
-                              : 'bg-[#802924] hover:bg-[#661F1B] text-[#FFFDF9] border-[#802924]'
-                          }`}
-                        >
-                          {isDone && <FaCheck className="w-3 h-3 shrink-0" />}
-                          <span>
-                            {isDone
-                              ? 'Modul Sudah Selesai'
-                              : 'Tandai Modul Selesai (Mark as Done)'}
-                          </span>
-                        </button>
                       </div>
                     </div>
                   )}
@@ -1027,7 +933,8 @@ export default function StudentCoursesClient({
             })}
           </div>
         )}
-      </section>
+        </section>
+      )}
     </div>
   );
 }

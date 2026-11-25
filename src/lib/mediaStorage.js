@@ -12,6 +12,43 @@ const ALLOWED_MIME_EXT = {
   'image/webp': '.webp',
   'image/gif': '.gif',
 };
+const ALLOWED_IMAGE_EXTENSIONS = new Set([
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.gif',
+]);
+
+function isSupportedImageUpload(file) {
+  if (
+    !file ||
+    typeof file !== 'object' ||
+    typeof file.arrayBuffer !== 'function' ||
+    typeof file.size !== 'number' ||
+    file.size <= 0
+  ) {
+    return false;
+  }
+
+  const mimeType = String(file.type || '').toLowerCase();
+  const extension = path.extname(String(file.name || '')).toLowerCase();
+  const mimeExtension = ALLOWED_MIME_EXT[mimeType];
+
+  if (mimeExtension) {
+    return (
+      !extension ||
+      (ALLOWED_IMAGE_EXTENSIONS.has(extension) &&
+        (extension === mimeExtension ||
+          (mimeExtension === '.jpg' && extension === '.jpeg')))
+    );
+  }
+
+  return (
+    (!mimeType || mimeType === 'application/octet-stream') &&
+    ALLOWED_IMAGE_EXTENSIONS.has(extension)
+  );
+}
 
 function sanitizeBaseName(originalName = 'image') {
   const withoutExt = String(originalName).replace(/\.[^/.]+$/, '');
@@ -41,11 +78,7 @@ function resolveExtension(file) {
  * Mengembalikan public URL seperti '/pictures/courses/...' atau '/pictures/categories/...'
  */
 export async function saveUploadedImage(file, type = 'course') {
-  if (!file || typeof file !== 'object' || typeof file.arrayBuffer !== 'function') {
-    return null;
-  }
-
-  if (typeof file.size === 'number' && file.size <= 0) {
+  if (!isSupportedImageUpload(file)) {
     return null;
   }
 
