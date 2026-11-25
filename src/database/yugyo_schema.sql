@@ -237,15 +237,9 @@ CREATE INDEX IF NOT EXISTS idx_course_sessions_instructor_id ON course_sessions(
 CREATE INDEX IF NOT EXISTS idx_course_sessions_session_date ON course_sessions(session_date);
 CREATE INDEX IF NOT EXISTS idx_course_sessions_is_done ON course_sessions(is_done);
 
--- Index untuk Kolom Status Sesi Kursus
-CREATE INDEX IF NOT EXISTS idx_course_sessions_status ON course_sessions(status);
-
 -- Index untuk Tabel session_student_completions
 CREATE INDEX IF NOT EXISTS idx_session_completions_session_id ON session_student_completions(session_id);
 CREATE INDEX IF NOT EXISTS idx_session_completions_student_id ON session_student_completions(student_id);
-
--- Index Opsional untuk thumbnail_url di courses (bila sering difilter/dicek)
-CREATE INDEX IF NOT EXISTS idx_courses_thumbnail_url ON courses(thumbnail_url) WHERE thumbnail_url IS NOT NULL;
 
 -- Index untuk Tabel chat_threads
 -- Mempercepat urutan antrean chat terbaru (ORDER BY updated_at DESC, id DESC)
@@ -308,10 +302,18 @@ ALTER TABLE course_contents ADD COLUMN IF NOT EXISTS video_url TEXT;
 ALTER TABLE courses
 ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;
 
+-- Indeks thumbnail ditambahkan setelah kolom tersedia.
+CREATE INDEX IF NOT EXISTS idx_courses_thumbnail_url
+  ON courses(thumbnail_url)
+  WHERE thumbnail_url IS NOT NULL;
+
 -- Tambah Kolom Pendukung Status Kelas
 ALTER TABLE course_sessions
 ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'scheduled'
 CHECK (status IN ('scheduled', 'completed', 'canceled'));
+
+-- Indeks status ditambahkan setelah kolom tersedia.
+CREATE INDEX IF NOT EXISTS idx_course_sessions_status ON course_sessions(status);
 
 UPDATE course_sessions
 SET status = CASE
@@ -367,9 +369,3 @@ WHERE c.category_id = cat.id
 ALTER TABLE public.course_contents
   ADD COLUMN IF NOT EXISTS content_text TEXT,
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-
-
-  select * from users;
-  DELETE FROM users
-WHERE LOWER(email) = 'madel@gmail.com'
-   OR LOWER(full_name) = 'madeline';
