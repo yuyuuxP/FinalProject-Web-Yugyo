@@ -127,7 +127,7 @@ export default function StudentPortalShell({
   const propName = !isBlockedStudentName(resolvedPropName)
     ? String(resolvedPropName).trim()
     : '';
-  const activeName = propName || clientName || 'Student';
+  const activeName = clientName || propName || 'Student';
   const activeAvatar = avatarUrl || clientAvatar || '';
 
   useEffect(() => {
@@ -138,14 +138,15 @@ export default function StudentPortalShell({
       const fromGreeting = detectStudentFromGreetingDom();
       const fromSession = detectStudentFromStorage(window.sessionStorage);
       const fromLocal = detectStudentFromStorage(window.localStorage);
-      const resolved = propName || fromGreeting || fromSession || fromLocal;
+      const resolved = fromGreeting || fromSession || fromLocal || propName;
       if (resolved) {
         setClientName(resolved);
       }
     };
 
-    const t1 = setTimeout(resolveSync, 0);
-    const t2 = setTimeout(resolveSync, 150);
+    resolveSync();
+    const t1 = setTimeout(resolveSync, 80);
+    const t2 = setTimeout(resolveSync, 300);
 
     return () => {
       cancelled = true;

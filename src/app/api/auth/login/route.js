@@ -89,22 +89,31 @@ export async function POST(request) {
       );
     }
 
+    const rawRole = String(user.role || 'student').toLowerCase();
+    const accountStatus = String(user.status || 'active').toLowerCase();
+
+    // Teacher yang statusnya masih pending/belum active dianggap student sementara
+    const effectiveRole =
+      rawRole === 'teacher' && accountStatus !== 'active'
+        ? 'student'
+        : rawRole;
+
     const cookieStore = await cookies();
     cookieStore.set('yugyo_user_id', String(user.id), {
       httpOnly: true,
       sameSite: 'lax',
       path: '/',
     });
-    cookieStore.set('yugyo_user_role', String(user.role), {
+    cookieStore.set('yugyo_user_role', effectiveRole, {
       httpOnly: true,
       sameSite: 'lax',
       path: '/',
     });
 
     let redirectUrl = '/dashboard/student';
-    if (user.role === 'admin') {
+    if (effectiveRole === 'admin') {
       redirectUrl = '/dashboard/admin';
-    } else if (user.role === 'teacher') {
+    } else if (effectiveRole === 'teacher') {
       redirectUrl = '/dashboard/teacher';
     }
 
@@ -117,7 +126,9 @@ export async function POST(request) {
           id: user.id,
           name: user.full_name,
           email: user.email,
-          role: user.role,
+          role: effectiveRole,
+          rawRole,
+          status: accountStatus,
         },
       },
       { status: 200 }

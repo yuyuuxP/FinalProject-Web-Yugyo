@@ -314,7 +314,7 @@ export default function StudentDashboardClient({
       return {
         currentLabel: 'Level 2: Artisan Viennoiserie',
         prevLabel: 'Level 1: Pâte Sucrée (Lulus)',
-        nextLabel: 'Tingkat Mulia: Sourdough Pastry →',
+        nextLabel: 'Tingkat Mulia: Sourdough Pastry',
         targetXp: 2000,
         percent: Math.min(100, Math.round((totalXp / 2000) * 100)),
       };
@@ -322,7 +322,7 @@ export default function StudentDashboardClient({
     return {
       currentLabel: 'Level 1: Pâte Sucrée Apprentice',
       prevLabel: 'Orientasi Dapur Atelier (Lulus)',
-      nextLabel: 'Level 2: Artisan Viennoiserie →',
+      nextLabel: 'Level 2: Artisan Viennoiserie',
       targetXp: 500,
       percent: Math.min(100, Math.max(8, Math.round((totalXp / 500) * 100))),
     };

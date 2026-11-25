@@ -1,11 +1,12 @@
 import Link from 'next/link';
+import { FaAward, FaArrowRight } from 'react-icons/fa6';
 
 export default function YugyoLandingPage() {
   const curriculumCards = [
     {
       title: 'Sourdough Mastery',
       desc: 'Metode levain hidup & open crumb pori sempurna.',
-      cta: '6 Modul Lengkap →',
+      cta: '6 Modul Lengkap',
       href: '/courses',
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -16,7 +17,7 @@ export default function YugyoLandingPage() {
     {
       title: 'Viennoiserie Pure',
       desc: 'Croissant bertingkat, pain au chocolat berongga madu.',
-      cta: 'Lamination Guide →',
+      cta: 'Lamination Guide',
       href: '/courses',
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -27,7 +28,7 @@ export default function YugyoLandingPage() {
     {
       title: 'Choux & Éclairs',
       desc: 'Penguasaan tekstur craquelin krispi & crème pâtissière sutra.',
-      cta: 'Suhu & Kelembaban →',
+      cta: 'Suhu & Kelembaban',
       href: '/courses',
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -38,7 +39,7 @@ export default function YugyoLandingPage() {
     {
       title: 'Sertifikat Digital',
       desc: 'Akreditasi resmi YUGYO Atelier dengan portofolio kurasi.',
-      cta: 'Internasional →',
+      cta: 'Internasional',
       href: '/courses',
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -50,11 +51,9 @@ export default function YugyoLandingPage() {
 
   return (
     <div className="min-h-screen bg-[#F9DDBB] text-[#341D17] selection:bg-[#802924] selection:text-[#F9DDBB]">
-      
       {/* ================= HERO BANNER DENGAN OVERLAY BADGES ================= */}
       <header className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
         <div className="relative w-full h-[300px] sm:h-[380px] md:h-[430px] rounded-3xl overflow-hidden shadow-xl border border-[#341D17]/20 bg-[#341D17]">
-          
           {/* Foto Utama Artisan Bakery */}
           <img
             src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1600&q=85"
@@ -84,7 +83,8 @@ export default function YugyoLandingPage() {
             {/* Right Badge: Accredited (Pistachio #82882B) + Quick Login (#802924) */}
             <div className="flex items-center gap-2">
               <span className="hidden sm:inline-flex items-center gap-1.5 bg-[#82882B] text-white px-3.5 py-2 rounded-full text-[10px] sm:text-xs font-bold tracking-wider uppercase shadow-md">
-                <span>🏅</span> ACCREDITED 2026
+                <FaAward className="w-3.5 h-3.5 shrink-0" />
+                <span>ACCREDITED 2026</span>
               </span>
               <Link
                 href="/login"
@@ -114,13 +114,11 @@ export default function YugyoLandingPage() {
               </p>
             </div>
           </div>
-
         </div>
       </header>
 
       {/* ================= KONTEN UTAMA ================= */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-10 sm:pt-14 pb-16">
-        
         {/* SECTION HEADER (THE CULINARY ARTS OF BAKING) */}
         <section className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
           <div className="inline-flex items-center gap-3 mb-3">
@@ -164,9 +162,10 @@ export default function YugyoLandingPage() {
               <div>
                 <Link
                   href={item.href}
-                  className="inline-flex items-center text-[11px] sm:text-xs font-extrabold text-[#82882B] group-hover:text-[#802924] group-hover:translate-x-1 transition-all"
+                  className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-extrabold text-[#82882B] group-hover:text-[#802924] group-hover:translate-x-1 transition-all"
                 >
-                  {item.cta}
+                  <span>{item.cta}</span>
+                  <FaArrowRight className="w-3 h-3 shrink-0" />
                 </Link>
               </div>
             </div>
@@ -231,7 +230,7 @@ export default function YugyoLandingPage() {
             className="w-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs sm:text-sm py-3.5 sm:py-4 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
           >
             <span>Mulai Belajar Sekarang</span>
-            <span>→</span>
+            <FaArrowRight className="w-3.5 h-3.5 shrink-0" />
           </Link>
 
           <Link
@@ -244,7 +243,6 @@ export default function YugyoLandingPage() {
             <span>Jelajahi sebagai Tamu (Guest)</span>
           </Link>
         </section>
-
       </main>
 
       {/* ================= FOOTER MINIMAL ================= */}
@@ -253,7 +251,6 @@ export default function YugyoLandingPage() {
           Akses kurikulum gratis 7 hari tanpa komitmen kartu kredit • YUGYO Baking Atelier © 2026
         </p>
       </footer>
-
     </div>
   );
 }

@@ -369,4 +369,4 @@ ALTER TABLE public.course_contents
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
 
-  
+select * from users;

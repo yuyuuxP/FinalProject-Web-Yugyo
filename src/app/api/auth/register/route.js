@@ -1,17 +1,6 @@
 import { NextResponse } from 'next/server';
-import { Pool } from 'pg';
 import crypto from 'crypto';
-
-const globalForPg = globalThis;
-const pool =
-  globalForPg.__yugyoPgPool ||
-  new Pool({
-    connectionString: process.env.DATABASE_URL,
-  });
-
-if (!globalForPg.__yugyoPgPool) {
-  globalForPg.__yugyoPgPool = pool;
-}
+import pool from '@/lib/db';
 
 function hashPassword(plainPassword) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -32,12 +21,14 @@ export async function POST(request) {
     const fullName = String(body.fullName || '').trim();
     const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
-    const role = body.role === 'instructor' ? 'instructor' : 'student';
-    const status = role === 'instructor' ? 'pending' : 'active';
-    const specialty =
-      role === 'instructor'
-        ? String(body.specialty || '').trim() || null
-        : null;
+    const rawRole = String(body.role || 'student').trim().toLowerCase();
+
+    const isTeacherRequest = rawRole === 'instructor' || rawRole === 'teacher';
+    const role = isTeacherRequest ? 'teacher' : 'student';
+    const status = isTeacherRequest ? 'pending' : 'active';
+    const specialty = isTeacherRequest
+      ? String(body.specialty || '').trim() || null
+      : null;
 
     if (fullName.length < 2) {
       return NextResponse.json(
@@ -81,27 +72,14 @@ export async function POST(request) {
       [fullName, email, passwordHash, role, status, specialty]
     );
 
-    const user = inserted.rows[0];
-    const redirectUrl =
-      role === 'instructor' ? '/dashboard/instructor' : '/dashboard/student';
-
-    const response = NextResponse.json(
+    return NextResponse.json(
       {
         success: true,
-        user,
-        redirectUrl,
+        message: 'Akun telah terdaftar!',
+        user: inserted.rows[0],
       },
       { status: 201 }
     );
-
-    response.cookies.set('yugyo_user', JSON.stringify(user), {
-      httpOnly: false,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    return response;
   } catch (err) {
     if (err?.code === '23505') {
       return NextResponse.json(

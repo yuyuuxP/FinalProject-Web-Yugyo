@@ -3,6 +3,19 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import {
+  FaChevronLeft,
+  FaArrowLeft,
+  FaArrowRight,
+  FaEnvelope,
+  FaLock,
+  FaEye,
+  FaEyeSlash,
+  FaUtensils,
+  FaShieldHalved,
+  FaAward,
+  FaClock,
+} from 'react-icons/fa6';
 
 function formatTitleCase(text) {
   return String(text || '')
@@ -96,7 +109,7 @@ export default function LoginModalContent({ backHref = '/' }) {
 
       router.push(data.redirectUrl);
       router.refresh();
-    } catch (err) {
+    } catch {
       setErrorMsg('Gagal terhubung ke server.');
       setIsLoading(false);
     }
@@ -113,19 +126,7 @@ export default function LoginModalContent({ backHref = '/' }) {
               aria-label="Kembali"
               className="w-8 h-8 rounded-full hover:bg-[#F9DDBB]/60 flex items-center justify-center text-[#341D17] transition"
             >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
+              <FaChevronLeft className="w-3.5 h-3.5" />
             </Link>
 
             <div className="flex items-center gap-2">
@@ -152,7 +153,7 @@ export default function LoginModalContent({ backHref = '/' }) {
               href={backHref}
               className="inline-flex items-center gap-1.5 text-xs font-bold text-[#341D17] hover:text-[#802924] transition"
             >
-              <span>←</span>
+              <FaArrowLeft className="w-3 h-3 shrink-0" />
               <span>
                 {backHref === '/courses'
                   ? 'Kembali ke Katalog Guest'
@@ -169,15 +170,19 @@ export default function LoginModalContent({ backHref = '/' }) {
           {/* Welcome Box */}
           <div className="bg-[#F9DDBB]/40 border border-[#341D17]/10 rounded-2xl p-4 sm:p-5">
             <div className="flex items-start gap-3.5 mb-2.5">
-              <div className="w-11 h-11 rounded-2xl bg-[#FFFDF9] border border-[#341D17]/15 flex items-center justify-center font-editorial font-extrabold text-xs text-[#341D17] shrink-0 shadow-2xs">
-                YUGYO
+              <div className="w-11 h-11 rounded-2xl overflow-hidden bg-[#FFFDF9] border border-[#341D17]/15 shrink-0 shadow-2xs">
+                <img
+                  src="/yugyo.png"
+                  alt="Maskot Chef YUGYO"
+                  className="w-full h-full object-cover object-center"
+                />
               </div>
               <div>
                 <p className="text-[10px] font-extrabold tracking-[0.18em] uppercase text-[#802924] mb-0.5">
                   ATELIER PÂTISSERIE &amp; BOULANGERIE
                 </p>
                 <h1 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17] leading-snug">
-                  Selamat Datang Kembali di YUGYO Atelier
+                  Selamat Datang di YUGYO Atelier
                 </h1>
               </div>
             </div>
@@ -208,19 +213,7 @@ export default function LoginModalContent({ backHref = '/' }) {
               </div>
               <div className="relative">
                 <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45">
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
-                  </svg>
+                  <FaEnvelope className="w-3.5 h-3.5" />
                 </span>
                 <input
                   type="text"
@@ -239,19 +232,7 @@ export default function LoginModalContent({ backHref = '/' }) {
               </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45">
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                    />
-                  </svg>
+                  <FaLock className="w-3.5 h-3.5" />
                 </span>
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -267,7 +248,11 @@ export default function LoginModalContent({ backHref = '/' }) {
                   aria-label="Tampilkan atau sembunyikan kata sandi"
                   className="absolute inset-y-0 right-3.5 flex items-center text-[#341D17]/50 hover:text-[#341D17] cursor-pointer"
                 >
-                  {showPassword ? '🙈' : '👁️'}
+                  {showPassword ? (
+                    <FaEyeSlash className="w-3.5 h-3.5" />
+                  ) : (
+                    <FaEye className="w-3.5 h-3.5" />
+                  )}
                 </button>
               </div>
             </div>
@@ -293,11 +278,11 @@ export default function LoginModalContent({ backHref = '/' }) {
               <span>
                 {isLoading ? 'Memverifikasi Akun...' : 'Masuk ke Dapur Belajar'}
               </span>
-              <span>🍴</span>
+              <FaUtensils className="w-3.5 h-3.5 shrink-0" />
             </button>
 
             <div className="bg-[#F9DDBB]/35 border border-[#341D17]/10 rounded-xl px-3.5 py-2.5 flex items-center gap-2 text-[11px] text-[#341D17]/80">
-              <span className="text-[#82882B] shrink-0">🛡️</span>
+              <FaShieldHalved className="w-3.5 h-3.5 text-[#82882B] shrink-0" />
               <span>
                 Akses aman terenkripsi untuk masterclass sourdough, viennoiserie, dan cokelat.
               </span>
@@ -314,7 +299,7 @@ export default function LoginModalContent({ backHref = '/' }) {
               className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-[#802924] hover:underline"
             >
               <span>Masuk sebagai Tamu (Guest Mode)</span>
-              <span>→</span>
+              <FaArrowRight className="w-3 h-3 shrink-0" />
             </Link>
             <p className="text-[10px] text-[#341D17]/60">
               Lihat katalog kursus &amp; resep cuplikan tanpa login
@@ -341,11 +326,13 @@ export default function LoginModalContent({ backHref = '/' }) {
             </p>
 
             <div className="flex items-center justify-center gap-4 text-[11px] font-medium text-[#341D17]/60">
-              <span className="inline-flex items-center gap-1">
-                <span>🏅</span> Sertifikasi Atelier
+              <span className="inline-flex items-center gap-1.5">
+                <FaAward className="w-3.5 h-3.5 shrink-0" />
+                <span>Sertifikasi Atelier</span>
               </span>
-              <span className="inline-flex items-center gap-1">
-                <span>⏱️</span> Akses Resep 24 Jam
+              <span className="inline-flex items-center gap-1.5">
+                <FaClock className="w-3.5 h-3.5 shrink-0" />
+                <span>Akses Resep 24 Jam</span>
               </span>
             </div>
           </div>

@@ -72,8 +72,12 @@ export default function StudentSidebarNav({
           onClick={onNavigate}
           className="flex items-center gap-3"
         >
-          <span className="w-9 h-9 rounded-xl bg-[#802924] text-[#F9DDBB] font-editorial font-bold text-base flex items-center justify-center shadow-xs shrink-0">
-            Y
+          <span className="w-9 h-9 rounded-xl overflow-hidden bg-[#802924] border border-[#341D17]/15 flex items-center justify-center shadow-xs shrink-0">
+            <img
+              src="/yugyo.png"
+              alt="Maskot Chef YUGYO"
+              className="w-full h-full object-cover object-center"
+            />
           </span>
           <div>
             <p className="font-editorial text-base font-bold leading-none text-[#341D17]">

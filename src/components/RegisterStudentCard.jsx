@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   FaChevronLeft,
   FaXmark,
@@ -17,6 +16,7 @@ import {
   FaEyeSlash,
   FaRotate,
   FaCookieBite,
+  FaCircleCheck,
 } from 'react-icons/fa6';
 
 function toTitleCase(value) {
@@ -45,7 +45,6 @@ function normalizeUsername(rawUsername, rawFullName, rawEmail) {
 }
 
 export default function RegisterStudentCard() {
-  const router = useRouter();
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -56,11 +55,13 @@ export default function RegisterStudentCard() {
   const [showPass, setShowPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setSuccessMsg('');
 
     const cleanFullName = toTitleCase(fullName);
     const cleanEmail = String(email || '').trim().toLowerCase();
@@ -126,9 +127,16 @@ export default function RegisterStudentCard() {
         return;
       }
 
-      const targetUrl = data.redirectUrl || '/dashboard/student';
-      router.push(targetUrl);
-      router.refresh();
+      setFullName('');
+      setUsername('');
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setAgreed(false);
+      setShowPass(false);
+      setShowConfirmPass(false);
+      setSuccessMsg('Akun telah terdaftar!');
+      setIsLoading(false);
     } catch {
       setErrorMsg('Tidak dapat terhubung ke server. Periksa status server Next.js.');
       setIsLoading(false);
@@ -138,7 +146,6 @@ export default function RegisterStudentCard() {
   return (
     <div className="fixed inset-0 z-50 bg-[#341D17]/35 backdrop-blur-[2px] overflow-y-auto flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-2xl bg-[#FFFDF9] rounded-3xl shadow-2xl border border-[#341D17]/20 overflow-hidden my-auto">
-        {/* 1. TOP BAR */}
         <div className="px-5 sm:px-7 py-3.5 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
@@ -150,8 +157,12 @@ export default function RegisterStudentCard() {
             </Link>
 
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#341D17] text-[#F9DDBB] flex items-center justify-center font-editorial font-bold text-xs">
-                Y
+              <div className="w-7 h-7 rounded-lg overflow-hidden bg-[#341D17] border border-[#341D17]/15 shrink-0">
+                <img
+                  src="/yugyo.png"
+                  alt="Maskot Chef YUGYO"
+                  className="w-full h-full object-cover object-center"
+                />
               </div>
               <div>
                 <p className="text-[9px] font-extrabold tracking-[0.2em] uppercase text-[#802924] leading-none">
@@ -174,9 +185,7 @@ export default function RegisterStudentCard() {
           </Link>
         </div>
 
-        {/* 2. BODY CONTENT */}
         <div className="p-5 sm:p-7 space-y-4">
-          {/* Sub-header */}
           <div className="flex items-center justify-between gap-2">
             <Link
               href="/login"
@@ -192,7 +201,6 @@ export default function RegisterStudentCard() {
             </span>
           </div>
 
-          {/* Header Banner & 3 Foto Bakery Strip */}
           <div className="bg-[#F9DDBB]/35 border border-[#341D17]/10 rounded-2xl p-4 sm:p-5 space-y-3.5">
             <div>
               <p className="text-[10px] font-extrabold tracking-[0.18em] uppercase text-[#802924] flex items-center gap-1.5 mb-1">
@@ -232,7 +240,6 @@ export default function RegisterStudentCard() {
             </div>
           </div>
 
-          {/* Switch Banner ke Instructor */}
           <div className="bg-[#F9DDBB]/55 border border-[#341D17]/10 rounded-2xl p-3.5 flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-[#82882B] text-white flex items-center justify-center shrink-0 shadow-2xs">
               <FaGraduationCap className="w-4 h-4" />
@@ -254,19 +261,39 @@ export default function RegisterStudentCard() {
             </div>
           </div>
 
-          {/* Form Pendaftaran Student */}
           <form
             onSubmit={handleRegister}
             noValidate
             className="bg-white border border-[#341D17]/10 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs"
           >
             {errorMsg && (
-              <div className="p-3 rounded-xl bg-[#802924]/15 border border-[#802924] text-[#802924] text-xs font-bold text-center">
+              <div
+                role="alert"
+                className="p-3 rounded-xl bg-[#802924]/15 border border-[#802924] text-[#802924] text-xs font-bold text-center"
+              >
                 {errorMsg}
               </div>
             )}
 
-            {/* Nama Lengkap */}
+            {successMsg && (
+              <div
+                role="status"
+                className="p-3.5 rounded-xl bg-[#82882B]/15 border border-[#82882B] text-[#2F330D] text-xs font-bold flex flex-wrap items-center justify-between gap-2"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <FaCircleCheck className="w-4 h-4 text-[#82882B] shrink-0" />
+                  <span>{successMsg}</span>
+                </span>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-1 rounded-lg bg-[#802924] hover:bg-[#661F1B] px-3 py-1.5 text-[11px] font-bold text-[#F9DDBB] transition"
+                >
+                  <span>Silakan Login</span>
+                  <FaArrowRight className="w-2.5 h-2.5" />
+                </Link>
+              </div>
+            )}
+
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label
@@ -296,7 +323,6 @@ export default function RegisterStudentCard() {
               </div>
             </div>
 
-            {/* Username */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label
@@ -324,7 +350,6 @@ export default function RegisterStudentCard() {
               </div>
             </div>
 
-            {/* Email Utama */}
             <div>
               <label
                 htmlFor="student-reg-email"
@@ -348,7 +373,6 @@ export default function RegisterStudentCard() {
               </div>
             </div>
 
-            {/* Kata Sandi */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label
@@ -390,7 +414,6 @@ export default function RegisterStudentCard() {
               </div>
             </div>
 
-            {/* Konfirmasi Kata Sandi */}
             <div>
               <label
                 htmlFor="student-reg-confirm-password"
@@ -431,7 +454,6 @@ export default function RegisterStudentCard() {
               </div>
             </div>
 
-            {/* Checkbox Syarat & Ketentuan */}
             <label className="flex items-start gap-2.5 pt-1 cursor-pointer text-[11px] text-[#341D17]/80">
               <input
                 type="checkbox"
@@ -452,7 +474,6 @@ export default function RegisterStudentCard() {
               </span>
             </label>
 
-            {/* Tombol Daftar Akun Siswa */}
             <button
               type="submit"
               disabled={isLoading}
