@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import {
+  getCurrentSessionAccount,
+  requireActiveTeacherOrAdmin,
+} from '@/lib/teacher-access';
 
 function parseIntOrNull(value) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -8,14 +12,25 @@ function parseIntOrNull(value) {
 
 export async function GET(request) {
   try {
+    const account = await getCurrentSessionAccount();
+    const role = String(account?.role || '').trim().toLowerCase();
+    if (!account) {
+      return NextResponse.json({ error: 'Sesi pengguna tidak ditemukan.' }, { status: 401 });
+    }
+    if (role !== 'admin' && role !== 'teacher') {
+      return NextResponse.json({ error: 'Akses jadwal tidak diizinkan.' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
-    const teacherId = parseIntOrNull(searchParams.get('teacherId'));
+    const teacherId = role === 'teacher'
+      ? Number(account.id)
+      : parseIntOrNull(searchParams.get('teacherId'));
     const teacherName = searchParams.get('teacherName')?.trim() || '';
 
-    let teacherFilter = null;
-    if (teacherId) {
+    let teacherFilter = role === 'teacher' ? teacherId : null;
+    if (role !== 'teacher' && teacherId) {
       teacherFilter = teacherId;
-    } else if (teacherName) {
+    } else if (role !== 'teacher' && teacherName) {
       const teacherRes = await pool.query(
         `SELECT id FROM users
          WHERE LOWER(TRIM(full_name)) = LOWER(TRIM($1))
@@ -122,6 +137,9 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    const access = await requireActiveTeacherOrAdmin();
+    if (access.response) return access.response;
+
     const body = await request.json().catch(() => ({}));
     const courseId = parseIntOrNull(body?.courseId ?? body?.course_id);
     const instructorId = parseIntOrNull(body?.instructorId ?? body?.instructor_id);
@@ -163,6 +181,9 @@ export async function POST(request) {
 
 async function updateSession(request) {
   try {
+    const access = await requireActiveTeacherOrAdmin();
+    if (access.response) return access.response;
+
     const body = await request.json().catch(() => ({}));
     const sessionId = parseIntOrNull(body?.sessionId ?? body?.session_id ?? body?.id);
     const courseId = parseIntOrNull(body?.courseId ?? body?.course_id);
@@ -331,6 +352,9 @@ export async function PUT(request) {
 
 export async function DELETE(request) {
   try {
+    const access = await requireActiveTeacherOrAdmin();
+    if (access.response) return access.response;
+
     const { searchParams } = new URL(request.url);
     const sessionId = parseIntOrNull(
       searchParams.get('sessionId') ?? searchParams.get('session_id')

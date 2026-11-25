@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import pool from '@/lib/db';
+import { requireActiveTeacher } from '@/lib/teacher-access';
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.mkv']);
 const CATEGORY_FOLDERS = [
@@ -33,6 +34,9 @@ function humanizeFileName(fileName) {
 
 export async function POST(request) {
   try {
+    const access = await requireActiveTeacher();
+    if (access.response) return access.response;
+
     const body = await request.json();
     const courseId = Number(body?.course_id);
     const courseTitle = String(body?.course_title || '').trim();

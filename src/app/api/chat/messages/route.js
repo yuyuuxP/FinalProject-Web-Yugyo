@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import pool from '@/lib/db';
+import { rejectPendingTeacherAction } from '@/lib/teacher-access';
 
 function formatTimeLabel(date = new Date()) {
   return date.toLocaleTimeString('en-US', {
@@ -12,6 +13,9 @@ function formatTimeLabel(date = new Date()) {
 
 export async function POST(request) {
   try {
+    const pendingResponse = await rejectPendingTeacherAction();
+    if (pendingResponse) return pendingResponse;
+
     const reqBody = await request.json();
     const threadId = Number(reqBody?.thread_id);
     const senderRole = reqBody?.sender_role === 'student' ? 'student' : 'teacher';

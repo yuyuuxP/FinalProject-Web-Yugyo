@@ -17,13 +17,6 @@ export default async function TeacherCoursesPage() {
       }
     } 
     
-    if (!teacherId) {
-      const fallbackRes = await pool.query("SELECT id FROM users WHERE role = 'teacher' LIMIT 1;");
-      if (fallbackRes.rows.length > 0) {
-        teacherId = fallbackRes.rows[0].id;
-      }
-    }
-
     if (teacherId) {
       const coursesRes = await pool.query(`
         SELECT c.*, 

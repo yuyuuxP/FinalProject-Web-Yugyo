@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { requireActiveTeacher } from '@/lib/teacher-access';
 
 export async function POST(request) {
   try {
+    const access = await requireActiveTeacher();
+    if (access.response) return access.response;
+
     const body = await request.json();
     const { course_id, title, description, video_url, cover_image_url, order_index, status } = body;
 

@@ -18,13 +18,6 @@ export default async function CreateCoursePage() {
       }
     }
 
-    if (!teacher) {
-      const fallbackRes = await pool.query("SELECT id, full_name, specialty FROM users WHERE role = 'teacher' LIMIT 1;");
-      if (fallbackRes.rows.length > 0) {
-        teacher = fallbackRes.rows[0];
-      }
-    }
-
     // 2. Cari kategori di database yang cocok dengan spesialisasi guru (specialty)
     if (teacher && teacher.specialty) {
       const catRes = await pool.query("SELECT id, name FROM categories WHERE name ILIKE $1 LIMIT 1;", [ `%${teacher.specialty}%` ]);

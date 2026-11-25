@@ -139,10 +139,7 @@ async function getAuthenticatedTeacher() {
     if (res.rows.length > 0) return res.rows[0];
   }
 
-  const fallback = await pool.query(
-    "SELECT id, full_name, email, role, status, specialty FROM users WHERE role IN ('instructor', 'teacher') AND COALESCE(status, 'active') = 'active' ORDER BY id ASC LIMIT 1;"
-  );
-  return fallback.rows[0] || null;
+  return null;
 }
 
 export default async function TeacherContentsPage({ searchParams }) {

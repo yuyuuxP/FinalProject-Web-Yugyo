@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { requireActiveTeacher } from '@/lib/teacher-access';
 
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'videos', 'upload');
 const ALLOWED_EXTS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.mkv']);
@@ -18,6 +19,9 @@ function sanitizeFileName(rawName) {
 
 export async function POST(request) {
   try {
+    const access = await requireActiveTeacher();
+    if (access.response) return access.response;
+
     const formData = await request.formData();
     const file = formData.get('file') || formData.get('video');
 
@@ -55,6 +59,9 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   try {
+    const access = await requireActiveTeacher();
+    if (access.response) return access.response;
+
     const { searchParams } = new URL(request.url);
     const rawFile = searchParams.get('file') || searchParams.get('url') || '';
     const fileName = path.basename(String(rawFile).trim());

@@ -1,27 +1,11 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
 import pool from '@/lib/db';
-
-async function getAuthenticatedTeacher() {
-  const cookieStore = await cookies();
-  const rawId = cookieStore.get('yugyo_user_id')?.value;
-
-  if (rawId && Number.isInteger(Number(rawId)) && Number(rawId) > 0) {
-    const res = await pool.query(
-      "SELECT id, full_name, email, role, status, specialty FROM users WHERE id = $1 AND role = 'teacher' LIMIT 1;",
-      [Number(rawId)]
-    );
-    if (res.rows.length > 0) {
-      return res.rows[0];
-    }
-  }
-
-  const fallback = await pool.query(
-    "SELECT id, full_name, email, role, status, specialty FROM users WHERE role = 'teacher' ORDER BY id ASC LIMIT 1;"
-  );
-  return fallback.rows[0] || null;
-}
+import {
+  getCurrentSessionAccount,
+  requireActiveTeacher,
+  rejectPendingTeacherAction,
+} from '@/lib/teacher-access';
 
 function isPendingStatus(status) {
   return String(status || '').trim().toLowerCase() === 'pending';
@@ -72,20 +56,9 @@ function isThreadForTeacher(thread, teacher) {
 
 export async function GET(request) {
   try {
-    const teacher = await getAuthenticatedTeacher();
-    if (!teacher) {
-      return NextResponse.json({ success: true, threads: [], messages: [] });
-    }
-
-    if (isPendingStatus(teacher.status)) {
-      return NextResponse.json({
-        success: true,
-        threads: [],
-        messages: [],
-        blockedByPending: true,
-        message: 'Akun guru masih berstatus pending sehingga tidak dapat menerima chat dari siswa.',
-      });
-    }
+    const access = await requireActiveTeacher();
+    if (access.response) return access.response;
+    const teacher = access.account;
 
     const res = await pool.query(
       `SELECT
@@ -147,8 +120,22 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    const pendingResponse = await rejectPendingTeacherAction();
+    if (pendingResponse) return pendingResponse;
+
     const body = await request.json();
     const senderRole = String(body?.sender_role || '').trim().toLowerCase();
+    const sessionAccount = await getCurrentSessionAccount();
+    if (
+      String(sessionAccount?.role || '').trim().toLowerCase() === 'teacher' &&
+      senderRole !== 'teacher'
+    ) {
+      return NextResponse.json(
+        { message: 'Instruktur tidak dapat mengirim pesan sebagai siswa.' },
+        { status: 403 }
+      );
+    }
+
     const threadId = body?.thread_id ? Number(body.thread_id) : null;
     const messageText =
       typeof body?.message === 'string'
@@ -165,16 +152,9 @@ export async function POST(request) {
     }
 
     if (senderRole === 'teacher') {
-      const teacher = await getAuthenticatedTeacher();
-      if (!teacher || isPendingStatus(teacher.status)) {
-        return NextResponse.json(
-          {
-            message:
-              'Akun guru masih berstatus pending sehingga belum dapat menerima atau membalas chat.',
-          },
-          { status: 403 }
-        );
-      }
+      const access = await requireActiveTeacher();
+      if (access.response) return access.response;
+      const teacher = access.account;
 
       if (!threadId) {
         return NextResponse.json(

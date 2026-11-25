@@ -2,31 +2,31 @@ import TeacherSidebar from '@/components/teacher/TeacherSidebar';
 import TeacherHeader from '@/components/teacher/TeacherHeader';
 import pool from '@/lib/db';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { FaLock } from 'react-icons/fa6';
 
 export default async function TeacherLayout({ children }) {
-  let teacher = { full_name: 'Chef Pengajar' };
+  const cookieStore = await cookies();
+  const userId = Number(cookieStore.get('yugyo_user_id')?.value);
 
-  try {
-    const cookieStore = await cookies();
-    const userId = cookieStore.get('yugyo_user_id')?.value;
-
-    if (userId) {
-      const res = await pool.query(
-        "SELECT id, full_name, email, specialty FROM users WHERE id = $1 AND role = 'teacher';",
-        [userId]
-      );
-      if (res.rows.length > 0) {
-        teacher = res.rows[0];
-      }
-    } else {
-      const res = await pool.query(
-        "SELECT id, full_name, email, specialty FROM users WHERE role = 'teacher' LIMIT 1;"
-      );
-      if (res.rows.length > 0) teacher = res.rows[0];
-    }
-  } catch (err) {
-    console.error('Error fetching teacher session in layout:', err);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    redirect('/login');
   }
+
+  const result = await pool.query(
+    `SELECT id, full_name, email, specialty, status
+     FROM users
+     WHERE id = $1 AND LOWER(COALESCE(role, '')) = 'teacher'
+     LIMIT 1;`,
+    [userId]
+  );
+  const teacher = result.rows[0];
+
+  if (!teacher) {
+    redirect('/login');
+  }
+
+  const isPending = String(teacher.status || '').trim().toLowerCase() === 'pending';
 
   return (
     <div className="min-h-screen bg-[#F9DDBB] text-[#341D17] flex">
@@ -42,7 +42,29 @@ export default async function TeacherLayout({ children }) {
 
         {/* KONTEN HALAMAN */}
         <main className="flex-1 p-4 sm:p-8 max-w-6xl w-full mx-auto">
-          {children}
+          {isPending && (
+            <div
+              role="status"
+              className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-700/25 bg-[#FFFDF9] px-4 py-3.5 text-sm text-[#341D17] shadow-sm"
+            >
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-800">
+                <FaLock aria-hidden="true" />
+              </span>
+              <div>
+                <p className="font-extrabold">Akun menunggu persetujuan admin</p>
+                <p className="mt-0.5 text-xs text-[#341D17]/70">
+                  Anda dapat melihat menu, tetapi seluruh aksi instruktur terkunci sampai akun disetujui.
+                </p>
+              </div>
+            </div>
+          )}
+          <div
+            inert={isPending}
+            aria-disabled={isPending}
+            className={isPending ? 'pointer-events-none select-none opacity-50' : ''}
+          >
+            {children}
+          </div>
         </main>
       </div>
     </div>

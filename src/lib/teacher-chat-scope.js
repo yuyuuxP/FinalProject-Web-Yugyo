@@ -17,10 +17,7 @@ export async function getLoggedInTeacherForChat(cookieStore) {
     }
   }
 
-  const fallback = await pool.query(
-    "SELECT id, full_name, email, role, status, specialty FROM users WHERE role = 'teacher' ORDER BY id ASC LIMIT 1;"
-  );
-  return fallback.rows[0] || null;
+  return null;
 }
 
 export async function fetchScopedThreadsForTeacher(teacher) {

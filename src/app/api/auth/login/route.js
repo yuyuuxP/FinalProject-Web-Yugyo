@@ -92,16 +92,17 @@ export async function POST(request) {
     const rawRole = String(user.role || 'student').toLowerCase();
     const accountStatus = String(user.status || 'active').toLowerCase();
 
-    if (accountStatus === 'pending') {
+    if (accountStatus === 'pending' && rawRole !== 'teacher') {
       return NextResponse.json(
         { error: 'Akun Anda masih menunggu persetujuan admin.' },
         { status: 403 }
       );
     }
 
-    // Status teacher non-active selain pending dibatasi ke dashboard student.
     const effectiveRole =
-      rawRole === 'teacher' && accountStatus !== 'active'
+      rawRole === 'teacher' &&
+      accountStatus !== 'active' &&
+      accountStatus !== 'pending'
         ? 'student'
         : rawRole;
 

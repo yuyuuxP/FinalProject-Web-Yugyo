@@ -34,7 +34,10 @@ export default function TeacherPortalHeader({
   const resolvedName =
     teacher?.full_name || teacher?.name || teacherName || 'Instructor';
   const displayName = String(resolvedName).trim() || 'Instructor';
-  const displayRole = teacher?.specialty || 'Master Baker Atelier';
+  const isPending = String(teacher?.status || '').trim().toLowerCase() === 'pending';
+  const displayRole = isPending
+    ? 'Menunggu persetujuan admin'
+    : teacher?.specialty || 'Master Baker Atelier';
   const pageSubtitle = getPageSubtitle(pathname);
 
   return (
@@ -91,7 +94,11 @@ export default function TeacherPortalHeader({
             <p className="text-xs font-extrabold text-[#341D17] truncate max-w-[140px]">
               {displayName}
             </p>
-            <p className="text-[10px] text-[#341D17]/65 truncate max-w-[140px]">
+            <p
+              className={`text-[10px] truncate max-w-[140px] ${
+                isPending ? 'font-bold text-amber-800' : 'text-[#341D17]/65'
+              }`}
+            >
               {displayRole}
             </p>
           </div>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import pool from '@/lib/db';
+import { requireActiveTeacher } from '@/lib/teacher-access';
 
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'videos', 'upload');
 
@@ -22,6 +23,9 @@ async function removeUploadedVideoIfNeeded(videoUrl) {
 
 export async function PATCH(request, { params }) {
   try {
+    const access = await requireActiveTeacher();
+    if (access.response) return access.response;
+
     const { id } = await params;
     const numericId = Number(id);
 
@@ -126,6 +130,9 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
+    const access = await requireActiveTeacher();
+    if (access.response) return access.response;
+
     const { id } = await params;
 
     const deleted = await pool.query(

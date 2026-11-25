@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import pool from '@/lib/db';
 import { deleteLocalPictureFile } from '@/lib/mediaStorage';
+import { requireActiveTeacher } from '@/lib/teacher-access';
 
 const SHARED_STATIC_IMAGES = new Set([
   '/pictures/courses/french_patisserie/Madeleines.png',
@@ -15,6 +16,9 @@ const SHARED_STATIC_IMAGES = new Set([
 
 export async function PUT(request, { params }) {
   try {
+    const access = await requireActiveTeacher();
+    if (access.response) return access.response;
+
     const { id } = await params;
     const courseId = Number(id);
 
@@ -62,6 +66,9 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(_request, { params }) {
   try {
+    const access = await requireActiveTeacher();
+    if (access.response) return access.response;
+
     const { id } = await params;
     const courseId = Number(id);
 

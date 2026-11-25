@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import pool from '@/lib/db';
+import { requireActiveTeacher } from '@/lib/teacher-access';
 
 async function ensureInstructorProfileTable() {
   await pool.query(`
@@ -22,37 +22,13 @@ async function ensureInstructorProfileTable() {
   `);
 }
 
-async function getAuthenticatedTeacher() {
-  const cookieStore = await cookies();
-  const userId = cookieStore.get('yugyo_user_id')?.value;
-
-  if (userId) {
-    const res = await pool.query(
-      "SELECT id, full_name, email, role, status, specialty FROM users WHERE id = $1 AND role = 'teacher' LIMIT 1;",
-      [userId]
-    );
-    if (res.rows.length > 0) {
-      return res.rows[0];
-    }
-  }
-
-  const fallback = await pool.query(
-    "SELECT id, full_name, email, role, status, specialty FROM users WHERE role = 'teacher' ORDER BY id ASC LIMIT 1;"
-  );
-  return fallback.rows[0] || null;
-}
-
 export async function PATCH(request) {
   try {
-    await ensureInstructorProfileTable();
-    const user = await getAuthenticatedTeacher();
+    const access = await requireActiveTeacher();
+    if (access.response) return access.response;
 
-    if (!user) {
-      return NextResponse.json(
-        { message: 'Sesi pengajar tidak ditemukan.' },
-        { status: 401 }
-      );
-    }
+    await ensureInstructorProfileTable();
+    const user = access.account;
 
     const dbStatus =
       String(user.status || '').toLowerCase() === 'pending' ? 'PENDING' : 'ACTIVE';

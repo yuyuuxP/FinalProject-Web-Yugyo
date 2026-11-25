@@ -9,6 +9,7 @@ import {
   FaBookOpen,
   FaCalendarDays,
   FaComments,
+  FaLock,
   FaRightFromBracket,
 } from 'react-icons/fa6';
 
@@ -16,8 +17,13 @@ export default function TeacherSidebar({ teacher }) {
   const pathname = usePathname();
   const router = useRouter();
   const [unansweredChatCount, setUnansweredChatCount] = useState(null);
+  const isPending = String(teacher?.status || '').trim().toLowerCase() === 'pending';
 
   useEffect(() => {
+    if (isPending) {
+      return undefined;
+    }
+
     let active = true;
 
     const syncUnansweredChats = async () => {
@@ -42,7 +48,7 @@ export default function TeacherSidebar({ teacher }) {
       active = false;
       clearInterval(timer);
     };
-  }, [pathname]);
+  }, [isPending, pathname]);
 
   const handleLogout = async () => {
     try {
@@ -55,7 +61,9 @@ export default function TeacherSidebar({ teacher }) {
   };
 
   const displayName = teacher?.full_name || teacher?.name || 'Ayu';
-  const displayRole = teacher?.specialty || 'Master Baker Atelier';
+  const displayRole = isPending
+    ? 'Menunggu persetujuan'
+    : teacher?.specialty || 'Master Baker Atelier';
   const initials = String(displayName)
     .split(' ')
     .map((part) => part[0])
@@ -121,7 +129,11 @@ export default function TeacherSidebar({ teacher }) {
               </p>
             </div>
           </div>
-          <span className="w-2 h-2 rounded-full bg-[#82882B] shrink-0" title="Online" />
+          {isPending ? (
+            <FaLock className="h-3 w-3 shrink-0 text-amber-700" title="Akun menunggu persetujuan" />
+          ) : (
+            <span className="w-2 h-2 rounded-full bg-[#82882B] shrink-0" title="Online" />
+          )}
         </div>
 
         {/* NAVIGATION */}
@@ -146,6 +158,12 @@ export default function TeacherSidebar({ teacher }) {
                 >
                   <NavIcon className="w-3.5 h-3.5 shrink-0" />
                   <span>{item.label}</span>
+                  {isPending && (
+                    <FaLock
+                      className="ml-auto h-3 w-3 shrink-0 text-amber-700"
+                      aria-label="Terkunci"
+                    />
+                  )}
                 </Link>
               );
             })}
@@ -162,7 +180,12 @@ export default function TeacherSidebar({ teacher }) {
                 <FaComments className="w-3.5 h-3.5 shrink-0" />
                 <span>Chat &amp; Support</span>
               </span>
-              {unansweredChatCount !== null && unansweredChatCount > 0 && (
+              {isPending ? (
+                <FaLock
+                  className="h-3 w-3 shrink-0 text-amber-700"
+                  aria-label="Terkunci"
+                />
+              ) : unansweredChatCount !== null && unansweredChatCount > 0 && (
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
                     isChatActive

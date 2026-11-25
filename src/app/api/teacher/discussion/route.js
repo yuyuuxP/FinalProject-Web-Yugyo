@@ -4,14 +4,15 @@ import { cookies } from 'next/headers';
 import pool from '@/lib/db';
 import { isTeacherPending } from '@/lib/teacher-status';
 import {
-  getLoggedInTeacherAccount,
-  fetchDiscussionsForTeacher,
+  getLoggedInTeacherForChat,
+  fetchScopedThreadsForTeacher,
 } from '@/lib/teacher-chat-scope';
+import { rejectPendingTeacherAction } from '@/lib/teacher-access';
 
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    const teacher = await getLoggedInTeacherAccount(cookieStore);
+    const teacher = await getLoggedInTeacherForChat(cookieStore);
 
     if (!teacher) {
       return NextResponse.json({ success: true, discussions: [] });
@@ -26,7 +27,7 @@ export async function GET() {
       });
     }
 
-    const discussions = await fetchDiscussionsForTeacher(teacher);
+    const discussions = await fetchScopedThreadsForTeacher(teacher);
     return NextResponse.json({
       success: true,
       teacher: { id: teacher.id, full_name: teacher.full_name },
@@ -43,6 +44,9 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    const pendingResponse = await rejectPendingTeacherAction();
+    if (pendingResponse) return pendingResponse;
+
     const body = await request.json();
     const studentId = body?.student_id ? Number(body.student_id) : null;
     const courseId = body?.course_id ? Number(body.course_id) : null;

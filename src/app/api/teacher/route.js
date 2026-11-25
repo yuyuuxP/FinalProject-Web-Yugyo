@@ -1,27 +1,14 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
 import pool from '@/lib/db';
 import { saveUploadedImage } from '@/lib/mediaStorage';
+import { requireActiveTeacher } from '@/lib/teacher-access';
 
 export async function POST(request) {
   try {
-    const cookieStore = await cookies();
-    const userId = cookieStore.get('yugyo_user_id')?.value;
-
-    let instructorId =
-      userId && Number.isInteger(Number(userId)) && Number(userId) > 0
-        ? Number(userId)
-        : null;
-
-    if (!instructorId) {
-      const fallbackTeacher = await pool.query(
-        "SELECT id FROM users WHERE role = 'teacher' ORDER BY id ASC LIMIT 1;"
-      );
-      if (fallbackTeacher.rows.length > 0) {
-        instructorId = Number(fallbackTeacher.rows[0].id);
-      }
-    }
+    const access = await requireActiveTeacher();
+    if (access.response) return access.response;
+    const instructorId = access.account.id;
 
     const contentType = request.headers.get('content-type') || '';
     let body = {};

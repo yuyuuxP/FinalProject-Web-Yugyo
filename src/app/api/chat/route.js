@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import pool from '@/lib/db';
+import { rejectPendingTeacherAction } from '@/lib/teacher-access';
 
 async function ensureChatTablesAndSeed() {
   await pool.query(`
@@ -136,6 +137,9 @@ async function ensureChatTablesAndSeed() {
 
 export async function GET() {
   try {
+    const pendingResponse = await rejectPendingTeacherAction();
+    if (pendingResponse) return pendingResponse;
+
     await ensureChatTablesAndSeed();
 
     const threadsRes = await pool.query(
@@ -169,6 +173,9 @@ export async function GET() {
 
 export async function PATCH(request) {
   try {
+    const pendingResponse = await rejectPendingTeacherAction();
+    if (pendingResponse) return pendingResponse;
+
     await ensureChatTablesAndSeed();
     const body = await request.json();
     const threadId = Number(body?.thread_id);
