@@ -3,6 +3,46 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import {
+  FaChevronLeft,
+  FaXmark,
+  FaArrowLeft,
+  FaLandmark,
+  FaGraduationCap,
+  FaArrowRight,
+  FaIdCard,
+  FaEnvelope,
+  FaLock,
+  FaEye,
+  FaEyeSlash,
+  FaRotate,
+  FaCookieBite,
+} from 'react-icons/fa6';
+
+function toTitleCase(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function normalizeUsername(rawUsername, rawFullName, rawEmail) {
+  const source =
+    String(rawUsername || '').trim() ||
+    String(rawFullName || '').trim() ||
+    String(rawEmail || '').split('@')[0] ||
+    '';
+
+  return source
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 24);
+}
 
 export default function RegisterStudentCard() {
   const router = useRouter();
@@ -21,6 +61,25 @@ export default function RegisterStudentCard() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+
+    const cleanFullName = toTitleCase(fullName);
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanUsername = normalizeUsername(username, cleanFullName, cleanEmail);
+
+    if (cleanFullName.length < 2) {
+      setErrorMsg('Nama lengkap minimal 2 karakter.');
+      return;
+    }
+
+    if (cleanUsername.length < 3) {
+      setErrorMsg('Username minimal 3 karakter (huruf, angka, atau underscore).');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setErrorMsg('Format email utama tidak valid.');
+      return;
+    }
 
     if (password.length < 8) {
       setErrorMsg('Kata sandi minimal harus 8 karakter.');
@@ -44,26 +103,34 @@ export default function RegisterStudentCard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fullName,
-          username,
-          email,
+          fullName: cleanFullName,
+          username: cleanUsername,
+          email: cleanEmail,
           password,
           role: 'student',
         }),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get('content-type') || '';
+      const data = contentType.includes('application/json')
+        ? await res.json().catch(() => ({}))
+        : {};
 
       if (!res.ok) {
-        setErrorMsg(data.error || 'Pendaftaran gagal.');
+        setErrorMsg(
+          data.error ||
+            data.message ||
+            `Pendaftaran gagal (kode status ${res.status}).`
+        );
         setIsLoading(false);
         return;
       }
 
-      router.push(data.redirectUrl);
+      const targetUrl = data.redirectUrl || '/dashboard/student';
+      router.push(targetUrl);
       router.refresh();
-    } catch (err) {
-      setErrorMsg('Terjadi kesalahan koneksi ke server.');
+    } catch {
+      setErrorMsg('Tidak dapat terhubung ke server. Periksa status server Next.js.');
       setIsLoading(false);
     }
   };
@@ -71,7 +138,6 @@ export default function RegisterStudentCard() {
   return (
     <div className="fixed inset-0 z-50 bg-[#341D17]/35 backdrop-blur-[2px] overflow-y-auto flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-2xl bg-[#FFFDF9] rounded-3xl shadow-2xl border border-[#341D17]/20 overflow-hidden my-auto">
-        
         {/* 1. TOP BAR */}
         <div className="px-5 sm:px-7 py-3.5 bg-[#FFFDF9] border-b border-[#341D17]/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -80,9 +146,7 @@ export default function RegisterStudentCard() {
               aria-label="Kembali ke Login"
               className="w-8 h-8 rounded-full hover:bg-[#F9DDBB]/60 flex items-center justify-center text-[#341D17] transition"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
+              <FaChevronLeft className="w-3.5 h-3.5" />
             </Link>
 
             <div className="flex items-center gap-2">
@@ -93,34 +157,36 @@ export default function RegisterStudentCard() {
                 <p className="text-[9px] font-extrabold tracking-[0.2em] uppercase text-[#802924] leading-none">
                   YUGYO
                 </p>
-                <p className="text-xs font-bold text-[#341D17] leading-tight">Create Account</p>
+                <p className="text-xs font-bold text-[#341D17] leading-tight">
+                  Create Account
+                </p>
               </div>
             </div>
           </div>
 
           <Link
             href="/"
+            aria-label="Tutup"
             title="Tutup"
-            className="w-8 h-8 rounded-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] flex items-center justify-center shadow-xs text-xs font-bold transition"
+            className="w-8 h-8 rounded-full bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] flex items-center justify-center shadow-xs transition"
           >
-            ✕
+            <FaXmark className="w-3.5 h-3.5" />
           </Link>
         </div>
 
         {/* 2. BODY CONTENT */}
         <div className="p-5 sm:p-7 space-y-4">
-          
           {/* Sub-header */}
           <div className="flex items-center justify-between gap-2">
             <Link
               href="/login"
               className="inline-flex items-center gap-1.5 text-xs font-bold text-[#802924] hover:underline transition"
             >
-              <span>←</span>
+              <FaArrowLeft className="w-3 h-3 shrink-0" />
               <span>Kembali ke Login</span>
             </Link>
 
-            <span className="inline-flex items-center gap-1.5 bg-[#82882B]/15 text-[#82882B] px-3 py-1 rounded-full text-[10px] font-extrabold tracking-wider uppercase">
+            <span className="inline-flex items-center gap-1.5 bg-[#82882B]/15 text-[#4E5317] px-3 py-1 rounded-full text-[10px] font-extrabold tracking-wider uppercase">
               <span className="w-1.5 h-1.5 rounded-full bg-[#82882B]" />
               STUDENT ACCOUNT
             </span>
@@ -130,7 +196,8 @@ export default function RegisterStudentCard() {
           <div className="bg-[#F9DDBB]/35 border border-[#341D17]/10 rounded-2xl p-4 sm:p-5 space-y-3.5">
             <div>
               <p className="text-[10px] font-extrabold tracking-[0.18em] uppercase text-[#802924] flex items-center gap-1.5 mb-1">
-                <span>🏛️</span> ATELIER PENDAFTARAN
+                <FaLandmark className="w-3 h-3 shrink-0" />
+                <span>ATELIER PENDAFTARAN</span>
               </p>
               <h1 className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17] leading-tight">
                 Daftar sebagai Siswa (Student)
@@ -140,7 +207,6 @@ export default function RegisterStudentCard() {
               </p>
             </div>
 
-            {/* 3 Strip Foto Bakery */}
             <div className="grid grid-cols-3 gap-2.5">
               <div className="h-16 sm:h-20 rounded-xl overflow-hidden border border-[#341D17]/15">
                 <img
@@ -168,8 +234,8 @@ export default function RegisterStudentCard() {
 
           {/* Switch Banner ke Instructor */}
           <div className="bg-[#F9DDBB]/55 border border-[#341D17]/10 rounded-2xl p-3.5 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-[#82882B] text-white flex items-center justify-center shrink-0 shadow-2xs text-sm">
-              🎓
+            <div className="w-9 h-9 rounded-full bg-[#82882B] text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <FaGraduationCap className="w-4 h-4" />
             </div>
             <div className="text-xs">
               <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
@@ -179,9 +245,10 @@ export default function RegisterStudentCard() {
                 Ingin berbagi keahlian baking Anda?{' '}
                 <Link
                   href="/register/instructor"
-                  className="font-bold text-[#802924] underline hover:text-[#661F1B]"
+                  className="inline-flex items-center gap-1 font-bold text-[#802924] underline hover:text-[#661F1B]"
                 >
-                  Daftar sebagai Instructor/Guru di sini →
+                  <span>Daftar sebagai Instructor/Guru di sini</span>
+                  <FaArrowRight className="w-2.5 h-2.5 inline" />
                 </Link>
               </p>
             </div>
@@ -190,6 +257,7 @@ export default function RegisterStudentCard() {
           {/* Form Pendaftaran Student */}
           <form
             onSubmit={handleRegister}
+            noValidate
             className="bg-white border border-[#341D17]/10 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs"
           >
             {errorMsg && (
@@ -201,18 +269,27 @@ export default function RegisterStudentCard() {
             {/* Nama Lengkap */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-[#341D17]">Nama Lengkap</label>
-                <span className="text-[10px] font-semibold text-[#802924]">*Wajib</span>
+                <label
+                  htmlFor="student-reg-fullname"
+                  className="text-xs font-bold text-[#341D17]"
+                >
+                  Nama Lengkap
+                </label>
+                <span className="text-[10px] font-semibold text-[#802924]">
+                  *Wajib
+                </span>
               </div>
               <div className="relative">
-                <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45 text-xs">
-                  🪪
+                <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45">
+                  <FaIdCard className="w-3.5 h-3.5" />
                 </span>
                 <input
+                  id="student-reg-fullname"
                   type="text"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
+                  onBlur={() => setFullName((prev) => toTitleCase(prev))}
                   placeholder="cth. Nurhayu Fiantika Gafar"
                   className="w-full bg-[#F9DDBB]/30 border border-[#341D17]/15 rounded-xl pl-10 pr-4 py-2.5 text-xs text-[#341D17] placeholder:text-[#341D17]/40 focus:outline-none focus:ring-2 focus:ring-[#802924] transition"
                 />
@@ -222,14 +299,22 @@ export default function RegisterStudentCard() {
             {/* Username */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-[#341D17]">Username</label>
-                <span className="text-[10px] text-[#341D17]/50">Untuk profil &amp; karya</span>
+                <label
+                  htmlFor="student-reg-username"
+                  className="text-xs font-bold text-[#341D17]"
+                >
+                  Username
+                </label>
+                <span className="text-[10px] text-[#341D17]/50">
+                  Untuk profil &amp; karya
+                </span>
               </div>
               <div className="relative">
                 <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/50 text-xs font-bold">
                   @
                 </span>
                 <input
+                  id="student-reg-username"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -241,14 +326,18 @@ export default function RegisterStudentCard() {
 
             {/* Email Utama */}
             <div>
-              <label className="block text-xs font-bold text-[#341D17] mb-1">
+              <label
+                htmlFor="student-reg-email"
+                className="block text-xs font-bold text-[#341D17] mb-1"
+              >
                 Email Utama
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45 text-xs">
-                  ✉️
+                <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45">
+                  <FaEnvelope className="w-3.5 h-3.5" />
                 </span>
                 <input
+                  id="student-reg-email"
                   type="email"
                   required
                   value={email}
@@ -262,14 +351,22 @@ export default function RegisterStudentCard() {
             {/* Kata Sandi */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-[#341D17]">Kata Sandi</label>
-                <span className="text-[10px] text-[#341D17]/50">Min. 8 karakter</span>
+                <label
+                  htmlFor="student-reg-password"
+                  className="text-xs font-bold text-[#341D17]"
+                >
+                  Kata Sandi
+                </label>
+                <span className="text-[10px] text-[#341D17]/50">
+                  Min. 8 karakter
+                </span>
               </div>
               <div className="relative">
-                <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45 text-xs">
-                  🔒
+                <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45">
+                  <FaLock className="w-3.5 h-3.5" />
                 </span>
                 <input
+                  id="student-reg-password"
                   type={showPass ? 'text' : 'password'}
                   required
                   minLength={8}
@@ -281,23 +378,32 @@ export default function RegisterStudentCard() {
                 <button
                   type="button"
                   onClick={() => setShowPass(!showPass)}
-                  className="absolute inset-y-0 right-3.5 flex items-center text-[#341D17]/50 hover:text-[#341D17] text-xs cursor-pointer"
+                  aria-label={showPass ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+                  className="absolute inset-y-0 right-3.5 flex items-center text-[#341D17]/50 hover:text-[#341D17] cursor-pointer"
                 >
-                  {showPass ? '🙈' : '👁️'}
+                  {showPass ? (
+                    <FaEyeSlash className="w-3.5 h-3.5" />
+                  ) : (
+                    <FaEye className="w-3.5 h-3.5" />
+                  )}
                 </button>
               </div>
             </div>
 
             {/* Konfirmasi Kata Sandi */}
             <div>
-              <label className="block text-xs font-bold text-[#341D17] mb-1">
+              <label
+                htmlFor="student-reg-confirm-password"
+                className="block text-xs font-bold text-[#341D17] mb-1"
+              >
                 Konfirmasi Kata Sandi
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45 text-xs">
-                  🔄
+                <span className="absolute inset-y-0 left-3.5 flex items-center text-[#341D17]/45">
+                  <FaRotate className="w-3.5 h-3.5" />
                 </span>
                 <input
+                  id="student-reg-confirm-password"
                   type={showConfirmPass ? 'text' : 'password'}
                   required
                   minLength={8}
@@ -309,9 +415,18 @@ export default function RegisterStudentCard() {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPass(!showConfirmPass)}
-                  className="absolute inset-y-0 right-3.5 flex items-center text-[#341D17]/50 hover:text-[#341D17] text-xs cursor-pointer"
+                  aria-label={
+                    showConfirmPass
+                      ? 'Sembunyikan konfirmasi kata sandi'
+                      : 'Lihat konfirmasi kata sandi'
+                  }
+                  className="absolute inset-y-0 right-3.5 flex items-center text-[#341D17]/50 hover:text-[#341D17] cursor-pointer"
                 >
-                  {showConfirmPass ? '🙈' : '👁️'}
+                  {showConfirmPass ? (
+                    <FaEyeSlash className="w-3.5 h-3.5" />
+                  ) : (
+                    <FaEye className="w-3.5 h-3.5" />
+                  )}
                 </button>
               </div>
             </div>
@@ -326,9 +441,13 @@ export default function RegisterStudentCard() {
               />
               <span>
                 Saya menyetujui{' '}
-                <span className="font-bold text-[#802924] underline">Syarat &amp; Ketentuan</span>{' '}
+                <span className="font-bold text-[#802924] underline">
+                  Syarat &amp; Ketentuan
+                </span>{' '}
                 serta{' '}
-                <span className="font-bold text-[#802924] underline">Kebijakan Privasi</span>{' '}
+                <span className="font-bold text-[#802924] underline">
+                  Kebijakan Privasi
+                </span>{' '}
                 YUGYO Baking Atelier.
               </span>
             </label>
@@ -339,11 +458,12 @@ export default function RegisterStudentCard() {
               disabled={isLoading}
               className="w-full bg-[#802924] hover:bg-[#661F1B] disabled:opacity-60 text-[#F9DDBB] font-bold text-xs sm:text-sm py-3.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>{isLoading ? 'Mendaftarkan Akun...' : 'Daftar Akun Siswa'}</span>
-              <span>🍪</span>
+              <span>
+                {isLoading ? 'Mendaftarkan Akun...' : 'Daftar Akun Siswa'}
+              </span>
+              <FaCookieBite className="w-4 h-4 shrink-0" />
             </button>
           </form>
-
         </div>
       </div>
     </div>

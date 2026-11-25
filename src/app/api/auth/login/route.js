@@ -1,6 +1,24 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import crypto from 'crypto';
 import pool from '@/lib/db';
-import { cookies } from 'next/headers'; // Tambahkan cookies
+
+function verifyScryptPassword(plainPassword, storedPassword) {
+  const parts = String(storedPassword || '').split(':');
+  if (parts.length !== 2) return false;
+
+  const [salt, keyHex] = parts;
+  if (!salt || !keyHex) return false;
+
+  try {
+    const derivedKey = crypto.scryptSync(plainPassword, salt, 64);
+    const storedKey = Buffer.from(keyHex, 'hex');
+    if (derivedKey.length !== storedKey.length) return false;
+    return crypto.timingSafeEqual(derivedKey, storedKey);
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(request) {
   try {
@@ -10,32 +28,47 @@ export async function POST(request) {
     const contentType = request.headers.get('content-type') || '';
 
     if (contentType.includes('application/json')) {
-      const body = await request.json();
-      identifier = body.identifier || body.email || body.username || '';
-      password = body.password || '';
+      const body = await request.json().catch(() => ({}));
+      identifier = String(body.identifier || body.email || body.username || '').trim();
+      password = String(body.password || '');
     } else {
       const formData = await request.formData();
-      identifier = formData.get('identifier') || formData.get('email') || formData.get('username') || '';
-      password = formData.get('password') || '';
+      identifier = String(
+        formData.get('identifier') ||
+          formData.get('email') ||
+          formData.get('username') ||
+          ''
+      ).trim();
+      password = String(formData.get('password') || '');
     }
 
     if (!identifier || !password) {
-      return NextResponse.json({ error: 'Email dan password wajib diisi' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Email dan password wajib diisi' },
+        { status: 400 }
+      );
     }
 
     const userRes = await pool.query(
-      'SELECT * FROM users WHERE email = $1 OR full_name ILIKE $1;', 
+      'SELECT * FROM users WHERE LOWER(email) = LOWER($1) OR full_name ILIKE $1 LIMIT 1;',
       [identifier]
     );
-    
+
     if (userRes.rows.length === 0) {
-      return NextResponse.json({ error: 'Akun tidak terdaftar di sistem Atelier' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Akun tidak terdaftar di sistem Atelier' },
+        { status: 401 }
+      );
     }
 
     const user = userRes.rows[0];
+    const storedPassword = String(user.password || '');
 
     let isPasswordValid = false;
-    if (user.password === password) {
+
+    if (verifyScryptPassword(password, storedPassword)) {
+      isPasswordValid = true;
+    } else if (storedPassword === password) {
       isPasswordValid = true;
     } else {
       try {
@@ -43,20 +76,30 @@ export async function POST(request) {
           `SELECT (password = crypt($1, password)) AS match FROM users WHERE id = $2;`,
           [password, user.id]
         );
-        isPasswordValid = checkHash.rows[0]?.match;
-      } catch (e) {
+        isPasswordValid = Boolean(checkHash.rows[0]?.match);
+      } catch {
         isPasswordValid = false;
       }
     }
 
     if (!isPasswordValid) {
-      return NextResponse.json({ error: 'Kata sandi yang Anda masukkan salah' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Kata sandi yang Anda masukkan salah' },
+        { status: 401 }
+      );
     }
 
-    // SIMPAN DATA SESI KE COOKIE
     const cookieStore = await cookies();
-    cookieStore.set('yugyo_user_id', user.id.toString(), { httpOnly: true, path: '/' });
-    cookieStore.set('yugyo_user_role', user.role, { httpOnly: true, path: '/' });
+    cookieStore.set('yugyo_user_id', String(user.id), {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+    });
+    cookieStore.set('yugyo_user_role', String(user.role), {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+    });
 
     let redirectUrl = '/dashboard/student';
     if (user.role === 'admin') {
@@ -65,20 +108,25 @@ export async function POST(request) {
       redirectUrl = '/dashboard/teacher';
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Login berhasil',
-      redirectUrl: redirectUrl,
-      user: { 
-        id: user.id, 
-        name: user.full_name, 
-        email: user.email, 
-        role: user.role 
-      } 
-    }, { status: 200 });
-
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Login berhasil',
+        redirectUrl,
+        user: {
+          id: user.id,
+          name: user.full_name,
+          email: user.email,
+          role: user.role,
+        },
+      },
+      { status: 200 }
+    );
   } catch (err) {
     console.error('API Login Error:', err);
-    return NextResponse.json({ error: 'Terjadi kesalahan pada server database' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Terjadi kesalahan pada server database' },
+      { status: 500 }
+    );
   }
 }
