@@ -2,22 +2,35 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import {
+  FaChartPie,
+  FaCakeCandles,
+  FaBookOpen,
+  FaCalendarDays,
+  FaComments,
+  FaStar,
+  FaRightFromBracket,
+} from 'react-icons/fa6';
 
 const NAV_ITEMS = [
-  { href: '/dashboard/student', label: 'Dashboard', icon: '&#128202;' },
+  { href: '/dashboard/student', label: 'Dashboard', Icon: FaChartPie },
   {
     href: '/dashboard/student/catalog',
     label: 'Course Catalog',
-    icon: '&#127856;',
+    Icon: FaCakeCandles,
   },
-  { href: '/dashboard/student/courses', label: 'Course', icon: '&#128218;' },
-  { href: '/dashboard/student/schedule', label: 'Schedule', icon: '&#128197;' },
+  { href: '/dashboard/student/courses', label: 'Course', Icon: FaBookOpen },
+  {
+    href: '/dashboard/student/schedule',
+    label: 'Schedule',
+    Icon: FaCalendarDays,
+  },
   {
     href: '/dashboard/student/chats',
     label: 'Chat Instructor',
-    icon: '&#128172;',
+    Icon: FaComments,
   },
-  { href: '/dashboard/student/reviews', label: 'Ulasan', icon: '&#11088;' },
+  { href: '/dashboard/student/reviews', label: 'Ulasan', Icon: FaStar },
 ];
 
 function getInitials(name) {
@@ -33,6 +46,7 @@ function getInitials(name) {
 export default function StudentSidebarNav({
   studentName = 'Student',
   avatarUrl = '',
+  unreadChatCount = 0,
   onNavigate,
 }) {
   const pathname = usePathname();
@@ -51,77 +65,104 @@ export default function StudentSidebarNav({
   };
 
   return (
-    <aside className="w-64 shrink-0 h-screen overflow-y-auto bg-[#FFFDF9] border-r border-[#341D17]/12 flex flex-col justify-between p-4 text-[#341D17]">
+    <aside className="w-64 h-full overflow-y-auto bg-[#FFFDF9] border-r border-[#341D17]/15 flex flex-col justify-between p-5 shrink-0 text-[#341D17]">
       <div className="space-y-5">
-        <div className="flex items-center gap-2.5 px-1">
-          <span className="w-8 h-8 rounded-lg bg-[#802924] text-[#FFFDF9] font-editorial font-bold text-sm flex items-center justify-center shrink-0">
+        <Link
+          href="/dashboard/student"
+          onClick={onNavigate}
+          className="flex items-center gap-3"
+        >
+          <span className="w-9 h-9 rounded-xl bg-[#802924] text-[#F9DDBB] font-editorial font-bold text-base flex items-center justify-center shadow-xs shrink-0">
             Y
           </span>
           <div>
-            <p className="font-editorial text-sm font-bold leading-tight text-[#341D17]">
-              YUGYO ATELIER
+            <p className="font-editorial text-base font-bold leading-none text-[#341D17]">
+              YUGYO
             </p>
-            <p className="text-[11px] text-[#341D17]/60">Student Portal</p>
+            <p className="text-[9px] font-extrabold tracking-[0.2em] uppercase text-[#802924] mt-0.5">
+              STUDENT PORTAL
+            </p>
           </div>
-        </div>
+        </Link>
 
         <Link
           href="/dashboard/student/profile"
           onClick={onNavigate}
           aria-label={`Buka halaman profil ${displayName}`}
-          className={`flex items-center gap-3 rounded-2xl border p-3 transition cursor-pointer ${
+          className={`flex items-center justify-between gap-2 rounded-2xl border p-3 transition cursor-pointer ${
             pathname === '/dashboard/student/profile'
               ? 'bg-[#F9DDBB]/75 border-[#802924]/30'
-              : 'bg-[#FAF6F0] hover:bg-[#F9DDBB]/55 border-[#341D17]/10'
+              : 'bg-[#F9DDBB]/45 hover:bg-[#F9DDBB]/65 border-[#341D17]/10'
           }`}
         >
-          <span className="w-9 h-9 rounded-full bg-[#802924] text-[#FFFDF9] text-xs font-extrabold flex items-center justify-center overflow-hidden shrink-0">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={displayName}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              getInitials(displayName)
-            )}
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-[#341D17] truncate">
-              {displayName}
-            </p>
-            <p className="text-[10px] text-[#341D17]/60 truncate">
-              Student Baker Atelier
-            </p>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-8 h-8 rounded-full bg-[#802924] text-[#F9DDBB] text-xs font-extrabold flex items-center justify-center overflow-hidden shrink-0">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                getInitials(displayName)
+              )}
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-extrabold text-[#341D17] leading-tight truncate">
+                {displayName}
+              </p>
+              <p className="text-[10px] text-[#341D17]/70 truncate">
+                Student Baker Atelier
+              </p>
+            </div>
           </div>
+          <span
+            className="w-2 h-2 rounded-full bg-[#82882B] shrink-0"
+            title="Online"
+          />
         </Link>
 
         <div className="space-y-1">
-          <p className="px-2.5 text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/45">
+          <p className="px-3 text-[9px] font-extrabold tracking-[0.18em] uppercase text-[#341D17]/45 mb-2">
             STUDENT OPERATIONS
           </p>
-          <nav className="space-y-1 pt-1">
+          <nav className="space-y-1">
             {NAV_ITEMS.map((item) => {
+              const NavIcon = item.Icon;
               const active =
                 pathname === item.href ||
                 (item.href !== '/dashboard/student' &&
                   pathname?.startsWith(`${item.href}/`));
+              const showUnread =
+                item.href === '/dashboard/student/chats' &&
+                Number(unreadChatCount) > 0;
+
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={onNavigate}
-                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold transition ${
+                  className={`flex items-center justify-between gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-bold transition ${
                     active
-                      ? 'bg-[#802924] text-[#FFFDF9]'
-                      : 'text-[#341D17]/75 hover:bg-[#FAF6F0] hover:text-[#341D17]'
+                      ? 'bg-[#802924] text-[#F9DDBB] shadow-xs'
+                      : 'text-[#341D17]/80 hover:bg-[#F9DDBB]/55 hover:text-[#341D17]'
                   }`}
                 >
-                  <span
-                    className="text-xs shrink-0"
-                    dangerouslySetInnerHTML={{ __html: item.icon }}
-                  />
-                  <span className="truncate">{item.label}</span>
+                  <span className="flex items-center gap-3 min-w-0">
+                    <NavIcon className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </span>
+                  {showUnread && (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+                        active
+                          ? 'bg-[#F9DDBB] text-[#802924]'
+                          : 'bg-[#802924] text-[#F9DDBB]'
+                      }`}
+                    >
+                      {unreadChatCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -133,9 +174,9 @@ export default function StudentSidebarNav({
         <button
           type="button"
           onClick={handleLogout}
-          className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-[#341D17]/75 hover:bg-[#802924]/10 hover:text-[#802924] transition cursor-pointer"
+          className="w-full flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-extrabold text-[#802924] hover:bg-[#802924]/10 transition cursor-pointer"
         >
-          <span>&#8618;</span>
+          <FaRightFromBracket className="w-3.5 h-3.5 shrink-0" />
           <span>Log Out</span>
         </button>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { FaGem, FaStar, FaCheck, FaUserTie } from 'react-icons/fa6';
 import {
   getActiveStudentIdentity,
   saveActiveStudentId,
@@ -96,6 +97,7 @@ function mapCourseItem(row, idx = 0) {
 
 export default function StudentCourseCatalogClient({
   initialCourses = [],
+  initialEnrolledCourseIds = [],
 }) {
   const courses = useMemo(
     () =>
@@ -107,7 +109,9 @@ export default function StudentCourseCatalogClient({
 
   const [selectedCategory, setSelectedCategory] = useState('Semua Kategori');
   const [searchQuery, setSearchQuery] = useState('');
-  const [enrolledCourseIds, setEnrolledCourseIds] = useState([]);
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState(() =>
+    Array.isArray(initialEnrolledCourseIds) ? initialEnrolledCourseIds : []
+  );
   const [enrollingCourseId, setEnrollingCourseId] = useState(null);
   const [enrollFeedback, setEnrollFeedback] = useState('');
   const [activeIdentity, setActiveIdentity] = useState({
@@ -242,8 +246,8 @@ export default function StudentCourseCatalogClient({
   return (
     <div className="space-y-6 text-[#341D17] pb-12">
       <div className="space-y-3">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F9DDBB]/85 border border-[#802924]/15 px-3 py-1 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
-          <span>&#9670;</span>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFFDF9]/90 border border-[#802924]/15 px-3 py-1 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
+          <FaGem className="w-3 h-3 shrink-0" />
           <span>KATALOG KURSUS &bull; YUGYO ATELIER</span>
         </span>
 
@@ -252,7 +256,7 @@ export default function StudentCourseCatalogClient({
             <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
               Katalog Kursus Baking &amp; Pastry
             </h1>
-            <p className="text-xs sm:text-sm text-[#341D17]/65">
+            <p className="text-xs sm:text-sm text-[#341D17]/75">
               Pilih dan ikuti kelas sesuai minat kategori untuk mulai belajar di Yugyo Atelier.
             </p>
           </div>
@@ -330,15 +334,19 @@ export default function StudentCourseCatalogClient({
 
                 <div className="p-5 space-y-2">
                   <div className="flex items-center justify-between gap-2 text-[11px] text-[#341D17]/60">
-                    <span>
-                      &#9733; {course.rating} ({course.studentsCount} Siswa)
+                    <span className="inline-flex items-center gap-1">
+                      <FaStar className="w-3 h-3 text-amber-500 shrink-0" />
+                      <span>
+                        {course.rating} ({course.studentsCount} Siswa)
+                      </span>
                     </span>
                     <span
-                      className={`font-semibold ${
-                        isEnrolled ? 'text-[#4E7A4E]' : 'text-[#802924]/80'
+                      className={`inline-flex items-center gap-1 font-semibold ${
+                        isEnrolled ? 'text-[#82882B]' : 'text-[#802924]/80'
                       }`}
                     >
-                      {isEnrolled ? 'Sudah Terdaftar' : 'Belum Diikuti'}
+                      {isEnrolled && <FaCheck className="w-2.5 h-2.5 shrink-0" />}
+                      <span>{isEnrolled ? 'Sudah Terdaftar' : 'Belum Diikuti'}</span>
                     </span>
                   </div>
 
@@ -353,25 +361,29 @@ export default function StudentCourseCatalogClient({
               </div>
 
               <div className="px-5 pb-5 pt-2 flex items-center justify-between gap-3 border-t border-[#341D17]/8">
-                <span className="text-xs font-semibold text-[#341D17]/70">
-                  &#128104;&#8205;&#127859; {course.instructor}
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#341D17]/70">
+                  <FaUserTie className="w-3 h-3 text-[#802924] shrink-0" />
+                  <span>{course.instructor}</span>
                 </span>
 
                 <button
                   type="button"
                   disabled={isEnrolled || isLoading}
                   onClick={() => handleFollowCourse(course)}
-                  className={`rounded-xl px-4 py-2 text-xs font-bold transition shrink-0 ${
+                  className={`rounded-xl px-4 py-2 text-xs font-bold transition shrink-0 inline-flex items-center gap-1.5 ${
                     isEnrolled
-                      ? 'bg-[#4E7A4E] text-[#FFFDF9] cursor-default opacity-90'
+                      ? 'bg-[#82882B] text-[#FFFDF9] cursor-default opacity-90'
                       : 'bg-[#802924] hover:bg-[#661F1B] text-[#FFFDF9] cursor-pointer disabled:opacity-65'
                   }`}
                 >
-                  {isEnrolled
-                    ? 'Terdaftar'
-                    : isLoading
-                      ? 'Menyimpan...'
-                      : 'Ikuti Kursus'}
+                  {isEnrolled && <FaCheck className="w-3 h-3 shrink-0" />}
+                  <span>
+                    {isEnrolled
+                      ? 'Terdaftar'
+                      : isLoading
+                        ? 'Menyimpan...'
+                        : 'Ikuti Kursus'}
+                  </span>
                 </button>
               </div>
             </article>

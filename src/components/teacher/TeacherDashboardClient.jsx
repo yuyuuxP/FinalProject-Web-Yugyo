@@ -2,6 +2,42 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import {
+  FaStar,
+  FaPlay,
+  FaClipboardCheck,
+  FaCheck,
+  FaCircleDot,
+} from 'react-icons/fa6';
+
+const DAYS_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+const MONTHS_ID = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'Mei',
+  'Jun',
+  'Jul',
+  'Agu',
+  'Sep',
+  'Okt',
+  'Nov',
+  'Des',
+];
+
+function formatSessionDate(rawDate) {
+  if (!rawDate) return 'Hari Ini';
+  const parsed = new Date(rawDate);
+  if (Number.isNaN(parsed.getTime())) {
+    return String(rawDate);
+  }
+  const dayName = DAYS_ID[parsed.getDay()];
+  const dateNum = String(parsed.getDate()).padStart(2, '0');
+  const monthName = MONTHS_ID[parsed.getMonth()];
+  const year = parsed.getFullYear();
+  return `${dayName}, ${dateNum} ${monthName} ${year}`;
+}
 
 export default function TeacherDashboardClient({
   teacher,
@@ -27,19 +63,23 @@ export default function TeacherDashboardClient({
     ? discussions
     : discussions.slice(0, 2);
 
+  const formattedSessionSchedule = upcomingSession?.session_time
+    ? `${formatSessionDate(upcomingSession.session_date)} • ${upcomingSession.session_time}`
+    : 'Hari Ini • 15:00 WITA';
+
   return (
-    <div className="mx-auto max-w-6xl space-y-5 text-[#341D17]">
+    <div className="mx-auto max-w-6xl space-y-6 text-[#341D17] pb-6">
       {/* GREETING CARD */}
-      <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-4 sm:p-6 shadow-2xs flex items-center gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#F9DDBB] font-editorial text-lg font-extrabold text-[#802924]">
+      <div className="rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] p-5 sm:p-6 shadow-2xs flex items-center gap-4 sm:gap-5">
+        <div className="flex h-14 w-14 sm:h-16 sm:w-16 shrink-0 items-center justify-center rounded-2xl bg-[#802924] font-editorial text-xl font-extrabold text-[#F9DDBB] shadow-xs">
           {initials}
         </div>
         <div className="min-w-0 space-y-1">
-          <span className="inline-block rounded-md bg-[#F9DDBB] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
+          <span className="inline-block rounded-full bg-[#F9DDBB]/75 px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#802924]">
             MASTER BAKER TERVERIFIKASI
           </span>
-          <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17] truncate">
-            Bonjour, {teacherName}
+          <h1 className="meddon-regular py-1 text-2xl sm:text-3xl font-normal leading-relaxed text-[#341D17] truncate">
+            Bonjour, <span className="font-bold text-[#661F1B]">Chef {teacherName}</span>
           </h1>
           <p className="text-xs sm:text-sm text-[#341D17]/75">
             Siklus mentoring dan kurasi resep aktif untuk kelas Anda hari ini.
@@ -48,80 +88,106 @@ export default function TeacherDashboardClient({
       </div>
 
       {/* 4 KARTU STATISTIK UTAMA */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="rounded-2xl border border-[#341D17]/15 bg-[#FFFDF9] p-4 shadow-2xs space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] p-5 shadow-2xs flex flex-col justify-between gap-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/60">
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#341D17]/55">
               TOTAL SISWA AKTIF
             </span>
-            <span className="rounded-full bg-[#F9DDBB] px-2.5 py-0.5 text-[10px] font-extrabold text-[#802924]">
+            <span className="rounded-full bg-[#F9DDBB]/75 px-2.5 py-0.5 text-[10px] font-extrabold text-[#802924] shrink-0">
               KOHOR ANDA
             </span>
           </div>
-          <p className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
-            {stats?.totalStudents ?? 0} Siswa
-          </p>
+          <div>
+            <p className="font-editorial text-2xl sm:text-3xl font-extrabold text-[#341D17]">
+              {stats?.totalStudents ?? 0}{' '}
+              <span className="text-base sm:text-lg font-bold text-[#341D17]/80">
+                Siswa
+              </span>
+            </p>
+            <p className="mt-1 text-[11px] font-semibold text-[#82882B]">
+              Aktif mengikuti kelas
+            </p>
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-[#341D17]/15 bg-[#FFFDF9] p-4 shadow-2xs space-y-3">
+        <div className="rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] p-5 shadow-2xs flex flex-col justify-between gap-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/60">
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#341D17]/55">
               KELAS MASTERCLASS
             </span>
-            <span className="rounded-full bg-[#F9DDBB] px-2.5 py-0.5 text-[10px] font-extrabold text-[#802924]">
+            <span className="rounded-full bg-[#F9DDBB]/75 px-2.5 py-0.5 text-[10px] font-extrabold text-[#802924] shrink-0">
               DIAMPU
             </span>
           </div>
-          <p className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
-            {stats?.totalCourses ?? courses.length} Kelas
-          </p>
+          <div>
+            <p className="font-editorial text-2xl sm:text-3xl font-extrabold text-[#341D17]">
+              {stats?.totalCourses ?? courses.length}{' '}
+              <span className="text-base sm:text-lg font-bold text-[#341D17]/80">
+                Kelas
+              </span>
+            </p>
+            <p className="mt-1 text-[11px] font-semibold text-[#82882B]">
+              Kurikulum terpublikasi
+            </p>
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-[#341D17]/15 bg-[#FFFDF9] p-4 shadow-2xs space-y-2">
+        <div className="rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] p-5 shadow-2xs flex flex-col justify-between gap-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/60">
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#341D17]/55">
               KEPUASAN SISWA
             </span>
-            <span className="text-amber-500 text-sm">★</span>
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
-              {stats?.avgRating ?? '4.9'}
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#82882B]/15 px-2.5 py-0.5 text-[10px] font-extrabold text-[#82882B] shrink-0">
+              <FaStar className="w-2.5 h-2.5 shrink-0" />
+              <span>RATING</span>
             </span>
-            <span className="text-xs text-[#341D17]/50">/ 5.0</span>
           </div>
-          <p className="text-[11px] text-[#341D17]/60">
-            {stats?.totalReviews ?? 0} ulasan kursus
-          </p>
+          <div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-editorial text-2xl sm:text-3xl font-extrabold text-[#341D17]">
+                {stats?.avgRating ?? '4.9'}
+              </span>
+              <span className="text-xs font-medium text-[#341D17]/50">/ 5.0</span>
+            </div>
+            <p className="mt-1 text-[11px] font-medium text-[#341D17]/65">
+              {stats?.totalReviews ?? 0} ulasan kursus
+            </p>
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-[#341D17]/15 bg-[#FFFDF9] p-4 shadow-2xs space-y-2">
+        <div className="rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] p-5 shadow-2xs flex flex-col justify-between gap-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/60">
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#341D17]/55">
               KARYA &amp; UJI RASA
             </span>
-            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-800">
+            <span className="rounded-full bg-[#802924] px-2.5 py-0.5 text-[10px] font-extrabold text-[#FFFDF9] shrink-0">
               URGENT
             </span>
           </div>
-          <p className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
-            {stats?.pendingWorks ?? 0} Karya
-          </p>
-          <p className="text-[11px] text-[#341D17]/60">Menunggu Evaluasi</p>
+          <div>
+            <p className="font-editorial text-2xl sm:text-3xl font-extrabold text-[#341D17]">
+              {stats?.pendingWorks ?? 0}{' '}
+              <span className="text-base sm:text-lg font-bold text-[#341D17]/80">
+                Karya
+              </span>
+            </p>
+            <p className="mt-1 text-[11px] font-medium text-[#341D17]/65">
+              Menunggu evaluasi
+            </p>
+          </div>
         </div>
       </div>
 
       {/* BANNER JADWAL LIVE SESI MENDATANG */}
-      <div className="rounded-3xl bg-[#802924] text-[#FFFDF9] p-5 sm:p-6 shadow-sm space-y-3">
+      <div className="rounded-3xl bg-[#802924] text-[#FFFDF9] p-5 sm:p-6 shadow-md space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-2 rounded-full bg-[#FFFDF9]/15 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#F9DDBB]">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#341D17]/55 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#F9DDBB]">
+            <span className="h-2 w-2 rounded-full bg-[#82882B]" />
             <span>JADWAL LIVE SESI MENDATANG (DATABASE SYNC)</span>
           </span>
-          <span className="text-xs font-bold text-[#F9DDBB]/90">
-            {upcomingSession?.session_time
-              ? `${upcomingSession.session_date} • ${upcomingSession.session_time}`
-              : 'Hari Ini • 15:00 WIT'}
+          <span className="rounded-full bg-[#FFFDF9]/12 px-3 py-1 text-xs font-bold text-[#F9DDBB]">
+            {formattedSessionSchedule}
           </span>
         </div>
 
@@ -131,7 +197,7 @@ export default function TeacherDashboardClient({
               ? `Sesi Mentoring & Troubleshooting: ${upcomingSession.title}`
               : 'Sesi Mentoring & Troubleshooting: Madeleine Lemon Cake'}
           </h2>
-          <p className="text-xs sm:text-sm text-[#FFFDF9]/85">
+          <p className="text-xs sm:text-sm text-[#F9DDBB]/85">
             {upcomingSession?.notes ||
               'Koreksi teknik dan evaluasi modul pastry bersama kohort siswa Anda hari ini.'}
           </p>
@@ -140,20 +206,22 @@ export default function TeacherDashboardClient({
         <div className="flex flex-wrap items-center gap-2.5 pt-1">
           <Link
             href="/dashboard/teacher/schedule"
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#FFFDF9] hover:bg-[#F9DDBB] px-4 py-2 text-xs font-extrabold text-[#341D17] transition"
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#FFFDF9] hover:bg-[#F9DDBB] px-5 py-2.5 text-xs font-extrabold text-[#341D17] shadow-2xs transition"
           >
-            <span>▶ Mulai Sesi Live</span>
+            <FaPlay className="w-3 h-3 shrink-0" />
+            <span>Mulai Sesi Live</span>
           </Link>
           <Link
             href="/dashboard/teacher/schedule"
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#FFFDF9]/30 bg-[#FFFDF9]/10 hover:bg-[#FFFDF9]/20 px-4 py-2 text-xs font-bold text-[#FFFDF9] transition"
+            className="inline-flex items-center gap-2 rounded-2xl border border-[#F9DDBB]/30 bg-[#661F1B] hover:bg-[#341D17] px-5 py-2.5 text-xs font-bold text-[#F9DDBB] transition"
           >
-            <span>📋 Cek Presensi Kohort</span>
+            <FaClipboardCheck className="w-3.5 h-3.5 shrink-0" />
+            <span>Cek Presensi Kohort</span>
           </Link>
         </div>
       </div>
 
-      {/* KURSUS YANG DIAJARKAN (MAKSIMAL 2 DI AWAL + TOMBOL TAMPILKAN SEMUA KURSUS) */}
+      {/* KURSUS YANG DIAJARKAN */}
       <section className="space-y-4 pt-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
@@ -164,13 +232,13 @@ export default function TeacherDashboardClient({
               Pantau kohort dan progres modul siswa di kelas Anda
             </p>
           </div>
-          <span className="text-xs font-bold text-[#341D17]/75">
+          <span className="self-start sm:self-auto rounded-full bg-[#FFFDF9] border border-[#341D17]/12 px-3.5 py-1 text-xs font-extrabold text-[#341D17]">
             {courses.length} Kursus Aktif
           </span>
         </div>
 
         {courses.length === 0 ? (
-          <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-6 text-center text-xs sm:text-sm text-[#341D17]/70">
+          <div className="rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] p-6 text-center text-xs sm:text-sm text-[#341D17]/70">
             Belum ada kursus yang diampu pada akun ini.
           </div>
         ) : (
@@ -179,7 +247,7 @@ export default function TeacherDashboardClient({
               {visibleCourses.map((course) => (
                 <div
                   key={course.id}
-                  className="relative overflow-hidden rounded-3xl border border-[#341D17]/15 bg-[#2B1510] text-[#FFFDF9] p-5 sm:p-6 shadow-sm"
+                  className="relative overflow-hidden rounded-3xl border border-[#341D17]/15 bg-[#341D17] text-[#FFFDF9] p-5 sm:p-6 shadow-sm"
                 >
                   {course.thumbnail_url && (
                     <img
@@ -266,8 +334,8 @@ export default function TeacherDashboardClient({
         )}
       </section>
 
-      {/* DISKUSI & PERTANYAAN SISWA (MAKSIMAL 2 DI AWAL + TOMBOL TAMPILKAN SEMUA DISKUSI/PERTANYAAN) */}
-      <section className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-4 sm:p-6 shadow-2xs space-y-4">
+      {/* DISKUSI & PERTANYAAN SISWA */}
+      <section className="rounded-3xl border border-[#341D17]/12 bg-[#FFFDF9] p-5 sm:p-6 shadow-2xs space-y-4">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
@@ -283,7 +351,7 @@ export default function TeacherDashboardClient({
         </div>
 
         {discussions.length === 0 ? (
-          <div className="rounded-2xl bg-[#F9E8D6]/45 py-8 px-4 text-center text-xs sm:text-sm text-[#341D17]/70">
+          <div className="rounded-2xl bg-[#F9DDBB]/35 py-8 px-4 text-center text-xs sm:text-sm text-[#341D17]/70">
             Belum ada diskusi atau pertanyaan baru dari siswa atelier.
           </div>
         ) : (
@@ -293,7 +361,7 @@ export default function TeacherDashboardClient({
                 <Link
                   key={item.id}
                   href="/dashboard/teacher/chats"
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-2xl border border-[#341D17]/10 bg-[#F9E8D6]/35 hover:bg-[#F9DDBB]/50 p-3.5 transition"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-2xl border border-[#341D17]/10 bg-[#F9DDBB]/25 hover:bg-[#F9DDBB]/50 p-3.5 transition"
                 >
                   <div className="min-w-0 space-y-0.5">
                     <div className="flex flex-wrap items-center gap-2">
@@ -301,7 +369,7 @@ export default function TeacherDashboardClient({
                         {item.student_name}
                       </span>
                       <span className="text-[11px] text-[#341D17]/65">
-                        • {item.course_title}
+                        - {item.course_title}
                       </span>
                     </div>
                     <p className="text-xs text-[#341D17]/85 line-clamp-1">
@@ -311,15 +379,23 @@ export default function TeacherDashboardClient({
 
                   <div className="flex items-center gap-2 shrink-0">
                     <span
-                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold ${
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold ${
                         item.review_status === 'answered'
-                          ? 'bg-[#341D17]/10 text-[#341D17]'
+                          ? 'bg-[#82882B]/15 text-[#82882B]'
                           : 'bg-[#F9DDBB] text-[#802924]'
                       }`}
                     >
-                      {item.review_status === 'answered'
-                        ? '✓ Terjawab'
-                        : '• Menunggu Review'}
+                      {item.review_status === 'answered' ? (
+                        <>
+                          <FaCheck className="w-2.5 h-2.5 shrink-0" />
+                          <span>Terjawab</span>
+                        </>
+                      ) : (
+                        <>
+                          <FaCircleDot className="w-2.5 h-2.5 shrink-0" />
+                          <span>Menunggu Review</span>
+                        </>
+                      )}
                     </span>
                   </div>
                 </Link>

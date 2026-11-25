@@ -3,6 +3,14 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import {
+  FaChartPie,
+  FaBreadSlice,
+  FaBookOpen,
+  FaCalendarDays,
+  FaComments,
+  FaRightFromBracket,
+} from 'react-icons/fa6';
 
 export default function TeacherSidebar({ teacher }) {
   const pathname = usePathname();
@@ -56,64 +64,87 @@ export default function TeacherSidebar({ teacher }) {
     .toUpperCase();
 
   const navItems = [
-    { href: '/dashboard/teacher', label: 'Dashboard', icon: '📊' },
-    { href: '/dashboard/teacher/courses', label: 'Course Management', icon: '🥐' },
-    { href: '/dashboard/teacher/contents', label: 'Content Management', icon: '📖' },
-    { href: '/dashboard/teacher/schedule', label: 'Schedule', icon: '🗓️' },
+    {
+      href: '/dashboard/teacher',
+      label: 'Dashboard',
+      Icon: FaChartPie,
+    },
+    {
+      href: '/dashboard/teacher/courses',
+      label: 'Course Management',
+      Icon: FaBreadSlice,
+    },
+    {
+      href: '/dashboard/teacher/contents',
+      label: 'Content Management',
+      Icon: FaBookOpen,
+    },
+    {
+      href: '/dashboard/teacher/schedule',
+      label: 'Schedule',
+      Icon: FaCalendarDays,
+    },
   ];
 
   const isChatActive = pathname?.startsWith('/dashboard/teacher/chat');
 
   return (
-    <aside className="w-72 bg-[#FFFDF9] border-r border-[#341D17]/10 flex flex-col justify-between p-5 shrink-0 min-h-screen">
-      <div className="space-y-6">
-        <div className="flex items-center gap-3 px-2 pt-1">
-          <div className="w-9 h-9 rounded-2xl bg-[#802924] text-[#F9DDBB] flex items-center justify-center font-editorial font-bold text-base">
+    <aside className="w-64 h-full overflow-y-auto bg-[#FFFDF9] border-r border-[#341D17]/15 flex flex-col justify-between p-5 shrink-0 text-[#341D17]">
+      <div>
+        {/* BRAND */}
+        <Link href="/dashboard/teacher" className="flex items-center gap-3 mb-5">
+          <div className="w-9 h-9 rounded-xl bg-[#802924] text-[#F9DDBB] flex items-center justify-center font-editorial font-bold text-base shadow-xs shrink-0">
             Y
           </div>
           <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#802924]">
-              YUGYO ATELIER
-            </p>
-            <p className="text-sm font-extrabold text-[#341D17]">
-              Instructor Portal
-            </p>
+            <span className="font-editorial font-bold text-base text-[#341D17] block leading-none">
+              YUGYO
+            </span>
+            <span className="text-[9px] font-extrabold tracking-[0.2em] uppercase text-[#802924]">
+              INSTRUCTOR PORTAL
+            </span>
           </div>
+        </Link>
+
+        {/* PROFILE CARD */}
+        <div className="bg-[#F9DDBB]/45 border border-[#341D17]/10 rounded-2xl p-3 mb-6 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-[#802924] text-[#F9DDBB] flex items-center justify-center text-xs font-extrabold shrink-0">
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-extrabold text-[#341D17] leading-tight">
+                {displayName}
+              </p>
+              <p className="truncate text-[10px] text-[#341D17]/70">
+                {displayRole}
+              </p>
+            </div>
+          </div>
+          <span className="w-2 h-2 rounded-full bg-[#82882B] shrink-0" title="Online" />
         </div>
 
-        <div className="flex items-center gap-3 rounded-2xl border border-[#341D17]/10 bg-[#F9E8D6]/60 p-3.5">
-          <div className="w-10 h-10 rounded-xl bg-[#802924] text-[#F9DDBB] flex items-center justify-center text-xs font-extrabold shrink-0">
-            {initials}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-extrabold text-[#341D17]">
-              {displayName}
-            </p>
-            <p className="truncate text-xs text-[#341D17]/70">
-              {displayRole}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="px-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#341D17]/45">
+        {/* NAVIGATION */}
+        <div>
+          <p className="px-3 text-[9px] font-extrabold tracking-[0.18em] uppercase text-[#341D17]/45 mb-2">
             INSTRUCTOR OPERATIONS
           </p>
 
-          <nav className="space-y-1.5">
+          <nav className="space-y-1">
             {navItems.map((item) => {
               const active = pathname === item.href;
+              const NavIcon = item.Icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold transition ${
+                  className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold transition ${
                     active
                       ? 'bg-[#802924] text-[#F9DDBB] shadow-xs'
-                      : 'text-[#341D17] hover:bg-[#F9DDBB]/45'
+                      : 'text-[#341D17]/80 hover:bg-[#F9DDBB]/55 hover:text-[#341D17]'
                   }`}
                 >
-                  <span>{item.icon}</span>
+                  <NavIcon className="w-3.5 h-3.5 shrink-0" />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -121,18 +152,24 @@ export default function TeacherSidebar({ teacher }) {
 
             <Link
               href="/dashboard/teacher/chats"
-              className={`flex items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold transition ${
+              className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-bold transition ${
                 isChatActive
                   ? 'bg-[#802924] text-[#F9DDBB] shadow-xs'
-                  : 'text-[#341D17] hover:bg-[#F9DDBB]/45'
+                  : 'text-[#341D17]/80 hover:bg-[#F9DDBB]/55 hover:text-[#341D17]'
               }`}
             >
               <span className="flex items-center gap-3">
-                <span>💬</span>
+                <FaComments className="w-3.5 h-3.5 shrink-0" />
                 <span>Chat &amp; Support</span>
               </span>
               {unansweredChatCount !== null && unansweredChatCount > 0 && (
-                <span className="text-xs font-extrabold text-[#F9DDBB]">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+                    isChatActive
+                      ? 'bg-[#F9DDBB] text-[#802924]'
+                      : 'bg-[#802924] text-[#F9DDBB]'
+                  }`}
+                >
                   {unansweredChatCount}
                 </span>
               )}
@@ -141,16 +178,17 @@ export default function TeacherSidebar({ teacher }) {
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="flex items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-[#341D17] hover:bg-[#F9DDBB]/45 transition cursor-pointer"
-      >
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#341D17] text-[10px] font-extrabold text-[#F9DDBB]">
-          N
-        </span>
-        <span>Log Out</span>
-      </button>
+      {/* LOGOUT */}
+      <div className="pt-4 border-t border-[#341D17]/10">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-extrabold text-[#802924] hover:bg-[#802924]/10 transition cursor-pointer"
+        >
+          <FaRightFromBracket className="w-3.5 h-3.5 shrink-0" />
+          <span>Log Out</span>
+        </button>
+      </div>
     </aside>
   );
 }

@@ -3,9 +3,34 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
+  FaCalendarDays,
+  FaChevronLeft,
+  FaChevronRight,
+  FaExclamation,
+  FaXmark,
+  FaCheck,
+  FaCircleInfo,
+  FaClock,
+  FaPlay,
+  FaWandSparkles,
+} from 'react-icons/fa6';
+import {
   getActiveStudentIdentity,
   saveActiveStudentId,
 } from '@/lib/studentSessionClient';
+
+function ChefHatIcon({ className = 'w-3.5 h-3.5' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M17.5 6a4.5 4.5 0 0 0-8.66-1.73A3.5 3.5 0 0 0 4.5 7.5c0 1.48.92 2.75 2.22 3.26L7.5 16.5h9l.78-5.74A3.5 3.5 0 0 0 19.5 7.5 1.5 1.5 0 0 0 17.5 6ZM8 18h8v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2Z" />
+    </svg>
+  );
+}
 
 const DAY_NAMES_ID = ['SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB', 'MIN'];
 const SESSION_XP_REWARD = 25;
@@ -392,7 +417,7 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
       <section className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 sm:p-6 shadow-2xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-[#802924] text-sm">&#128197;</span>
+            <FaCalendarDays className="w-4 h-4 text-[#802924] shrink-0" />
             <h1 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
               Agenda Sesi Atelier
             </h1>
@@ -416,17 +441,17 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
                 type="button"
                 aria-label="Minggu sebelumnya"
                 onClick={() => handleShiftWeek(-1)}
-                className="w-8 h-8 rounded-xl border border-[#341D17]/15 bg-[#FAF6F0] hover:bg-[#F9DDBB]/65 text-xs font-bold text-[#341D17] transition cursor-pointer"
+                className="w-8 h-8 rounded-xl border border-[#341D17]/15 bg-[#FAF6F0] hover:bg-[#F9DDBB]/65 text-xs font-bold text-[#341D17] transition cursor-pointer inline-flex items-center justify-center"
               >
-                &lsaquo;
+                <FaChevronLeft className="w-3 h-3 shrink-0" />
               </button>
               <button
                 type="button"
                 aria-label="Minggu berikutnya"
                 onClick={() => handleShiftWeek(1)}
-                className="w-8 h-8 rounded-xl border border-[#341D17]/15 bg-[#FAF6F0] hover:bg-[#F9DDBB]/65 text-xs font-bold text-[#341D17] transition cursor-pointer"
+                className="w-8 h-8 rounded-xl border border-[#341D17]/15 bg-[#FAF6F0] hover:bg-[#F9DDBB]/65 text-xs font-bold text-[#341D17] transition cursor-pointer inline-flex items-center justify-center"
               >
-                &rsaquo;
+                <FaChevronRight className="w-3 h-3 shrink-0" />
               </button>
             </div>
           </div>
@@ -483,11 +508,11 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
       {!isLoading && missedSessions.length > 0 && !dismissedNotice && (
         <section
           role="status"
-          className="rounded-2xl bg-[#FDF2F2] border border-[#802924]/30 px-4 py-3.5 sm:px-5 sm:py-4 flex items-start justify-between gap-3 text-[#5B1D19]"
+          className="rounded-2xl bg-[#FFFDF9] border border-[#802924]/30 px-4 py-3.5 sm:px-5 sm:py-4 flex items-start justify-between gap-3 text-[#5B1D19]"
         >
           <div className="flex items-start gap-3">
             <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#802924] text-xs font-extrabold text-[#FFFDF9]">
-              !
+              <FaExclamation className="w-3 h-3" />
             </span>
             <div className="space-y-1 text-xs">
               <p className="font-extrabold text-[13px] text-[#4A1512]">
@@ -510,9 +535,9 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
             type="button"
             onClick={() => setDismissedNotice(true)}
             aria-label="Tutup pemberitahuan"
-            className="rounded-lg px-2 py-1 text-xs font-bold text-[#5B1D19]/70 hover:bg-[#802924]/10 hover:text-[#4A1512] transition cursor-pointer shrink-0"
+            className="rounded-lg p-1.5 text-xs font-bold text-[#5B1D19]/70 hover:bg-[#802924]/10 hover:text-[#4A1512] transition cursor-pointer shrink-0"
           >
-            &#10005;
+            <FaXmark className="w-3.5 h-3.5" />
           </button>
         </section>
       )}
@@ -524,14 +549,14 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
             <h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17]">
               Daftar Kelas &amp; Sesi Praktek
             </h2>
-            <p className="text-xs text-[#341D17]/60">
+            <p className="text-xs text-[#341D17]/65">
               {filterMode === 'date'
                 ? `Menampilkan jadwal sesi pada tanggal ${formatDateDisplay(selectedDate)}`
                 : 'Menampilkan seluruh jadwal kelas dari kursus yang kamu ikuti'}
             </p>
           </div>
 
-          <span className="rounded-full bg-[#F9DDBB]/80 border border-[#802924]/15 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
+          <span className="rounded-full bg-[#FFFDF9] border border-[#802924]/15 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
             {completedCount} DARI {sessions.length} TERDAFTAR
           </span>
         </div>
@@ -583,7 +608,7 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
                   key={item.id}
                   className={`rounded-3xl bg-[#FFFDF9] border p-5 sm:p-6 shadow-2xs space-y-4 ${
                     item.isCompleted
-                      ? 'border-[#4E7A4E]/40'
+                      ? 'border-[#82882B]/40'
                       : isMissed
                         ? 'border-[#802924]/25 opacity-95'
                         : 'border-[#341D17]/12'
@@ -592,8 +617,8 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
                   {/* Header Status */}
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                     {item.isCompleted ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EEF5EE] border border-[#4E7A4E]/30 px-3 py-0.5 text-[11px] font-extrabold text-[#2F5D2F]">
-                        <span>&#10003;</span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EEF5EE] border border-[#82882B]/30 px-3 py-0.5 text-[11px] font-extrabold text-[#2F5D2F]">
+                        <FaCheck className="w-2.5 h-2.5 shrink-0" />
                         <span>
                           {item.isTeacherDone
                             ? 'Selesai Tepat Waktu & Terverifikasi Chef'
@@ -602,12 +627,12 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
                       </span>
                     ) : isMissed ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FDF2F2] border border-[#802924]/30 px-3 py-0.5 text-[11px] font-extrabold text-[#802924]">
-                        <span>&#10005;</span>
+                        <FaXmark className="w-2.5 h-2.5 shrink-0" />
                         <span>Kelas Telah Selesai &bull; Tidak Mengikuti</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F9DDBB]/85 px-2.5 py-0.5 text-[11px] font-bold text-[#802924]">
-                        <span>&bull;</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#802924]" />
                         <span>Siap Dimulai</span>
                       </span>
                     )}
@@ -626,14 +651,17 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
                   {/* Pemberitahuan Khusus Jika Kelas Sudah Ditutup Guru */}
                   {isMissed && (
                     <div className="rounded-2xl bg-[#FDF2F2] border border-[#802924]/20 px-4 py-2.5 text-xs text-[#5B1D19] flex flex-wrap items-center justify-between gap-2">
-                      <span>
-                        &#9432; <span className="font-bold">Pemberitahuan:</span>{' '}
-                        Kelas telah diselesaikan oleh{' '}
-                        <span className="font-bold">
-                          Chef {item.instructorName}
+                      <span className="inline-flex items-center gap-1.5 flex-wrap">
+                        <FaCircleInfo className="w-3.5 h-3.5 text-[#802924] shrink-0" />
+                        <span className="font-bold">Pemberitahuan:</span>
+                        <span>
+                          Kelas telah diselesaikan oleh{' '}
+                          <span className="font-bold">
+                            Chef {item.instructorName}
+                          </span>
+                          . Kamu tidak dapat lagi mengikuti kelas ini dan tidak
+                          mendapatkan EXP.
                         </span>
-                        . Kamu tidak dapat lagi mengikuti kelas ini dan tidak
-                        mendapatkan EXP.
                       </span>
                       {item.teacherCompletedAt && (
                         <span className="text-[11px] font-semibold text-[#5B1D19]/75">
@@ -644,15 +672,18 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
                   )}
 
                   {item.isCompleted && item.isTeacherDone && (
-                    <div className="rounded-2xl bg-[#EEF5EE]/85 border border-[#4E7A4E]/25 px-4 py-2.5 text-xs text-[#264626] flex flex-wrap items-center justify-between gap-2">
-                      <span>
-                        &#9432; <span className="font-bold">Pemberitahuan:</span>{' '}
-                        Kelas telah diselesaikan oleh{' '}
-                        <span className="font-bold">
-                          Chef {item.instructorName}
+                    <div className="rounded-2xl bg-[#EEF5EE]/85 border border-[#82882B]/25 px-4 py-2.5 text-xs text-[#264626] flex flex-wrap items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 flex-wrap">
+                        <FaCircleInfo className="w-3.5 h-3.5 text-[#82882B] shrink-0" />
+                        <span className="font-bold">Pemberitahuan:</span>
+                        <span>
+                          Kelas telah diselesaikan oleh{' '}
+                          <span className="font-bold">
+                            Chef {item.instructorName}
+                          </span>
+                          . Kamu menyelesaikan sesi tepat waktu sebelum kelas
+                          ditutup.
                         </span>
-                        . Kamu menyelesaikan sesi tepat waktu sebelum kelas
-                        ditutup.
                       </span>
                       {item.teacherCompletedAt && (
                         <span className="text-[11px] font-semibold text-[#264626]/75">
@@ -685,8 +716,9 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
                       <h3 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
                         {item.title}
                       </h3>
-                      <p className="text-xs text-[#341D17]/65">
-                        &#128104;&#8205;&#127859; Chef {item.instructorName}
+                      <p className="inline-flex items-center gap-1.5 text-xs text-[#341D17]/65">
+                        <ChefHatIcon className="w-3.5 h-3.5 text-[#802924] shrink-0" />
+                        <span>Chef {item.instructorName}</span>
                       </p>
                       {item.notes && (
                         <p className="text-xs text-[#341D17]/60 pt-0.5">
@@ -697,9 +729,12 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#341D17]/65 pt-1 border-t border-[#341D17]/8">
-                    <span>
-                      &#128197; {formatDateDisplay(item.sessionDate)} &bull; &#9200;{' '}
-                      {item.sessionTime}
+                    <span className="inline-flex items-center gap-1.5">
+                      <FaCalendarDays className="w-3 h-3 text-[#802924] shrink-0" />
+                      <span>{formatDateDisplay(item.sessionDate)}</span>
+                      <span>&bull;</span>
+                      <FaClock className="w-3 h-3 text-[#802924] shrink-0" />
+                      <span>{item.sessionTime}</span>
                     </span>
                     <span className="font-semibold text-[#341D17]/70">
                       {item.locationLabel}
@@ -713,19 +748,22 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
                         href="/dashboard/student/courses"
                         className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#FAF6F0] hover:bg-[#F9DDBB]/65 border border-[#341D17]/15 px-4 py-2.5 text-xs font-bold text-[#341D17] transition"
                       >
+                        {item.isTeacherDone && (
+                          <FaPlay className="w-3 h-3 text-[#802924] shrink-0" />
+                        )}
                         <span>
                           {item.isTeacherDone
-                            ? '▶ Lihat Rekaman Ulang'
+                            ? 'Lihat Rekaman Ulang'
                             : 'Masuk Kelas Virtual'}
                         </span>
                       </Link>
 
                       {/* Tombol EXP muncul karena student menekan selesai sebelum teacher menutup kelas */}
                       {item.isXpClaimed ? (
-                        <span className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#EEF5EE] border border-[#4E7A4E]/35 px-4 py-2.5 text-xs font-extrabold text-[#2F5D2F] shrink-0">
+                        <span className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#EEF5EE] border border-[#82882B]/35 px-4 py-2.5 text-xs font-extrabold text-[#2F5D2F] shrink-0">
+                          <FaCheck className="w-3 h-3 shrink-0" />
                           <span>
-                            &#10003; +{item.xpEarned || SESSION_XP_REWARD} EXP
-                            Diklaim
+                            +{item.xpEarned || SESSION_XP_REWARD} EXP Diklaim
                           </span>
                         </span>
                       ) : (
@@ -733,12 +771,13 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
                           type="button"
                           disabled={isBusy}
                           onClick={() => handleClaimSessionXp(item)}
-                          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#4E7A4E] hover:bg-[#3E633E] px-4 py-2.5 text-xs font-extrabold text-[#FFFDF9] shadow-xs transition cursor-pointer disabled:opacity-60 shrink-0"
+                          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#82882B] hover:bg-[#6D7322] px-4 py-2.5 text-xs font-extrabold text-[#FFFDF9] shadow-xs transition cursor-pointer disabled:opacity-60 shrink-0"
                         >
+                          <FaWandSparkles className="w-3 h-3 shrink-0" />
                           <span>
                             {isBusy
                               ? 'Mengklaim EXP...'
-                              : `✦ Klaim +${SESSION_XP_REWARD} EXP`}
+                              : `Klaim +${SESSION_XP_REWARD} EXP`}
                           </span>
                         </button>
                       )}
@@ -774,8 +813,9 @@ export default function StudentScheduleClient({ initialSessions = [] }) {
                         onClick={() => handleMarkSessionDone(item)}
                         className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#FFFDF9] hover:bg-[#F9DDBB]/65 border border-[#341D17]/15 px-4 py-2.5 text-xs font-bold text-[#341D17] transition cursor-pointer disabled:opacity-60 shrink-0"
                       >
+                        <FaCheck className="w-3 h-3 text-[#82882B] shrink-0" />
                         <span>
-                          {isBusy ? 'Menyimpan...' : '✓ Tandai Selesai'}
+                          {isBusy ? 'Menyimpan...' : 'Tandai Selesai'}
                         </span>
                       </button>
                     </div>

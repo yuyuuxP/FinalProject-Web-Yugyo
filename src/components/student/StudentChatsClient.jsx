@@ -1,6 +1,17 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import {
+  FaGraduationCap,
+  FaChartLine,
+  FaCheckDouble,
+  FaTemperatureHalf,
+  FaClock,
+  FaWandSparkles,
+  FaCamera,
+  FaFileLines,
+  FaPaperPlane,
+} from 'react-icons/fa6';
 
 const QUICK_TOPICS = [
   'Tips Meja Marmer',
@@ -141,7 +152,9 @@ export default function StudentChatsClient({
         timeLabel: formatTimeLabel(row.created_at),
         text: row.message_text || '',
         attachmentUrl: row.attachment_url || '',
-        attachmentName: row.attachment_name || (row.attachment_url ? 'lampiran-adonan.jpg' : ''),
+        attachmentName:
+          row.attachment_name ||
+          (row.attachment_url ? 'lampiran-adonan.jpg' : ''),
         showParameterCard: false,
         statusLabel: 'Terkirim',
       });
@@ -195,7 +208,9 @@ export default function StudentChatsClient({
       senderRole: 'student',
       senderName: studentName,
       timeLabel: nowTime,
-      text: textToSend || `Lampiran foto: ${attachedPreview?.name || 'adonan.jpg'}`,
+      text:
+        textToSend ||
+        `Lampiran foto: ${attachedPreview?.name || 'adonan.jpg'}`,
       attachmentUrl: attachedPreview?.url || '',
       attachmentName: attachedPreview?.name || '',
       statusLabel: 'Terkirim',
@@ -293,7 +308,7 @@ export default function StudentChatsClient({
                 <span>{getInitials(selectedInstructor.full_name)}</span>
                 <span
                   aria-hidden="true"
-                  className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#FFFDF9] bg-[#12B76A]"
+                  className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#FFFDF9] bg-[#82882B]"
                 />
               </div>
 
@@ -302,8 +317,9 @@ export default function StudentChatsClient({
                   <h1 className="font-editorial text-base sm:text-lg font-bold text-[#341D17] truncate">
                     Chef {selectedInstructor.full_name}
                   </h1>
-                  <span className="rounded-full bg-[#ECFDF3] px-2.5 py-0.5 text-[10px] font-bold text-[#027A48]">
-                    &bull; Online
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#EEF5EE] px-2.5 py-0.5 text-[10px] font-bold text-[#2F5D2F]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#82882B]" />
+                    <span>Online</span>
                   </span>
                 </div>
                 <p className="text-[11px] text-[#341D17]/65 truncate">
@@ -312,14 +328,14 @@ export default function StudentChatsClient({
               </div>
             </div>
 
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FAF6F0] border border-[#341D17]/10 text-sm text-[#341D17]">
-              &#127891;
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FAF6F0] border border-[#341D17]/10 text-[#802924]">
+              <FaGraduationCap className="w-4 h-4 shrink-0" />
             </span>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#341D17]/8 text-[11px]">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-[#802924] font-bold">&#128202;</span>
+              <FaChartLine className="w-3 h-3 text-[#802924] shrink-0" />
               <span className="font-extrabold uppercase tracking-wider text-[#341D17]/60">
                 KONSULTASI AKTIF
               </span>
@@ -371,14 +387,15 @@ export default function StudentChatsClient({
                       </div>
                       <div className="flex items-center justify-end gap-1 text-[10px] text-[#341D17]/55">
                         <span>{msg.attachmentName || 'butter_layer_test.jpg'}</span>
-                        <span className="text-[#802924] font-bold">&#10003;&#10003;</span>
+                        <FaCheckDouble className="w-3 h-3 text-[#802924] shrink-0" />
                       </div>
                     </div>
                   )}
 
                   {!msg.attachmentUrl && msg.statusLabel && (
-                    <span className="text-[10px] text-[#341D17]/50 pr-1">
-                      &#10003;&#10003; {msg.statusLabel}
+                    <span className="inline-flex items-center gap-1 text-[10px] text-[#341D17]/50 pr-1">
+                      <FaCheckDouble className="w-3 h-3 text-[#802924] shrink-0" />
+                      <span>{msg.statusLabel}</span>
                     </span>
                   )}
                 </div>
@@ -399,8 +416,8 @@ export default function StudentChatsClient({
 
                   {msg.showParameterCard && (
                     <div className="rounded-xl border border-[#341D17]/10 bg-[#FFFDF9] p-3 flex items-start gap-3">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F9DDBB]/75 text-sm text-[#802924]">
-                        &#127777;
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F9DDBB]/75 text-[#802924]">
+                        <FaTemperatureHalf className="w-4 h-4 shrink-0" />
                       </span>
                       <div className="space-y-0.5 text-xs">
                         <span className="block text-[9px] font-extrabold uppercase tracking-wider text-[#802924]">
@@ -409,8 +426,9 @@ export default function StudentChatsClient({
                         <p className="font-bold text-[#341D17]">
                           Suhu Optimal: 14&deg;C &ndash; 16&deg;C
                         </p>
-                        <p className="text-[11px] text-[#341D17]/65">
-                          &#128336; Resting Chiller: 45 Menit
+                        <p className="inline-flex items-center gap-1 text-[11px] text-[#341D17]/65">
+                          <FaClock className="w-3 h-3 text-[#802924] shrink-0" />
+                          <span>Resting Chiller: 45 Menit</span>
                         </p>
                       </div>
                     </div>
@@ -426,7 +444,7 @@ export default function StudentChatsClient({
       <section className="space-y-3">
         <div className="space-y-2">
           <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/65">
-            <span>&#10024;</span>
+            <FaWandSparkles className="w-3 h-3 text-[#802924] shrink-0" />
             <span>TOPIK CEPAT SESI INI</span>
           </span>
 
@@ -484,9 +502,9 @@ export default function StudentChatsClient({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Lampirkan foto adonan"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-sm text-[#341D17]/70 hover:bg-[#FAF6F0] transition cursor-pointer"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#341D17]/70 hover:bg-[#FAF6F0] transition cursor-pointer"
               >
-                &#128247;
+                <FaCamera className="w-3.5 h-3.5 shrink-0" />
               </button>
               <button
                 type="button"
@@ -496,9 +514,9 @@ export default function StudentChatsClient({
                   )
                 }
                 aria-label="Sisipkan catatan formula"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-sm text-[#341D17]/70 hover:bg-[#FAF6F0] transition cursor-pointer"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#341D17]/70 hover:bg-[#FAF6F0] transition cursor-pointer"
               >
-                &#128196;
+                <FaFileLines className="w-3.5 h-3.5 shrink-0" />
               </button>
             </div>
 
@@ -509,7 +527,7 @@ export default function StudentChatsClient({
               className="inline-flex items-center gap-1.5 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition cursor-pointer disabled:opacity-60"
             >
               <span>Kirim</span>
-              <span>&#10148;</span>
+              <FaPaperPlane className="w-3 h-3 shrink-0" />
             </button>
           </div>
         </div>

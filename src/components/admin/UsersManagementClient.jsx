@@ -3,6 +3,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import {
+  FaUsers,
+  FaGraduationCap,
+  FaClipboardList,
+  FaUtensils,
+  FaPlus,
+  FaUserPen,
+  FaCheck,
+  FaXmark,
+  FaPenToSquare,
+  FaTrashCan,
+} from 'react-icons/fa6';
 
 const MONTHS_ID = [
   'Jan',
@@ -306,7 +318,7 @@ export default function UsersManagementClient(props = {}) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
-            <span>&#128101;</span>
+            <FaUsers className="w-3 h-3 shrink-0" />
             <span>DIREKTORI CIVITAS ATELIER</span>
           </span>
           <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
@@ -319,9 +331,10 @@ export default function UsersManagementClient(props = {}) {
 
         <Link
           href="/dashboard/admin/users/create"
-          className="shrink-0 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2.5 text-xs sm:text-sm font-bold text-[#FFFDF9] transition"
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2.5 text-xs sm:text-sm font-bold text-[#FFFDF9] transition"
         >
-          + Tambah Pengguna
+          <FaPlus className="w-3.5 h-3.5 shrink-0" />
+          <span>Tambah Pengguna</span>
         </Link>
       </div>
 
@@ -336,8 +349,8 @@ export default function UsersManagementClient(props = {}) {
               {nonAdminUsers.length}
             </p>
           </div>
-          <span className="w-8 h-8 rounded-lg bg-[#FFFDF9] border border-[#341D17]/10 text-[#802924] flex items-center justify-center text-sm font-bold shrink-0">
-            &#128101;
+          <span className="w-8 h-8 rounded-lg bg-[#FFFDF9] border border-[#341D17]/10 text-[#802924] flex items-center justify-center shrink-0">
+            <FaUsers className="w-4 h-4" />
           </span>
         </div>
 
@@ -350,8 +363,8 @@ export default function UsersManagementClient(props = {}) {
               {studentsList.length}
             </p>
           </div>
-          <span className="w-8 h-8 rounded-lg bg-[#FFFDF9] border border-[#341D17]/10 text-[#341D17] flex items-center justify-center text-sm font-bold shrink-0">
-            &#127891;
+          <span className="w-8 h-8 rounded-lg bg-[#FFFDF9] border border-[#341D17]/10 text-[#341D17] flex items-center justify-center shrink-0">
+            <FaGraduationCap className="w-4 h-4" />
           </span>
         </div>
 
@@ -365,8 +378,8 @@ export default function UsersManagementClient(props = {}) {
               <span className="w-2 h-2 rounded-full bg-[#EA580C] inline-block" />
             </p>
           </div>
-          <span className="w-8 h-8 rounded-lg bg-[#FFFDF9] border border-[#341D17]/10 text-[#802924] flex items-center justify-center text-sm font-bold shrink-0">
-            &#128203;
+          <span className="w-8 h-8 rounded-lg bg-[#FFFDF9] border border-[#341D17]/10 text-[#802924] flex items-center justify-center shrink-0">
+            <FaClipboardList className="w-4 h-4" />
           </span>
         </div>
 
@@ -379,8 +392,8 @@ export default function UsersManagementClient(props = {}) {
               {allTeachers.length}
             </p>
           </div>
-          <span className="w-8 h-8 rounded-lg bg-[#FFFDF9] border border-[#341D17]/10 text-[#341D17] flex items-center justify-center text-sm font-bold shrink-0">
-            &#127860;
+          <span className="w-8 h-8 rounded-lg bg-[#FFFDF9] border border-[#341D17]/10 text-[#341D17] flex items-center justify-center shrink-0">
+            <FaUtensils className="w-4 h-4" />
           </span>
         </div>
       </div>
@@ -470,7 +483,7 @@ export default function UsersManagementClient(props = {}) {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-editorial text-lg font-bold text-[#341D17] flex items-center gap-2">
-              <span className="text-[#802924]">&#128221;</span>
+              <FaUserPen className="w-4 h-4 text-[#802924] shrink-0" />
               <span>Pending Chef &bull; Verifikasi Calon Pengajar</span>
             </h2>
             <span className="rounded-md bg-[#802924] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#FFFDF9]">
@@ -519,18 +532,20 @@ export default function UsersManagementClient(props = {}) {
                       type="button"
                       disabled={actionLoadingId === cand.id}
                       onClick={() => handleActivatePendingUser(cand)}
-                      className="sm:col-span-3 rounded-xl bg-[#5C6B2E] hover:bg-[#4B5824] py-2.5 px-4 text-xs sm:text-sm font-bold text-white transition cursor-pointer disabled:opacity-60"
+                      className="sm:col-span-3 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#5C6B2E] hover:bg-[#4B5824] py-2.5 px-4 text-xs sm:text-sm font-bold text-white transition cursor-pointer disabled:opacity-60"
                     >
-                      &#10003; Setujui Pengajar
+                      <FaCheck className="w-3.5 h-3.5 shrink-0" />
+                      <span>Setujui Pengajar</span>
                     </button>
 
                     <button
                       type="button"
                       disabled={actionLoadingId === cand.id}
                       onClick={() => handleRejectPendingUser(cand)}
-                      className="rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#FAF6F0] py-2.5 px-4 text-xs sm:text-sm font-bold text-[#341D17]/80 transition cursor-pointer disabled:opacity-60"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#FAF6F0] py-2.5 px-4 text-xs sm:text-sm font-bold text-[#341D17]/80 transition cursor-pointer disabled:opacity-60"
                     >
-                      &times; Tolak
+                      <FaXmark className="w-3.5 h-3.5 shrink-0" />
+                      <span>Tolak</span>
                     </button>
                   </div>
                 </div>
@@ -545,7 +560,7 @@ export default function UsersManagementClient(props = {}) {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-editorial text-lg font-bold text-[#341D17] flex items-center gap-2">
-              <span className="text-[#802924]">&#127891;</span>
+              <FaGraduationCap className="w-4 h-4 text-[#802924] shrink-0" />
               <span>Pending Student &bull; Antrean Status Siswa</span>
             </h2>
             <span className="rounded-md bg-[#802924] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#FFFDF9]">
@@ -591,18 +606,20 @@ export default function UsersManagementClient(props = {}) {
                       type="button"
                       disabled={actionLoadingId === stu.id}
                       onClick={() => handleActivatePendingUser(stu)}
-                      className="sm:col-span-3 rounded-xl bg-[#5C6B2E] hover:bg-[#4B5824] py-2.5 px-4 text-xs sm:text-sm font-bold text-white transition cursor-pointer disabled:opacity-60"
+                      className="sm:col-span-3 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#5C6B2E] hover:bg-[#4B5824] py-2.5 px-4 text-xs sm:text-sm font-bold text-white transition cursor-pointer disabled:opacity-60"
                     >
-                      &#10003; Aktifkan Siswa
+                      <FaCheck className="w-3.5 h-3.5 shrink-0" />
+                      <span>Aktifkan Siswa</span>
                     </button>
 
                     <button
                       type="button"
                       disabled={actionLoadingId === stu.id}
                       onClick={() => handleRejectPendingUser(stu)}
-                      className="rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#FAF6F0] py-2.5 px-4 text-xs sm:text-sm font-bold text-[#341D17]/80 transition cursor-pointer disabled:opacity-60"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#FAF6F0] py-2.5 px-4 text-xs sm:text-sm font-bold text-[#341D17]/80 transition cursor-pointer disabled:opacity-60"
                     >
-                      &times; Hapus
+                      <FaXmark className="w-3.5 h-3.5 shrink-0" />
+                      <span>Hapus</span>
                     </button>
                   </div>
                 </div>
@@ -667,19 +684,21 @@ export default function UsersManagementClient(props = {}) {
                   <button
                     type="button"
                     onClick={() => openEditModal(user)}
-                    className="inline-flex items-center gap-1 rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] hover:bg-[#F9DDBB]/55 px-3 py-1.5 text-xs font-bold text-[#341D17] transition cursor-pointer"
+                    aria-label={`Ubah ${displayName}`}
+                    title={`Ubah ${displayName}`}
+                    className="rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] hover:bg-[#F9DDBB]/55 p-2 text-[#341D17] transition cursor-pointer"
                   >
-                    <span>&#9998;</span>
-                    <span>Ubah</span>
+                    <FaPenToSquare className="w-3.5 h-3.5" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleDeleteUser(user)}
                     aria-label={`Hapus ${displayName}`}
+                    title={`Hapus ${displayName}`}
                     className="rounded-xl border border-[#341D17]/12 bg-[#FAF6F0] hover:bg-[#802924] hover:text-[#FFFDF9] p-2 text-[#802924] transition cursor-pointer"
                   >
-                    &#128465;
+                    <FaTrashCan className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -705,9 +724,10 @@ export default function UsersManagementClient(props = {}) {
               <button
                 type="button"
                 onClick={() => setEditingUser(null)}
+                aria-label="Tutup modal ubah data pengguna"
                 className="rounded-full bg-[#802924] text-[#FFFDF9] w-7 h-7 flex items-center justify-center text-xs font-bold cursor-pointer"
               >
-                &times;
+                <FaXmark className="w-3.5 h-3.5" />
               </button>
             </div>
 

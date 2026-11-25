@@ -37,7 +37,11 @@ export default async function StudentLayout({ children }) {
   }
 
   return (
-    <StudentPortalShell student={student} unreadChatCount={unreadChatCount}>
+    <StudentPortalShell
+      student={student}
+      studentName={student?.full_name || 'Student'}
+      unreadChatCount={unreadChatCount}
+    >
       {children}
     </StudentPortalShell>
   );

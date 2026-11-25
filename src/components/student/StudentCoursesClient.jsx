@@ -4,9 +4,31 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
+  FaGem,
+  FaPlus,
+  FaCheck,
+  FaClock,
+  FaArrowRight,
+  FaChevronUp,
+  FaChevronDown,
+} from 'react-icons/fa6';
+import {
   getActiveStudentIdentity,
   saveActiveStudentId,
 } from '@/lib/studentSessionClient';
+
+function ChefHatIcon({ className = 'w-3.5 h-3.5' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M17.5 6a4.5 4.5 0 0 0-8.66-1.73A3.5 3.5 0 0 0 4.5 7.5c0 1.48.92 2.75 2.22 3.26L7.5 16.5h9l.78-5.74A3.5 3.5 0 0 0 19.5 7.5 1.5 1.5 0 0 0 17.5 6ZM8 18h8v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2Z" />
+    </svg>
+  );
+}
 
 const CATEGORY_TABS = [
   'Bread & Yeast Goods',
@@ -610,8 +632,8 @@ export default function StudentCoursesClient({
   return (
     <div className="space-y-6 text-[#341D17] pb-12">
       <div className="space-y-3">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F9DDBB]/85 border border-[#802924]/15 px-3 py-1 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
-          <span>&#9670;</span>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFFDF9]/90 border border-[#802924]/15 px-3 py-1 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
+          <FaGem className="w-3 h-3 shrink-0" />
           <span>SEMESTER AKTIF &bull; YUGYO ATELIER</span>
         </span>
 
@@ -620,16 +642,17 @@ export default function StudentCoursesClient({
             <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
               Materi Pembelajaran Saya
             </h1>
-            <p className="text-xs sm:text-sm text-[#341D17]/65">
+            <p className="text-xs sm:text-sm text-[#341D17]/75">
               Eksplorasi silabus pastry, video teknik, dan modul formula resep terdaftar dengan standar atelier profesional.
             </p>
           </div>
 
           <Link
             href="/dashboard/student/catalog"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#FAF6F0] hover:bg-[#F9DDBB]/70 border border-[#341D17]/15 px-3.5 py-2 text-xs font-bold text-[#341D17] transition shrink-0"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFFDF9] hover:bg-[#F9DDBB]/70 border border-[#341D17]/15 px-3.5 py-2 text-xs font-bold text-[#341D17] transition shrink-0"
           >
-            <span>+ Tambah Kursus</span>
+            <FaPlus className="w-3 h-3 text-[#802924] shrink-0" />
+            <span>Tambah Kursus</span>
           </Link>
         </div>
 
@@ -665,8 +688,9 @@ export default function StudentCoursesClient({
                 {activeCourse.category}
               </span>
             </div>
-            <span className="text-[#4E7A4E] font-semibold">
-              &#10003; Terakreditasi Yugyo Atelier
+            <span className="inline-flex items-center gap-1 text-[#82882B] font-semibold">
+              <FaCheck className="w-3 h-3 shrink-0" />
+              <span>Terakreditasi Yugyo Atelier</span>
             </span>
           </div>
 
@@ -679,9 +703,11 @@ export default function StudentCoursesClient({
                 <h2 className="font-editorial text-xl font-bold text-[#341D17]">
                   {activeCourse.title}
                 </h2>
-                <p className="text-xs text-[#341D17]/65">
-                  &#128104;&#8205;&#127859; {activeCourse.instructor} &bull;{' '}
-                  {activeCourse.category}
+                <p className="inline-flex items-center gap-1.5 text-xs text-[#341D17]/65">
+                  <ChefHatIcon className="w-3.5 h-3.5 text-[#802924] shrink-0" />
+                  <span>
+                    {activeCourse.instructor} &bull; {activeCourse.category}
+                  </span>
                 </p>
               </div>
             </div>
@@ -706,15 +732,16 @@ export default function StudentCoursesClient({
           </div>
 
           <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs text-[#341D17]/60">
-              &#9200; Sisa Waktu Akses: {activeCourse.remainingDays} Hari
+            <span className="inline-flex items-center gap-1.5 text-xs text-[#341D17]/60">
+              <FaClock className="w-3 h-3 shrink-0" />
+              <span>Sisa Waktu Akses: {activeCourse.remainingDays} Hari</span>
             </span>
             <a
               href="#silabus-kurikulum"
               className="inline-flex items-center gap-1.5 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-4 py-2 text-xs font-bold text-[#FFFDF9] transition"
             >
               <span>Lanjutkan Belajar</span>
-              <span>&rarr;</span>
+              <FaArrowRight className="w-3 h-3 shrink-0" />
             </a>
           </div>
         </section>
@@ -756,9 +783,11 @@ export default function StudentCoursesClient({
               {activeCourse?.title ||
                 `Belum Ada Kursus Diikuti (${selectedCategory})`}
             </span>
-            <span className="text-[#802924]">
-              {isCourseListOpen ? '▲' : '▼'}
-            </span>
+            {isCourseListOpen ? (
+              <FaChevronUp className="w-3 h-3 text-[#802924] shrink-0" />
+            ) : (
+              <FaChevronDown className="w-3 h-3 text-[#802924] shrink-0" />
+            )}
           </button>
 
           {isCourseListOpen && (
@@ -799,7 +828,7 @@ export default function StudentCoursesClient({
         <div className="flex items-center justify-between">
           <h2 className="font-editorial text-lg font-bold text-[#341D17]">
             Silabus Kurikulum{' '}
-            <span className="ml-1.5 rounded-full bg-[#F9DDBB]/75 px-2.5 py-0.5 text-[11px] font-bold text-[#802924]">
+            <span className="ml-1.5 rounded-full bg-[#FFFDF9] border border-[#341D17]/12 px-2.5 py-0.5 text-[11px] font-bold text-[#802924]">
               {visibleModules.length} Konten
             </span>
           </h2>
@@ -845,7 +874,7 @@ export default function StudentCoursesClient({
                 <div
                   key={mod.id}
                   className={`rounded-2xl bg-[#FFFDF9] border transition overflow-hidden ${
-                    isDone ? 'border-[#4E7A4E]/45' : 'border-[#341D17]/12'
+                    isDone ? 'border-[#82882B]/45' : 'border-[#341D17]/12'
                   }`}
                 >
                   <div
@@ -893,13 +922,14 @@ export default function StudentCoursesClient({
                           e.stopPropagation();
                           handleToggleModuleDone(mod);
                         }}
-                        className={`rounded-xl px-3 py-1.5 text-[11px] font-bold border transition cursor-pointer disabled:opacity-60 ${
+                        className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-bold border transition cursor-pointer disabled:opacity-60 ${
                           isDone
-                            ? 'bg-[#4E7A4E] text-[#FFFDF9] border-[#4E7A4E]'
+                            ? 'bg-[#82882B] text-[#FFFDF9] border-[#82882B]'
                             : 'bg-[#FFFDF9] hover:bg-[#F9DDBB]/55 text-[#341D17] border-[#341D17]/15'
                         }`}
                       >
-                        {isDone ? '✓ Selesai' : 'Mark as Done'}
+                        {isDone && <FaCheck className="w-2.5 h-2.5 shrink-0" />}
+                        <span>{isDone ? 'Selesai' : 'Mark as Done'}</span>
                       </button>
 
                       {isInteractive && (
@@ -949,15 +979,18 @@ export default function StudentCoursesClient({
                           type="button"
                           disabled={isSavingDone}
                           onClick={() => handleToggleModuleDone(mod)}
-                          className={`rounded-xl px-3.5 py-2 text-xs font-bold border transition cursor-pointer ${
+                          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold border transition cursor-pointer ${
                             isDone
-                              ? 'bg-[#4E7A4E] text-[#FFFDF9] border-[#4E7A4E]'
+                              ? 'bg-[#82882B] text-[#FFFDF9] border-[#82882B]'
                               : 'bg-[#802924] hover:bg-[#661F1B] text-[#FFFDF9] border-[#802924]'
                           }`}
                         >
-                          {isDone
-                            ? '✓ Modul Sudah Selesai'
-                            : 'Tandai Modul Selesai (Mark as Done)'}
+                          {isDone && <FaCheck className="w-3 h-3 shrink-0" />}
+                          <span>
+                            {isDone
+                              ? 'Modul Sudah Selesai'
+                              : 'Tandai Modul Selesai (Mark as Done)'}
+                          </span>
                         </button>
                       </div>
                     </div>
@@ -973,15 +1006,18 @@ export default function StudentCoursesClient({
                           type="button"
                           disabled={isSavingDone}
                           onClick={() => handleToggleModuleDone(mod)}
-                          className={`rounded-xl px-3.5 py-2 text-xs font-bold border transition cursor-pointer ${
+                          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold border transition cursor-pointer ${
                             isDone
-                              ? 'bg-[#4E7A4E] text-[#FFFDF9] border-[#4E7A4E]'
+                              ? 'bg-[#82882B] text-[#FFFDF9] border-[#82882B]'
                               : 'bg-[#802924] hover:bg-[#661F1B] text-[#FFFDF9] border-[#802924]'
                           }`}
                         >
-                          {isDone
-                            ? '✓ Modul Sudah Selesai'
-                            : 'Tandai Modul Selesai (Mark as Done)'}
+                          {isDone && <FaCheck className="w-3 h-3 shrink-0" />}
+                          <span>
+                            {isDone
+                              ? 'Modul Sudah Selesai'
+                              : 'Tandai Modul Selesai (Mark as Done)'}
+                          </span>
                         </button>
                       </div>
                     </div>

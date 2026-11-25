@@ -1,9 +1,3 @@
-// =====================================================================
-// YUGYO - Artisanal Baking & Pâtisserie Atelier Landing Page
-// File: src/app/page.jsx
-// Palette: #F9DDBB (Cream), #802924 (Cocoa Red), #341D17 (Dark Choc), #82882B (Pistachio)
-// =====================================================================
-
 import Link from 'next/link';
 
 export default function YugyoLandingPage() {
@@ -137,7 +131,7 @@ export default function YugyoLandingPage() {
             <span className="w-6 sm:w-8 h-[1.5px] bg-[#802924]" />
           </div>
 
-          <h1 className="font-editorial text-2xl sm:text-3xl md:text-4xl font-bold text-[#341D17] tracking-tight leading-snug mb-3.5">
+          <h1 className="meddon-regular text-xl sm:text-3xl md:text-4xl font-normal text-[#341D17] leading-relaxed py-1 mb-3.5">
             Master the Art of French Pastry &amp; Artisanal Baking
           </h1>
 

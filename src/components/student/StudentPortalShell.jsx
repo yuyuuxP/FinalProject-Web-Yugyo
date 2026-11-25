@@ -114,15 +114,18 @@ function detectStudentFromGreetingDom() {
 
 export default function StudentPortalShell({
   children,
+  student = null,
   studentName = 'Student',
   avatarUrl = '',
+  unreadChatCount = 0,
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [clientName, setClientName] = useState('');
   const [clientAvatar, setClientAvatar] = useState('');
 
-  const propName = !isBlockedStudentName(studentName)
-    ? String(studentName).trim()
+  const resolvedPropName = student?.full_name || studentName;
+  const propName = !isBlockedStudentName(resolvedPropName)
+    ? String(resolvedPropName).trim()
     : '';
   const activeName = propName || clientName || 'Student';
   const activeAvatar = avatarUrl || clientAvatar || '';
@@ -152,20 +155,22 @@ export default function StudentPortalShell({
   }, [propName]);
 
   return (
-    <div className="min-h-screen lg:h-screen lg:overflow-hidden bg-[#FAF6F0] text-[#341D17] flex">
-      <div className="hidden lg:block lg:h-screen lg:sticky lg:top-0 shrink-0">
+    <div className="min-h-screen bg-[#F9DDBB] text-[#341D17] flex">
+      <aside className="hidden lg:block lg:w-64 lg:fixed lg:inset-y-0 lg:left-0 z-30">
         <StudentSidebarNav
           studentName={activeName}
           avatarUrl={activeAvatar}
+          unreadChatCount={unreadChatCount}
         />
-      </div>
+      </aside>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
-          <div className="relative z-10 h-screen">
+          <div className="relative z-10 h-full">
             <StudentSidebarNav
               studentName={activeName}
               avatarUrl={activeAvatar}
+              unreadChatCount={unreadChatCount}
               onNavigate={() => setMobileOpen(false)}
             />
           </div>
@@ -178,13 +183,13 @@ export default function StudentPortalShell({
         </div>
       )}
 
-      <div className="flex-1 min-w-0 flex flex-col lg:h-screen lg:overflow-hidden">
+      <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
         <StudentPortalHeader
           studentName={activeName}
           avatarUrl={activeAvatar}
           onToggleSidebar={() => setMobileOpen((prev) => !prev)}
         />
-        <main className="flex-1 min-w-0 lg:overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8">
           <div className="max-w-6xl w-full mx-auto">{children}</div>
         </main>
       </div>

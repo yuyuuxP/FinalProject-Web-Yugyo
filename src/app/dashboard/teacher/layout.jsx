@@ -11,12 +11,17 @@ export default async function TeacherLayout({ children }) {
     const userId = cookieStore.get('yugyo_user_id')?.value;
 
     if (userId) {
-      const res = await pool.query("SELECT id, full_name, email FROM users WHERE id = $1 AND role = 'teacher';", [userId]);
+      const res = await pool.query(
+        "SELECT id, full_name, email, specialty FROM users WHERE id = $1 AND role = 'teacher';",
+        [userId]
+      );
       if (res.rows.length > 0) {
         teacher = res.rows[0];
       }
     } else {
-      const res = await pool.query("SELECT id, full_name, email FROM users WHERE role = 'teacher' LIMIT 1;");
+      const res = await pool.query(
+        "SELECT id, full_name, email, specialty FROM users WHERE role = 'teacher' LIMIT 1;"
+      );
       if (res.rows.length > 0) teacher = res.rows[0];
     }
   } catch (err) {
@@ -24,27 +29,21 @@ export default async function TeacherLayout({ children }) {
   }
 
   return (
-    // Pastikan tinggi layar penuh dan non-scrollable di tingkat paling luar
-    <div className="h-screen bg-[#F9DDBB]/20 flex overflow-hidden">
-      
-      {/* SIDEBAR KIRI (Fixed / Diam di tempat, memiliki scroll sendiri jika menu panjang) */}
-      <div className="h-full shrink-0 overflow-y-auto">
+    <div className="min-h-screen bg-[#F9DDBB] text-[#341D17] flex">
+      {/* SIDEBAR KIRI */}
+      <aside className="hidden lg:block lg:w-64 lg:fixed lg:inset-y-0 lg:left-0 z-30">
         <TeacherSidebar teacher={teacher} />
-      </div>
+      </aside>
 
       {/* WRAPPER KONTEN UTAMA */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        
-        {/* HEADER ATAS (Sticky / Tetap di atas saat konten digulir) */}
-        <div className="shrink-0 z-30">
-          <TeacherHeader teacher={teacher} />
-        </div>
+      <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
+        {/* HEADER ATAS */}
+        <TeacherHeader teacher={teacher} />
 
-        {/* KONTEN HALAMAN (Hanya bagian inilah yang bisa di-scroll) */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-8">
+        {/* KONTEN HALAMAN */}
+        <main className="flex-1 p-4 sm:p-8 max-w-6xl w-full mx-auto">
           {children}
         </main>
-
       </div>
     </div>
   );

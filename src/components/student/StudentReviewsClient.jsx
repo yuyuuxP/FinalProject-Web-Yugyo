@@ -2,6 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  FaTriangleExclamation,
+  FaPen,
+  FaClock,
+  FaCamera,
+  FaXmark,
+} from 'react-icons/fa6';
 
 const FEATURE_OPTIONS = [
   'Course & Video Player',
@@ -428,15 +435,15 @@ export default function StudentReviewsClient(props = {}) {
   return (
     <div className="space-y-6 text-[#341D17] pb-8">
       <div className="space-y-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F9DDBB]/75 border border-[#802924]/15 px-3 py-1 text-[11px] font-bold text-[#802924]">
-          <span>&#9888;</span>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFFDF9]/90 border border-[#802924]/15 px-3 py-1 text-[11px] font-bold text-[#802924]">
+          <FaTriangleExclamation className="w-3 h-3 shrink-0" />
           <span>Atelier Bug &amp; Issue Report</span>
         </span>
 
         <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
           Report Error &amp; Keluhan Website
         </h1>
-        <p className="text-xs sm:text-sm text-[#341D17]/65">
+        <p className="text-xs sm:text-sm text-[#341D17]/75">
           Kirimkan laporan jika Anda menemukan error, bug tampilan, atau kendala saat menggunakan website Yugyo.
         </p>
       </div>
@@ -451,7 +458,7 @@ export default function StudentReviewsClient(props = {}) {
               : 'text-[#341D17]/65 hover:bg-[#FAF6F0]/60'
           }`}
         >
-          <span>&#9998;</span>
+          <FaPen className="w-3 h-3 text-[#802924] shrink-0" />
           <span>Buat Report Baru</span>
         </button>
 
@@ -464,7 +471,7 @@ export default function StudentReviewsClient(props = {}) {
               : 'text-[#341D17]/65 hover:bg-[#FAF6F0]/60'
           }`}
         >
-          <span>&#128337;</span>
+          <FaClock className="w-3.5 h-3.5 text-[#802924] shrink-0" />
           <span>Riwayat Report</span>
           <span className="rounded-full bg-[#341D17]/10 text-[#341D17]/75 text-[10px] font-extrabold px-2 py-0.5">
             {reports.length}
@@ -473,7 +480,7 @@ export default function StudentReviewsClient(props = {}) {
       </div>
 
       {feedbackBanner && (
-        <div className="rounded-2xl bg-[#F9DDBB]/65 border border-[#802924]/25 px-4 py-3 text-xs sm:text-sm font-semibold text-[#802924] flex items-center justify-between gap-3">
+        <div className="rounded-2xl bg-[#FFFDF9] border border-[#802924]/25 px-4 py-3 text-xs sm:text-sm font-semibold text-[#802924] flex items-center justify-between gap-3">
           <span>{feedbackBanner}</span>
           <button
             type="button"
@@ -491,7 +498,7 @@ export default function StudentReviewsClient(props = {}) {
           className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 sm:p-6 space-y-6 shadow-2xs"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F9DDBB]/80 border border-[#802924]/15 px-3 py-1 text-[11px] font-bold text-[#802924]">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FAF6F0] border border-[#802924]/15 px-3 py-1 text-[11px] font-bold text-[#802924]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#802924] inline-block" />
               <span>Laporan Kendala Sistem</span>
             </span>
@@ -613,7 +620,7 @@ export default function StudentReviewsClient(props = {}) {
                     aria-label={`Hapus gambar ${photo.caption}`}
                     className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#2A1712]/75 hover:bg-[#802924] text-white text-xs font-bold flex items-center justify-center transition cursor-pointer"
                   >
-                    &times;
+                    <FaXmark className="w-3 h-3" />
                   </button>
                   <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-[#2A1712]/75 via-[#2A1712]/30 to-transparent px-3 py-2">
                     <p className="text-[11px] font-semibold text-white truncate">
@@ -629,7 +636,7 @@ export default function StudentReviewsClient(props = {}) {
                   onClick={() => fileInputRef.current?.click()}
                   className="rounded-2xl border border-dashed border-[#341D17]/25 bg-[#FAF6F0]/70 hover:bg-[#F9DDBB]/45 aspect-4/3 flex flex-col items-center justify-center gap-1.5 text-[#341D17]/65 transition cursor-pointer"
                 >
-                  <span className="text-xl">&#128247;</span>
+                  <FaCamera className="w-5 h-5 text-[#802924]" />
                   <span className="text-xs font-semibold">Upload Gambar Bug</span>
                 </button>
               )}
@@ -642,7 +649,7 @@ export default function StudentReviewsClient(props = {}) {
               disabled={submitting}
               className="w-full rounded-xl bg-[#802924] hover:bg-[#661F1B] py-3 px-5 text-xs sm:text-sm font-bold text-[#FFFDF9] flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-60"
             >
-              <span>&#9888;</span>
+              <FaTriangleExclamation className="w-3.5 h-3.5 shrink-0" />
               <span>{submitting ? 'Mengirim Report...' : 'Kirim Report Error'}</span>
             </button>
             <p className="text-center text-[11px] text-[#341D17]/50">

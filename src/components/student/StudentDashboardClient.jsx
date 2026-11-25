@@ -3,6 +3,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
+  FaWandSparkles,
+  FaAward,
+  FaCheck,
+  FaClock,
+  FaGem,
+  FaPlay,
+  FaUserTie,
+  FaArrowRight,
+  FaArrowDown,
+  FaCalendarDays,
+  FaFileLines,
+} from 'react-icons/fa6';
+import {
   getActiveStudentIdentity,
   saveActiveStudentId,
 } from '@/lib/studentSessionClient';
@@ -380,16 +393,16 @@ export default function StudentDashboardClient({
       {/* 1. Sapaan & Level XP */}
       <section className="space-y-4">
         <div className="space-y-1.5">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F9DDBB]/85 border border-[#802924]/15 px-3 py-1 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
-            <span>&#10022;</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFFDF9]/90 border border-[#802924]/15 px-3 py-1 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
+            <FaWandSparkles className="w-3 h-3 shrink-0" />
             <span>APPRENTICE BAKER &bull; VERIFIED STUDENT</span>
           </span>
 
-          <h1 className="font-editorial text-2xl sm:text-4xl font-bold text-[#341D17]">
-            Halo, {firstName}! &#128105;&#8205;&#127859;
+          <h1 className="meddon-regular font-editorial text-2xl sm:text-4xl font-bold text-[#341D17]">
+            Halo, <span className="font-extrabold text-[#802924]">{firstName}!</span>
           </h1>
 
-          <p className="text-xs sm:text-sm text-[#341D17]/65">
+          <p className="text-xs sm:text-sm text-[#341D17]/75">
             Lanjutkan kreasi aroma butter dan laminasi adonan hari ini. Dapur siap menyambut sentuhan tanganmu.
           </p>
         </div>
@@ -398,7 +411,7 @@ export default function StudentDashboardClient({
         <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 sm:p-5 shadow-2xs space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
             <span className="inline-flex items-center gap-1.5 font-extrabold text-[#341D17]">
-              <span className="text-[#802924]">&#127894;</span>
+              <FaAward className="w-3.5 h-3.5 text-[#802924] shrink-0" />
               <span>{levelInfo.currentLabel}</span>
             </span>
             <span className="font-extrabold text-[#802924]">
@@ -429,7 +442,7 @@ export default function StudentDashboardClient({
         <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 sm:p-5 shadow-2xs space-y-3">
           <div className="flex items-center justify-between gap-2">
             <span className="w-8 h-8 rounded-xl bg-[#F9DDBB]/80 text-[#802924] flex items-center justify-center text-xs font-extrabold">
-              &#9679;
+              <span className="w-2.5 h-2.5 rounded-full bg-[#802924]" />
             </span>
             <span className="rounded-full bg-[#FAF6F0] border border-[#341D17]/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/75">
               AKTIF
@@ -448,10 +461,10 @@ export default function StudentDashboardClient({
         {/* Card 2: Mark as Done */}
         <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 sm:p-5 shadow-2xs space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="w-8 h-8 rounded-xl bg-[#EEF5EE] text-[#4E7A4E] flex items-center justify-center text-xs font-extrabold">
-              &#10003;
+            <span className="w-8 h-8 rounded-xl bg-[#EEF5EE] text-[#82882B] flex items-center justify-center text-xs font-extrabold">
+              <FaCheck className="w-3.5 h-3.5" />
             </span>
-            <span className="text-[11px] font-bold text-[#4E7A4E]">
+            <span className="text-[11px] font-bold text-[#82882B]">
               {sessionIndexPercent}% Indeks
             </span>
           </div>
@@ -472,7 +485,7 @@ export default function StudentDashboardClient({
         <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 sm:p-5 shadow-2xs space-y-3">
           <div className="flex items-center justify-between gap-2">
             <span className="w-8 h-8 rounded-xl bg-[#F9DDBB]/65 text-[#802924] flex items-center justify-center text-xs font-extrabold">
-              &#9200;
+              <FaClock className="w-3.5 h-3.5" />
             </span>
             <span className="text-[11px] font-bold text-[#341D17]/55">
               +{focusHoursNumber.toFixed(1)} Jam
@@ -495,7 +508,7 @@ export default function StudentDashboardClient({
         <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-4 sm:p-5 shadow-2xs space-y-3">
           <div className="flex items-center justify-between gap-2">
             <span className="w-8 h-8 rounded-xl bg-[#802924] text-[#FFFDF9] flex items-center justify-center text-xs font-extrabold">
-              &#127894;
+              <FaAward className="w-3.5 h-3.5" />
             </span>
             <span className="rounded-full bg-[#F9DDBB]/85 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
               SIAP
@@ -507,9 +520,10 @@ export default function StudentDashboardClient({
             </p>
             <Link
               href={continueCourseHref}
-              className="inline-block text-xs font-bold text-[#802924] hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-bold text-[#802924] hover:underline"
             >
-              Unduh Sertifikat &darr;
+              <span>Unduh Sertifikat</span>
+              <FaArrowDown className="w-2.5 h-2.5 shrink-0" />
             </Link>
           </div>
         </div>
@@ -519,7 +533,7 @@ export default function StudentDashboardClient({
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-[#802924] text-sm">&#9670;</span>
+            <FaGem className="w-3.5 h-3.5 text-[#802924] shrink-0" />
             <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
               Lanjutkan Pembelajaran
             </h2>
@@ -552,8 +566,9 @@ export default function StudentDashboardClient({
                 <span className="rounded-full bg-[#341D17]/85 px-3 py-1 text-[10px] font-bold text-[#FFFDF9]">
                   Modul Utama #01
                 </span>
-                <span className="rounded-full bg-[#802924]/90 px-3 py-1 text-[10px] font-bold text-[#FFFDF9]">
-                  &#9654; Video HD
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#802924]/90 px-3 py-1 text-[10px] font-bold text-[#FFFDF9]">
+                  <FaPlay className="w-2.5 h-2.5 shrink-0" />
+                  <span>Video HD</span>
                 </span>
               </div>
 
@@ -564,9 +579,12 @@ export default function StudentDashboardClient({
             </div>
 
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-[#341D17]/70">
-                &#128104;&#8205;&#127859; {activeLearningCourse.instructor}{' '}
-                &bull; {activeLearningCourse.category}
+              <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#341D17]/70">
+                <FaUserTie className="w-3 h-3 text-[#802924] shrink-0" />
+                <span>
+                  {activeLearningCourse.instructor} &bull;{' '}
+                  {activeLearningCourse.category}
+                </span>
               </p>
               <h3 className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17]">
                 {activeLearningCourse.title}
@@ -594,7 +612,10 @@ export default function StudentDashboardClient({
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#341D17]/55">
-              <span>&#9200; Siap dilanjutkan kapan saja</span>
+              <span className="inline-flex items-center gap-1.5">
+                <FaClock className="w-3 h-3 shrink-0" />
+                <span>Siap dilanjutkan kapan saja</span>
+              </span>
               <span>
                 {activeLearningCourse.totalModules > 0
                   ? `${activeLearningCourse.totalModules} Modul Tersedia`
@@ -607,7 +628,7 @@ export default function StudentDashboardClient({
               className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#802924] hover:bg-[#661F1B] px-5 py-3 text-xs sm:text-sm font-bold text-[#FFFDF9] transition shadow-xs"
             >
               <span>Lanjutkan Belajar Sekarang</span>
-              <span>&rarr;</span>
+              <FaArrowRight className="w-3.5 h-3.5 shrink-0" />
             </Link>
           </article>
         ) : (
@@ -634,7 +655,7 @@ export default function StudentDashboardClient({
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-[#802924] text-sm">&#128197;</span>
+            <FaCalendarDays className="w-3.5 h-3.5 text-[#802924] shrink-0" />
             <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
               Jadwal Kelas Terdekat
             </h2>
@@ -682,10 +703,11 @@ export default function StudentDashboardClient({
       </section>
 
       {/* 5. Catatan Atelier Hari Ini */}
-      <section className="rounded-3xl bg-[#FAF3EA] border border-[#341D17]/12 p-5 sm:p-6 space-y-4">
+      <section className="rounded-3xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 sm:p-6 space-y-4">
         <div className="space-y-1.5">
-          <p className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
-            &#10022; CATATAN ATELIER HARI INI
+          <p className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
+            <FaWandSparkles className="w-3 h-3 shrink-0" />
+            <span>CATATAN ATELIER HARI INI</span>
           </p>
           <h3 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
             Tips Fermentasi Dingin (Cold Retardation)
@@ -710,9 +732,10 @@ export default function StudentDashboardClient({
 
           <Link
             href={continueCourseHref}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFFDF9] hover:bg-[#F9DDBB]/65 border border-[#341D17]/12 px-3.5 py-2 text-xs font-bold text-[#341D17] transition"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#FAF6F0] hover:bg-[#F9DDBB]/65 border border-[#341D17]/12 px-3.5 py-2 text-xs font-bold text-[#341D17] transition"
           >
-            <span>&#128196; Lembar Formula</span>
+            <FaFileLines className="w-3.5 h-3.5 text-[#802924] shrink-0" />
+            <span>Lembar Formula</span>
           </Link>
         </div>
       </section>
@@ -773,8 +796,9 @@ export default function StudentDashboardClient({
                     <h3 className="font-editorial text-base font-bold text-[#341D17] truncate">
                       {course.title}
                     </h3>
-                    <p className="text-[11px] text-[#341D17]/60 truncate">
-                      &#128104;&#8205;&#127859; {course.instructor}
+                    <p className="inline-flex items-center gap-1.5 text-[11px] text-[#341D17]/60 truncate">
+                      <FaUserTie className="w-2.5 h-2.5 text-[#802924] shrink-0" />
+                      <span>{course.instructor}</span>
                     </p>
                   </div>
                 </div>
@@ -803,7 +827,7 @@ export default function StudentDashboardClient({
                     className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#802924] hover:bg-[#661F1B] px-3.5 py-2 text-xs font-bold text-[#FFFDF9] transition"
                   >
                     <span>Lanjut Belajar</span>
-                    <span>&rarr;</span>
+                    <FaArrowRight className="w-3 h-3 shrink-0" />
                   </Link>
 
                   <button

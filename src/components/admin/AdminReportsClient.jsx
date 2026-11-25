@@ -2,6 +2,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  FaTriangleExclamation,
+  FaClipboardList,
+  FaCheck,
+  FaArrowTrendUp,
+  FaArrowsRotate,
+  FaCommentDots,
+} from 'react-icons/fa6';
 
 const AUTO_REPLY_MESSAGE =
   'Terima kasih telah melaporkan! Laporanmu telah kami tanggapi dan atasi.';
@@ -300,7 +308,7 @@ export default function AdminReportsClient(props = {}) {
     <div className="space-y-5 text-[#341D17] pb-8">
       <div className="space-y-1">
         <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
-          <span>&#9888;</span>
+          <FaTriangleExclamation className="w-3 h-3 shrink-0" />
           <span>ATELIER ISSUE &amp; BUG REPORTS</span>
         </span>
         <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
@@ -317,14 +325,14 @@ export default function AdminReportsClient(props = {}) {
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/55">
               TOTAL REPORT SISWA
             </span>
-            <span className="text-[#802924] text-xs font-bold">&#128203;</span>
+            <FaClipboardList className="w-3.5 h-3.5 text-[#802924] shrink-0" />
           </div>
           <p className="text-2xl font-extrabold text-[#341D17]">
             {allKeluhan.length}{' '}
             <span className="text-xs font-normal text-[#341D17]/55">Laporan</span>
           </p>
           <div className="h-1.5 w-full rounded-full bg-[#341D17]/8 overflow-hidden">
-            <div className="h-full w-[85%] rounded-full bg-[#EA8C1E]" />
+            <div className="h-full w-[85%] rounded-full bg-[#341D17]" />
           </div>
           <p className="text-[11px] text-[#341D17]/50">Tercatat di sistem</p>
         </div>
@@ -355,13 +363,13 @@ export default function AdminReportsClient(props = {}) {
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/55">
               PENYELESAIAN
             </span>
-            <span className="text-[#4E7A4E] text-xs font-bold">&#10003;</span>
+            <FaCheck className="w-3.5 h-3.5 text-[#82882B] shrink-0" />
           </div>
           <p className="text-2xl font-extrabold text-[#341D17]">
             {completionRate}
           </p>
           <div className="h-1.5 w-full rounded-full bg-[#341D17]/8 overflow-hidden">
-            <div className="h-full w-[80%] rounded-full bg-[#6B8E23]" />
+            <div className="h-full w-[80%] rounded-full bg-[#82882B]" />
           </div>
           <p className="text-[11px] text-[#341D17]/50">Masalah tuntas</p>
         </div>
@@ -371,14 +379,15 @@ export default function AdminReportsClient(props = {}) {
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/55">
               REPORT BARU
             </span>
-            <span className="text-[#802924] text-xs font-bold">&#8599;</span>
+            <FaArrowTrendUp className="w-3.5 h-3.5 text-[#802924] shrink-0" />
           </div>
           <p className="text-2xl font-extrabold text-[#341D17]">
             +{newStudentReportCount}
           </p>
           <p className="text-[11px] text-[#341D17]/50">Dari siswa</p>
-          <p className="text-[11px] text-[#802924] font-semibold">
-            &#10024; Sinkron dengan student portal
+          <p className="inline-flex items-center gap-1.5 text-[11px] text-[#82882B] font-semibold">
+            <FaArrowsRotate className="w-3 h-3 shrink-0" />
+            <span>Sinkron dengan student portal</span>
           </p>
         </div>
       </div>
@@ -443,7 +452,7 @@ export default function AdminReportsClient(props = {}) {
                     <span
                       className={`rounded px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${
                         isDone
-                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                          ? 'bg-[#82882B]/15 text-[#82882B] border border-[#82882B]/30'
                           : 'bg-[#F9DDBB]/85 text-[#802924]'
                       }`}
                     >
@@ -478,7 +487,7 @@ export default function AdminReportsClient(props = {}) {
                 )}
 
                 {item.adminReply && (
-                  <div className="rounded-2xl bg-emerald-50/70 border-l-2 border-emerald-600 px-4 py-2.5 text-xs text-[#341D17]/85">
+                  <div className="rounded-2xl bg-[#82882B]/10 border-l-2 border-[#82882B] px-4 py-2.5 text-xs text-[#341D17]/85">
                     <strong>{item.adminReply.name}:</strong> &ldquo;
                     {item.adminReply.message}&rdquo;
                   </div>
@@ -492,7 +501,7 @@ export default function AdminReportsClient(props = {}) {
                       onClick={() => handleTanggapiReport(item.id)}
                       className="w-full rounded-xl bg-[#802924] hover:bg-[#661F1B] py-2.5 px-4 text-xs sm:text-sm font-bold text-[#FFFDF9] flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-60"
                     >
-                      <span>&#128172;</span>
+                      <FaCommentDots className="w-3.5 h-3.5 shrink-0" />
                       <span>Tanggapi Report</span>
                     </button>
                   </div>

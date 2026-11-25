@@ -3,6 +3,27 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import {
+  FaGraduationCap,
+  FaArrowLeft,
+  FaCamera,
+  FaPen,
+  FaTrash,
+  FaBookOpen,
+  FaCheck,
+  FaAward,
+  FaUser,
+  FaEnvelope,
+  FaLock,
+  FaCircleInfo,
+  FaMobileScreenButton,
+  FaFloppyDisk,
+  FaKey,
+  FaChevronRight,
+  FaRightFromBracket,
+  FaPowerOff,
+  FaXmark,
+} from 'react-icons/fa6';
 
 const DEFAULT_BIO =
   'Peminat pastry Prancis otodidak, fokus pada teknik laminasi adonan beragi (Viennoiserie) dan penguasaan ragi alami sourdough.';
@@ -609,14 +630,14 @@ export default function StudentProfileClient({ initialProfile = null }) {
     <div className="space-y-6 text-[#341D17] pb-12">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1.5">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F9DDBB]/80 border border-[#802924]/15 px-3 py-1 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
-            <span>&#127891;</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFFDF9]/90 border border-[#802924]/15 px-3 py-1 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#802924]">
+            <FaGraduationCap className="w-3.5 h-3.5 shrink-0" />
             <span>PORTAL AKUN SISWA</span>
           </span>
           <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17]">
             Profil Pengguna Siswa
           </h1>
-          <p className="text-xs sm:text-sm text-[#341D17]/65">
+          <p className="text-xs sm:text-sm text-[#341D17]/75">
             Kelola informasi identitas, foto profil, dan status keanggotaan belajar Anda dalam ekosistem Yugyo Atelier.
           </p>
         </div>
@@ -625,13 +646,13 @@ export default function StudentProfileClient({ initialProfile = null }) {
           href="/dashboard/student"
           className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFFDF9] hover:bg-[#F9DDBB]/55 border border-[#341D17]/12 px-3.5 py-2 text-xs font-bold text-[#341D17] transition shrink-0"
         >
-          <span>&larr;</span>
+          <FaArrowLeft className="w-3 h-3 text-[#802924] shrink-0" />
           <span>Kembali ke Dashboard</span>
         </Link>
       </div>
 
       {statusMessage && (
-        <div className="rounded-2xl bg-[#F9DDBB]/65 border border-[#802924]/25 px-4 py-3 text-xs sm:text-sm font-semibold text-[#802924] flex items-center justify-between gap-3">
+        <div className="rounded-2xl bg-[#FFFDF9] border border-[#802924]/25 px-4 py-3 text-xs sm:text-sm font-semibold text-[#802924] flex items-center justify-between gap-3">
           <span>{statusMessage}</span>
           <button
             type="button"
@@ -676,7 +697,7 @@ export default function StudentProfileClient({ initialProfile = null }) {
             aria-label="Ganti foto profil"
             className="w-8 h-8 rounded-full bg-[#802924] hover:bg-[#661F1B] text-[#FFFDF9] border-2 border-[#FFFDF9] flex items-center justify-center text-xs shadow-xs transition cursor-pointer absolute bottom-0 right-0"
           >
-            &#128247;
+            <FaCamera className="w-3.5 h-3.5" />
           </button>
 
           <input
@@ -692,7 +713,7 @@ export default function StudentProfileClient({ initialProfile = null }) {
           <h2 className="font-editorial text-xl sm:text-2xl font-bold text-[#341D17]">
             {fullName}
           </h2>
-          <p className="text-xs text-[#341D17]/55 font-medium">
+          <p className="text-xs text-[#341D17]/60 font-medium">
             ID Siswa: {studentCode}
           </p>
         </div>
@@ -702,7 +723,7 @@ export default function StudentProfileClient({ initialProfile = null }) {
             <span>ROLE: {roleLabel}</span>
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FAF6F0] border border-[#341D17]/12 px-3 py-1 text-[11px] font-bold text-[#341D17]/80">
-            <span className="w-2 h-2 rounded-full bg-[#5D8A5E] inline-block" />
+            <span className="w-2 h-2 rounded-full bg-[#82882B] inline-block" />
             <span>Siswa Aktif &bull; Verified Apprentice</span>
           </span>
         </div>
@@ -714,7 +735,7 @@ export default function StudentProfileClient({ initialProfile = null }) {
             onClick={() => fileInputRef.current?.click()}
             className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#FAF6F0] hover:bg-[#F9DDBB]/60 border border-[#341D17]/15 px-4 py-2 text-xs font-bold text-[#341D17] transition cursor-pointer disabled:opacity-60"
           >
-            <span>&#9998;</span>
+            <FaPen className="w-3 h-3 text-[#802924] shrink-0" />
             <span>Ubah Foto Profil (Bisa Diedit)</span>
           </button>
 
@@ -725,7 +746,7 @@ export default function StudentProfileClient({ initialProfile = null }) {
               onClick={handleRemovePhoto}
               className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#802924]/10 hover:bg-[#802924]/20 border border-[#802924]/25 px-4 py-2 text-xs font-bold text-[#802924] transition cursor-pointer disabled:opacity-60"
             >
-              <span>&#128465;</span>
+              <FaTrash className="w-3 h-3 shrink-0" />
               <span>Hapus Foto</span>
             </button>
           )}
@@ -737,7 +758,7 @@ export default function StudentProfileClient({ initialProfile = null }) {
           <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17]">
             Pencapaian Belajar
           </h2>
-          <span className="text-xs font-semibold text-[#341D17]/55">
+          <span className="text-xs font-semibold text-[#341D17]/60">
             {stats.semesterLabel}
           </span>
         </div>
@@ -745,32 +766,32 @@ export default function StudentProfileClient({ initialProfile = null }) {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 text-center space-y-1.5 shadow-2xs">
             <div className="w-8 h-8 mx-auto rounded-xl bg-[#F9DDBB]/80 text-[#802924] flex items-center justify-center text-sm font-bold">
-              &#128214;
+              <FaBookOpen className="w-3.5 h-3.5" />
             </div>
             <p className="text-2xl font-extrabold text-[#341D17]">
               {stats.activeCourses}
             </p>
-            <p className="text-xs text-[#341D17]/60">Kursus Aktif</p>
+            <p className="text-xs text-[#341D17]/65">Kursus Aktif</p>
           </div>
 
           <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 text-center space-y-1.5 shadow-2xs">
-            <div className="w-8 h-8 mx-auto rounded-xl bg-[#FAF6F0] border border-[#341D17]/10 text-[#4E7A4E] flex items-center justify-center text-sm font-bold">
-              &#10003;
+            <div className="w-8 h-8 mx-auto rounded-xl bg-[#FAF6F0] border border-[#341D17]/10 text-[#82882B] flex items-center justify-center text-sm font-bold">
+              <FaCheck className="w-3.5 h-3.5" />
             </div>
             <p className="text-2xl font-extrabold text-[#341D17]">
               {stats.completedSessions}
             </p>
-            <p className="text-xs text-[#341D17]/60">Sesi Selesai</p>
+            <p className="text-xs text-[#341D17]/65">Sesi Selesai</p>
           </div>
 
           <div className="rounded-2xl bg-[#FFFDF9] border border-[#341D17]/12 p-5 text-center space-y-1.5 shadow-2xs">
             <div className="w-8 h-8 mx-auto rounded-xl bg-[#F9DDBB]/80 text-[#802924] flex items-center justify-center text-sm font-bold">
-              &#127942;
+              <FaAward className="w-3.5 h-3.5" />
             </div>
             <p className="text-2xl font-extrabold text-[#341D17]">
               {stats.certificatesCount}
             </p>
-            <p className="text-xs text-[#341D17]/60">Sertifikat Resmi</p>
+            <p className="text-xs text-[#341D17]/65">Sertifikat Resmi</p>
           </div>
         </div>
       </section>
@@ -779,13 +800,13 @@ export default function StudentProfileClient({ initialProfile = null }) {
         <form onSubmit={handleSaveForm} className="space-y-5">
           <div className="flex items-start gap-3 pb-3 border-b border-[#341D17]/10">
             <span className="w-8 h-8 rounded-xl bg-[#F9DDBB]/80 text-[#802924] flex items-center justify-center text-sm font-bold shrink-0">
-              &#128100;
+              <FaUser className="w-3.5 h-3.5" />
             </span>
             <div>
               <h2 className="font-editorial text-base sm:text-lg font-bold text-[#341D17]">
                 Form Data Siswa
               </h2>
-              <p className="text-xs text-[#341D17]/60">
+              <p className="text-xs text-[#341D17]/65">
                 Perbarui rincian kontak dan profil minat kuliner Anda
               </p>
             </div>
@@ -802,9 +823,10 @@ export default function StudentProfileClient({ initialProfile = null }) {
               <button
                 type="button"
                 onClick={() => nameInputRef.current?.focus()}
-                className="text-[11px] font-bold text-[#802924] hover:underline cursor-pointer"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#802924] hover:underline cursor-pointer"
               >
-                &#9998; Dapat Diubah
+                <FaPen className="w-2.5 h-2.5 shrink-0" />
+                <span>Dapat Diubah</span>
               </button>
             </div>
 
@@ -817,9 +839,7 @@ export default function StudentProfileClient({ initialProfile = null }) {
                 onChange={(e) => setFullName(e.target.value)}
                 className="w-full rounded-xl border border-[#341D17]/15 bg-[#FAF6F0]/75 px-4 py-2.5 pr-10 text-xs sm:text-sm font-semibold text-[#341D17] focus:border-[#802924] focus:bg-[#FFFDF9] focus:outline-none"
               />
-              <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[#341D17]/45 text-xs">
-                &#9998;
-              </span>
+              <FaPen className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#341D17]/45" />
             </div>
           </div>
 
@@ -838,11 +858,9 @@ export default function StudentProfileClient({ initialProfile = null }) {
                 readOnly
                 className="w-full rounded-xl border border-[#341D17]/10 bg-[#FAF6F0] px-4 py-2.5 pr-10 text-xs sm:text-sm text-[#341D17]/75 focus:outline-none cursor-not-allowed"
               />
-              <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[#341D17]/45 text-xs">
-                &#9993;
-              </span>
+              <FaEnvelope className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#341D17]/45" />
             </div>
-            <p className="text-[11px] text-[#341D17]/50">
+            <p className="text-[11px] text-[#341D17]/55">
               Digunakan untuk konfirmasi jadwal kelas laboratorium &amp; materi baking.
             </p>
           </div>
@@ -862,14 +880,10 @@ export default function StudentProfileClient({ initialProfile = null }) {
                 readOnly
                 className="w-full rounded-xl border border-[#341D17]/10 bg-[#FAF6F0] px-4 py-2.5 pr-10 text-xs sm:text-sm font-semibold text-[#341D17]/75 focus:outline-none cursor-not-allowed"
               />
-              <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[#341D17]/45 text-xs">
-                &#128274;
-              </span>
+              <FaLock className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#341D17]/45" />
             </div>
-            <div className="rounded-xl bg-[#FAF6F0] border border-[#341D17]/10 px-3.5 py-2 text-[11px] text-[#341D17]/65 flex items-center gap-2">
-              <span className="w-4 h-4 rounded-full bg-[#341D17]/15 text-[#341D17] text-[10px] font-bold flex items-center justify-center shrink-0">
-                i
-              </span>
+            <div className="rounded-xl bg-[#FAF6F0] border border-[#341D17]/10 px-3.5 py-2 text-[11px] text-[#341D17]/70 flex items-center gap-2">
+              <FaCircleInfo className="w-3.5 h-3.5 text-[#802924] shrink-0" />
               <span>
                 Role ditetapkan oleh sistem saat registrasi atelier &amp; hanya administrator yang dapat mengubah kualifikasi.
               </span>
@@ -892,9 +906,7 @@ export default function StudentProfileClient({ initialProfile = null }) {
                 placeholder="+62 812-9876-5432"
                 className="w-full rounded-xl border border-[#341D17]/15 bg-[#FAF6F0]/75 px-4 py-2.5 pr-10 text-xs sm:text-sm font-semibold text-[#341D17] focus:border-[#802924] focus:bg-[#FFFDF9] focus:outline-none"
               />
-              <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[#341D17]/45 text-xs">
-                &#128241;
-              </span>
+              <FaMobileScreenButton className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#341D17]/45" />
             </div>
           </div>
 
@@ -913,7 +925,7 @@ export default function StudentProfileClient({ initialProfile = null }) {
               onChange={(e) => setBio(e.target.value)}
               className="w-full rounded-xl border border-[#341D17]/15 bg-[#FAF6F0]/75 px-4 py-3 text-xs sm:text-sm text-[#341D17] leading-relaxed focus:border-[#802924] focus:bg-[#FFFDF9] focus:outline-none resize-none"
             />
-            <div className="text-right text-[11px] text-[#341D17]/55">
+            <div className="text-right text-[11px] text-[#341D17]/60">
               {bio.length} / 200 karakter
             </div>
           </div>
@@ -923,7 +935,7 @@ export default function StudentProfileClient({ initialProfile = null }) {
             disabled={saving}
             className="w-full rounded-xl bg-[#802924] hover:bg-[#661F1B] py-3 px-5 text-xs sm:text-sm font-bold text-[#FFFDF9] flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-60 shadow-2xs"
           >
-            <span>&#128190;</span>
+            <FaFloppyDisk className="w-3.5 h-3.5 shrink-0" />
             <span>
               {saving ? 'Menyimpan Perubahan...' : 'Simpan Perubahan Profil'}
             </span>
@@ -947,20 +959,18 @@ export default function StudentProfileClient({ initialProfile = null }) {
           >
             <div className="flex items-center gap-3 min-w-0">
               <span className="w-9 h-9 rounded-xl bg-[#F9DDBB]/80 text-[#802924] flex items-center justify-center text-sm font-bold shrink-0">
-                &#128273;
+                <FaKey className="w-3.5 h-3.5" />
               </span>
               <div className="min-w-0">
                 <p className="text-xs sm:text-sm font-bold text-[#341D17]">
                   Ganti Kata Sandi
                 </p>
-                <p className="text-[11px] text-[#341D17]/55">
+                <p className="text-[11px] text-[#341D17]/60">
                   Terakhir diperbarui 28 hari yang lalu
                 </p>
               </div>
             </div>
-            <span className="text-[#341D17]/45 text-base shrink-0">
-              &rsaquo;
-            </span>
+            <FaChevronRight className="w-3.5 h-3.5 text-[#341D17]/45 shrink-0" />
           </button>
 
           <button
@@ -970,20 +980,18 @@ export default function StudentProfileClient({ initialProfile = null }) {
           >
             <div className="flex items-center gap-3 min-w-0">
               <span className="w-9 h-9 rounded-xl bg-[#802924]/10 text-[#802924] flex items-center justify-center text-sm font-bold shrink-0">
-                &#8618;
+                <FaRightFromBracket className="w-3.5 h-3.5" />
               </span>
               <div className="min-w-0">
                 <p className="text-xs sm:text-sm font-bold text-[#802924]">
                   Keluar dari Akun (Logout)
                 </p>
-                <p className="text-[11px] text-[#341D17]/55">
+                <p className="text-[11px] text-[#341D17]/60">
                   Akhiri sesi aktif di perangkat ini
                 </p>
               </div>
             </div>
-            <span className="text-[#802924] text-base font-bold shrink-0">
-              &#9211;
-            </span>
+            <FaPowerOff className="w-3.5 h-3.5 text-[#802924] shrink-0" />
           </button>
         </div>
       </section>
@@ -998,9 +1006,10 @@ export default function StudentProfileClient({ initialProfile = null }) {
               <button
                 type="button"
                 onClick={() => setShowPasswordModal(false)}
-                className="text-sm font-bold text-[#341D17]/60 hover:text-[#802924] cursor-pointer"
+                aria-label="Tutup modal ganti kata sandi"
+                className="p-1 text-[#341D17]/60 hover:text-[#802924] cursor-pointer"
               >
-                &times;
+                <FaXmark className="w-4 h-4" />
               </button>
             </div>
 

@@ -3,18 +3,33 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import {
+  FaTableCellsLarge,
+  FaGraduationCap,
+  FaFolderOpen,
+  FaUsers,
+  FaCalendarDays,
+  FaChartColumn,
+  FaGear,
+  FaUser,
+  FaUserTie,
+  FaRightFromBracket,
+  FaEye,
+  FaBars,
+  FaXmark,
+} from 'react-icons/fa6';
 
 const ATELIER_MENU = [
-  { label: 'Dashboard', href: '/dashboard/admin', icon: '⊞' },
-  { label: 'Course Management', href: '/dashboard/admin/courses', icon: '🎓' },
-  { label: 'Category Management', href: '/dashboard/admin/categories', icon: '🗂️' },
-  { label: 'Users Management', href: '/dashboard/admin/users', icon: '👥' },
-  { label: 'Schedule', href: '/dashboard/admin/schedule', icon: '📅' },
-  { label: 'Reports Management', href: '/dashboard/admin/reports', icon: '📊' },
+  { label: 'Dashboard', href: '/dashboard/admin', icon: FaTableCellsLarge },
+  { label: 'Course Management', href: '/dashboard/admin/courses', icon: FaGraduationCap },
+  { label: 'Category Management', href: '/dashboard/admin/categories', icon: FaFolderOpen },
+  { label: 'Users Management', href: '/dashboard/admin/users', icon: FaUsers },
+  { label: 'Schedule', href: '/dashboard/admin/schedule', icon: FaCalendarDays },
+  { label: 'Reports Management', href: '/dashboard/admin/reports', icon: FaChartColumn },
 ];
 
 const SYSTEM_MENU = [
-  { label: 'Settings', href: '/dashboard/admin/settings', icon: '⚙️' },
+  { label: 'Settings', href: '/dashboard/admin/settings', icon: FaGear },
 ];
 
 // 1. SidebarContent dipindah ke luar komponen utama AdminShell
@@ -46,7 +61,7 @@ function SidebarContent({ onClose }) {
               aria-label="Tutup Menu"
               className="lg:hidden w-8 h-8 rounded-lg hover:bg-[#F9DDBB]/60 flex items-center justify-center text-[#341D17] cursor-pointer"
             >
-              ✕
+              <FaXmark className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -54,7 +69,7 @@ function SidebarContent({ onClose }) {
         <div className="bg-[#F9DDBB]/45 border border-[#341D17]/10 rounded-2xl p-3 mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-[#802924] text-[#F9DDBB] flex items-center justify-center text-xs font-bold shrink-0">
-              👤
+              <FaUserTie className="w-3.5 h-3.5" />
             </div>
             <div>
               <p className="text-xs font-extrabold text-[#341D17] leading-tight">Admin Yugyo</p>
@@ -71,6 +86,7 @@ function SidebarContent({ onClose }) {
             </p>
             <nav className="space-y-1">
               {ATELIER_MENU.map((item) => {
+                const IconComponent = item.icon;
                 const isActive =
                   item.href === '/dashboard/admin'
                     ? pathname === '/dashboard/admin'
@@ -87,7 +103,11 @@ function SidebarContent({ onClose }) {
                         : 'text-[#341D17]/80 hover:bg-[#F9DDBB]/55 hover:text-[#341D17]'
                     }`}
                   >
-                    <span className="text-sm">{item.icon}</span>
+                    <IconComponent
+                      className={`w-3.5 h-3.5 shrink-0 ${
+                        isActive ? 'text-[#F9DDBB]' : 'text-[#802924]'
+                      }`}
+                    />
                     <span>{item.label}</span>
                   </Link>
                 );
@@ -101,6 +121,7 @@ function SidebarContent({ onClose }) {
             </p>
             <nav className="space-y-1">
               {SYSTEM_MENU.map((item) => {
+                const IconComponent = item.icon;
                 const isActive = pathname.startsWith(item.href);
                 return (
                   <Link
@@ -113,7 +134,11 @@ function SidebarContent({ onClose }) {
                         : 'text-[#341D17]/80 hover:bg-[#F9DDBB]/55 hover:text-[#341D17]'
                     }`}
                   >
-                    <span className="text-sm">{item.icon}</span>
+                    <IconComponent
+                      className={`w-3.5 h-3.5 shrink-0 ${
+                        isActive ? 'text-[#F9DDBB]' : 'text-[#802924]'
+                      }`}
+                    />
                     <span>{item.label}</span>
                   </Link>
                 );
@@ -128,7 +153,7 @@ function SidebarContent({ onClose }) {
           href="/login"
           className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-extrabold text-[#802924] hover:bg-[#802924]/10 transition"
         >
-          <span>🚪</span>
+          <FaRightFromBracket className="w-3.5 h-3.5 shrink-0" />
           <span>Log Out</span>
         </Link>
       </div>
@@ -169,9 +194,7 @@ export default function AdminShell({ children }) {
               aria-label="Buka Navigasi"
               className="lg:hidden w-9 h-9 rounded-xl bg-[#F9DDBB]/60 hover:bg-[#F9DDBB] border border-[#341D17]/15 flex items-center justify-center text-[#341D17] cursor-pointer transition"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              <FaBars className="w-4 h-4" />
             </button>
 
             <div>
@@ -187,24 +210,16 @@ export default function AdminShell({ children }) {
               href="/courses"
               className="inline-flex items-center gap-1.5 bg-[#F9DDBB] hover:bg-[#f3ce9b] text-[#802924] px-4 py-2 rounded-2xl text-xs font-bold transition shadow-2xs"
             >
-              <span>👁️</span>
+              <FaEye className="w-3.5 h-3.5 shrink-0" />
               <span>Lihat Katalog Guest</span>
             </Link>
 
-            <button
-              type="button"
-              aria-label="Notifikasi"
-              className="relative w-9 h-9 rounded-full bg-[#F9DDBB]/45 hover:bg-[#F9DDBB] flex items-center justify-center text-[#341D17] transition cursor-pointer"
-            >
-              <span>🔔</span>
-              <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-[#802924]" />
-            </button>
-
             <Link
               href="/dashboard/admin/profile"
+              aria-label="Profil Admin"
               className="w-9 h-9 rounded-full bg-[#802924] text-[#F9DDBB] flex items-center justify-center text-xs font-bold shadow-xs"
             >
-              👤
+              <FaUser className="w-3.5 h-3.5" />
             </Link>
           </div>
         </header>

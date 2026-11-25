@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { FaBars } from 'react-icons/fa6';
 
 function getInitials(name) {
   const clean = String(name || 'ST').trim();
@@ -34,6 +35,17 @@ function readStoredStudentName(fallback) {
   return fallback;
 }
 
+function getPageSubtitle(pathname) {
+  if (!pathname || pathname === '/dashboard/student') return 'Dashboard';
+  if (pathname.startsWith('/dashboard/student/catalog')) return 'Course Catalog';
+  if (pathname.startsWith('/dashboard/student/courses')) return 'Course';
+  if (pathname.startsWith('/dashboard/student/schedule')) return 'Schedule';
+  if (pathname.startsWith('/dashboard/student/chats')) return 'Chat Instructor';
+  if (pathname.startsWith('/dashboard/student/reviews')) return 'Ulasan';
+  if (pathname.startsWith('/dashboard/student/profile')) return 'User Profile';
+  return 'Student Baker Atelier';
+}
+
 export default function StudentPortalHeader({
   studentName = 'Student',
   avatarUrl = '',
@@ -51,57 +63,48 @@ export default function StudentPortalHeader({
     return () => window.clearTimeout(id);
   }, [initialName]);
 
-  const isProfilePage = pathname === '/dashboard/student/profile';
-  const subLabel = isProfilePage
-    ? 'STUDENT PORTAL • USER PROFILE'
-    : 'STUDENT BAKER ATELIER';
+  const pageSubtitle = getPageSubtitle(pathname);
 
   return (
-    <header className="sticky top-0 z-30 h-16 bg-[#FFFDF9]/95 backdrop-blur-xs border-b border-[#341D17]/12 px-4 sm:px-6 flex items-center justify-between gap-3 text-[#341D17]">
-      <div className="flex items-center gap-2.5 min-w-0">
+    <header className="sticky top-0 z-30 h-16 bg-[#FFFDF9]/95 backdrop-blur-md border-b border-[#341D17]/10 px-4 sm:px-8 flex items-center justify-between gap-3 text-[#341D17]">
+      <div className="flex items-center gap-3 min-w-0">
         {onToggleSidebar ? (
           <button
             type="button"
             onClick={onToggleSidebar}
             aria-label="Buka atau tutup navigasi"
-            className="lg:hidden w-9 h-9 rounded-xl bg-[#FAF6F0] hover:bg-[#F9DDBB]/65 border border-[#341D17]/12 flex items-center justify-center text-sm font-bold text-[#341D17] transition cursor-pointer shrink-0"
+            className="lg:hidden w-9 h-9 rounded-xl bg-[#F9DDBB]/60 hover:bg-[#F9DDBB] border border-[#341D17]/15 flex items-center justify-center text-sm font-bold text-[#341D17] transition cursor-pointer shrink-0"
           >
-            &#9776;
+            <FaBars className="w-4 h-4" />
           </button>
         ) : null}
 
-        <Link href="/" className="flex items-center gap-2.5 min-w-0 group">
-          <span className="w-8 h-8 rounded-lg bg-[#802924] text-[#FFFDF9] font-editorial font-bold text-sm flex items-center justify-center shrink-0">
+        <Link
+          href="/dashboard/student"
+          className="lg:hidden flex items-center gap-2.5 min-w-0"
+        >
+          <span className="w-8 h-8 rounded-xl bg-[#802924] text-[#F9DDBB] font-editorial font-bold text-sm flex items-center justify-center shrink-0">
             Y
           </span>
-          <div className="min-w-0">
-            <p className="font-editorial text-sm font-bold leading-tight text-[#341D17] group-hover:text-[#802924] transition truncate">
-              Yugyo{' '}
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
-                ATELIER
-              </span>
-            </p>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#341D17]/55 truncate">
-              {subLabel}
-            </p>
-          </div>
         </Link>
+
+        <div className="min-w-0">
+          <h2 className="font-editorial text-base sm:text-lg text-[#341D17] leading-none truncate">
+            YUGYO Student
+          </h2>
+          <p className="text-[11px] text-[#341D17]/65 mt-0.5 truncate">
+            {pageSubtitle}
+          </p>
+        </div>
       </div>
 
       <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-        <span
-          aria-hidden="true"
-          className="hidden sm:inline-flex w-8 h-8 rounded-full bg-[#FAF6F0] border border-[#341D17]/10 items-center justify-center text-xs text-[#802924]"
-        >
-          &#128276;
-        </span>
-
         <Link
           href="/dashboard/student/profile"
           aria-label={`Profil ${displayName}`}
-          className="flex items-center gap-2 rounded-full hover:bg-[#FAF6F0] p-1 pr-2.5 transition cursor-pointer"
+          className="flex items-center gap-2.5 rounded-full hover:bg-[#F9DDBB]/40 p-1 pr-3 transition cursor-pointer"
         >
-          <span className="w-8 h-8 rounded-full bg-[#802924] text-[#FFFDF9] text-xs font-extrabold flex items-center justify-center overflow-hidden shrink-0">
+          <span className="w-9 h-9 rounded-full bg-[#802924] text-[#F9DDBB] text-xs font-extrabold flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
             {avatarUrl ? (
               <img
                 src={avatarUrl}
@@ -113,10 +116,10 @@ export default function StudentPortalHeader({
             )}
           </span>
           <div className="hidden md:block text-left leading-tight">
-            <p className="text-xs font-bold text-[#341D17] truncate max-w-[120px]">
+            <p className="text-xs font-extrabold text-[#341D17] truncate max-w-[140px]">
               {displayName}
             </p>
-            <p className="text-[10px] text-[#341D17]/55 truncate">
+            <p className="text-[10px] text-[#341D17]/65 truncate max-w-[140px]">
               Student Baker Atelier
             </p>
           </div>

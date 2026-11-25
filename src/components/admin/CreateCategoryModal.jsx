@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { FaStar, FaXmark, FaPlus } from 'react-icons/fa6';
 
 export default function CreateCategoryModal({
   teachers = [],
@@ -109,8 +110,9 @@ export default function CreateCategoryModal({
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
-              &#10022; ATELIER TAXONOMY &bull; TAMBAH
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#802924]">
+              <FaStar className="w-2.5 h-2.5 shrink-0" />
+              <span>ATELIER TAXONOMY &bull; TAMBAH</span>
             </span>
             <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#341D17] mt-0.5">
               Buat Kategori Baru
@@ -123,7 +125,7 @@ export default function CreateCategoryModal({
             aria-label="Tutup modal buat kategori"
             className="rounded-full bg-[#802924] hover:bg-[#661F1B] w-7 h-7 flex items-center justify-center text-sm font-bold text-[#FFFDF9] transition cursor-pointer"
           >
-            &times;
+            <FaXmark className="w-3.5 h-3.5" />
           </button>
         </div>
 
@@ -263,9 +265,16 @@ export default function CreateCategoryModal({
           <button
             type="submit"
             disabled={submitting || availableTeachers.length === 0}
-            className="w-full rounded-xl bg-[#802924] hover:bg-[#661F1B] py-3 px-4 text-xs sm:text-sm font-bold text-[#FFFDF9] transition cursor-pointer disabled:opacity-60"
+            className="w-full rounded-xl bg-[#802924] hover:bg-[#661F1B] py-3 px-4 text-xs sm:text-sm font-bold text-[#FFFDF9] transition cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
           >
-            {submitting ? 'Menyimpan...' : '+ Simpan Kategori Baru'}
+            {submitting ? (
+              'Menyimpan...'
+            ) : (
+              <>
+                <FaPlus className="w-3.5 h-3.5 shrink-0" />
+                <span>Simpan Kategori Baru</span>
+              </>
+            )}
           </button>
         </form>
       </div>

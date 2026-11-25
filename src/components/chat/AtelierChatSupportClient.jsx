@@ -3,6 +3,20 @@
 import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import {
+  FaComments,
+  FaChevronRight,
+  FaCheck,
+  FaCheckDouble,
+  FaChartLine,
+  FaBookOpen,
+  FaEllipsisVertical,
+  FaImage,
+  FaPaperclip,
+  FaPaperPlane,
+  FaXmark,
+  FaMagnifyingGlassPlus,
+} from 'react-icons/fa6';
 
 const TABS = [
   { key: 'all', label: 'Semua Diskusi' },
@@ -267,8 +281,8 @@ export default function AtelierChatSupportClient({
     const threadId = selectedThread.id;
     const summaryPreview =
       trimmed ||
-      (attachedImage ? `🖼 Gambar: ${attachedImage.name}` : '') ||
-      (attachedFile ? `📎 File: ${attachedFile.name}` : '');
+      (attachedImage ? `Gambar: ${attachedImage.name}` : '') ||
+      (attachedFile ? `File: ${attachedFile.name}` : '');
 
     setSending(true);
     setErrorMsg('');
@@ -402,7 +416,7 @@ export default function AtelierChatSupportClient({
         <div className="space-y-3 pt-1">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-[#341D17] inline-flex items-center gap-2">
-              <span className="text-[#802924]">💬</span>
+              <FaComments className="w-3.5 h-3.5 text-[#802924] shrink-0" />
               <span>Antrean Konsultasi</span>
             </h2>
             {currentUser?.full_name && !isPendingAccount && (
@@ -476,16 +490,19 @@ export default function AtelierChatSupportClient({
 
                     <div className="flex items-center justify-between gap-2 pt-0.5">
                       {unread > 0 ? (
-                        <span className="rounded-full bg-[#FDECEC] px-2.5 py-0.5 text-[10px] font-bold text-[#B42318]">
-                          • {unread} Pesan Baru
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#FDECEC] px-2.5 py-0.5 text-[10px] font-bold text-[#B42318]">
+                          <FaComments className="w-2.5 h-2.5 shrink-0" />
+                          <span>{unread} Pesan Baru</span>
                         </span>
                       ) : hasAttachment ? (
-                        <span className="rounded-full bg-[#F9DDBB]/70 px-2.5 py-0.5 text-[10px] font-bold text-[#802924]">
-                          🖼 Lampiran Foto
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#F9DDBB]/70 px-2.5 py-0.5 text-[10px] font-bold text-[#802924]">
+                          <FaImage className="w-2.5 h-2.5 shrink-0" />
+                          <span>Lampiran Foto</span>
                         </span>
                       ) : isAnswered ? (
-                        <span className="rounded-full bg-[#ECFDF3] px-2.5 py-0.5 text-[10px] font-bold text-[#027A48]">
-                          ✓ Terjawab
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF3] px-2.5 py-0.5 text-[10px] font-bold text-[#027A48]">
+                          <FaCheck className="w-2.5 h-2.5 shrink-0" />
+                          <span>Terjawab</span>
                         </span>
                       ) : (
                         <span className="rounded-full bg-[#F3ECE4] px-2.5 py-0.5 text-[10px] font-bold text-[#341D17]/75">
@@ -498,7 +515,7 @@ export default function AtelierChatSupportClient({
                           Sedang Aktif
                         </span>
                       ) : (
-                        <span className="text-xs text-[#341D17]/45">&rsaquo;</span>
+                        <FaChevronRight className="w-3 h-3 text-[#341D17]/45 shrink-0" />
                       )}
                     </div>
                   </button>
@@ -551,7 +568,7 @@ export default function AtelierChatSupportClient({
                   )}
                 </div>
                 <p className="text-xs text-[#341D17]/65">
-                  {selectedThread.course_title || 'Kelas Atelier'} • Ditujukan ke{' '}
+                  {selectedThread.course_title || 'Kelas Atelier'} &bull; Ditujukan ke{' '}
                   <strong>{currentUser?.full_name || 'Guru'}</strong>
                 </p>
               </div>
@@ -561,9 +578,9 @@ export default function AtelierChatSupportClient({
               type="button"
               onClick={() => setShowMenuPopover((prev) => !prev)}
               aria-label="Opsi diskusi"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#341D17]/12 bg-[#FAF6F0] hover:bg-[#F9DDBB]/50 text-[#341D17] font-bold cursor-pointer"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#341D17]/12 bg-[#FAF6F0] hover:bg-[#F9DDBB]/50 text-[#341D17] cursor-pointer"
             >
-              &#8942;
+              <FaEllipsisVertical className="w-3.5 h-3.5" />
             </button>
 
             {showMenuPopover && (
@@ -596,7 +613,7 @@ export default function AtelierChatSupportClient({
               }
               className="flex items-center justify-center gap-2 rounded-2xl border border-[#341D17]/15 bg-[#FAF6F0]/70 hover:bg-[#F9DDBB]/45 py-2.5 px-4 text-xs font-bold text-[#341D17] transition"
             >
-              <span>📈</span>
+              <FaChartLine className="w-3.5 h-3.5 text-[#802924] shrink-0" />
               <span>Lihat Progres Siswa</span>
             </Link>
 
@@ -605,7 +622,7 @@ export default function AtelierChatSupportClient({
               onClick={() => setShowNotesPanel((prev) => !prev)}
               className="flex items-center justify-center gap-2 rounded-2xl border border-[#341D17]/15 bg-[#FAF6F0]/70 hover:bg-[#F9DDBB]/45 py-2.5 px-4 text-xs font-bold text-[#341D17] transition cursor-pointer"
             >
-              <span>📝</span>
+              <FaBookOpen className="w-3.5 h-3.5 text-[#802924] shrink-0" />
               <span>Catatan Belajar</span>
             </button>
           </div>
@@ -642,7 +659,7 @@ export default function AtelierChatSupportClient({
           {/* DIVIDER SESI */}
           <div className="flex items-center justify-center py-1">
             <span className="rounded-full bg-[#F3ECE4] px-3.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#341D17]/75">
-              HARI INI • SESI BIMBINGAN ADONAN
+              HARI INI &bull; SESI BIMBINGAN ADONAN
             </span>
           </div>
 
@@ -678,8 +695,9 @@ export default function AtelierChatSupportClient({
                                 className="max-h-56 w-auto object-cover"
                               />
                               {msg.image_caption && (
-                                <p className="px-2.5 py-1 text-[10px] text-[#F9DDBB]">
-                                  🖼 {msg.image_caption}
+                                <p className="px-2.5 py-1 text-[10px] text-[#F9DDBB] inline-flex items-center gap-1.5">
+                                  <FaImage className="w-2.5 h-2.5 shrink-0" />
+                                  <span>{msg.image_caption}</span>
                                 </p>
                               )}
                             </div>
@@ -691,8 +709,9 @@ export default function AtelierChatSupportClient({
                               download={msg.file_name}
                               className="flex items-center justify-between gap-3 rounded-xl border border-[#FFFDF9]/25 bg-black/15 px-3 py-2 text-xs text-[#FFFDF9] hover:bg-black/25 transition"
                             >
-                              <span className="truncate">
-                                📎 <strong>{msg.file_name}</strong>
+                              <span className="truncate inline-flex items-center gap-1.5">
+                                <FaPaperclip className="w-3 h-3 shrink-0" />
+                                <strong className="truncate">{msg.file_name}</strong>
                                 {msg.file_size ? ` (${formatFileSize(msg.file_size)})` : ''}
                               </span>
                               <span className="shrink-0 text-[10px] font-extrabold uppercase underline">
@@ -702,8 +721,9 @@ export default function AtelierChatSupportClient({
                           )}
                         </div>
                       </div>
-                      <div className="flex justify-end text-[10px] text-[#341D17]/55 pr-1">
-                        <span>&#10003;&#10003; Dibaca oleh murid</span>
+                      <div className="flex justify-end items-center gap-1 text-[10px] text-[#341D17]/55 pr-1">
+                        <FaCheckDouble className="w-3 h-3 shrink-0 text-[#82882B]" />
+                        <span>Dibaca oleh murid</span>
                       </div>
                     </div>
                   );
@@ -731,8 +751,9 @@ export default function AtelierChatSupportClient({
                             alt={msg.image_caption || 'Lampiran Foto'}
                             className="max-h-52 w-auto object-cover"
                           />
-                          <span className="absolute bottom-2 left-2 rounded-md bg-black/75 px-2.5 py-1 text-[10px] font-bold text-white">
-                            &#128269; {msg.image_caption || 'Foto Uji Tourage'}
+                          <span className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-md bg-black/75 px-2.5 py-1 text-[10px] font-bold text-white">
+                            <FaMagnifyingGlassPlus className="w-2.5 h-2.5 shrink-0" />
+                            <span>{msg.image_caption || 'Foto Uji Tourage'}</span>
                           </span>
                         </div>
                       )}
@@ -743,8 +764,9 @@ export default function AtelierChatSupportClient({
                           download={msg.file_name}
                           className="flex items-center justify-between gap-3 rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3.5 py-2.5 text-xs text-[#341D17] hover:bg-[#F9DDBB]/35 transition"
                         >
-                          <span className="truncate">
-                            📎 <strong>{msg.file_name}</strong>
+                          <span className="truncate inline-flex items-center gap-1.5">
+                            <FaPaperclip className="w-3 h-3 text-[#802924] shrink-0" />
+                            <strong className="truncate">{msg.file_name}</strong>
                             {msg.file_size ? ` (${formatFileSize(msg.file_size)})` : ''}
                           </span>
                           <span className="shrink-0 text-[10px] font-extrabold uppercase text-[#802924]">
@@ -799,17 +821,18 @@ export default function AtelierChatSupportClient({
                   </div>
                   <button
                     type="button"
+                    aria-label="Hapus lampiran gambar"
                     onClick={() => setAttachedImage(null)}
-                    className="rounded-lg px-2 py-1 text-xs font-bold text-[#802924] hover:bg-[#F9DDBB]/50 cursor-pointer"
+                    className="rounded-lg p-1.5 text-[#802924] hover:bg-[#F9DDBB]/50 cursor-pointer"
                   >
-                    ✕
+                    <FaXmark className="w-3 h-3" />
                   </button>
                 </div>
               )}
 
               {attachedFile && (
                 <div className="flex items-center gap-2.5 rounded-xl border border-[#341D17]/15 bg-[#FFFDF9] px-3 py-2">
-                  <span className="text-sm">📎</span>
+                  <FaPaperclip className="w-3.5 h-3.5 text-[#802924] shrink-0" />
                   <div className="text-xs max-w-[200px]">
                     <p className="font-bold text-[#341D17] truncate">
                       {attachedFile.name}
@@ -820,10 +843,11 @@ export default function AtelierChatSupportClient({
                   </div>
                   <button
                     type="button"
+                    aria-label="Hapus lampiran file"
                     onClick={() => setAttachedFile(null)}
-                    className="rounded-lg px-2 py-1 text-xs font-bold text-[#802924] hover:bg-[#F9DDBB]/50 cursor-pointer"
+                    className="rounded-lg p-1.5 text-[#802924] hover:bg-[#F9DDBB]/50 cursor-pointer"
                   >
-                    ✕
+                    <FaXmark className="w-3 h-3" />
                   </button>
                 </div>
               )}
@@ -870,7 +894,7 @@ export default function AtelierChatSupportClient({
               title="Upload Gambar"
               className="rounded-2xl border border-[#341D17]/20 bg-[#FAF6F0] hover:bg-[#F9DDBB]/55 px-3.5 py-2.5 text-xs font-bold text-[#341D17] transition cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
             >
-              <span>🖼</span>
+              <FaImage className="w-3.5 h-3.5 text-[#802924] shrink-0" />
               <span className="hidden sm:inline">Upload Gambar</span>
             </button>
 
@@ -881,7 +905,7 @@ export default function AtelierChatSupportClient({
               title="Upload File"
               className="rounded-2xl border border-[#341D17]/20 bg-[#FAF6F0] hover:bg-[#F9DDBB]/55 px-3.5 py-2.5 text-xs font-bold text-[#341D17] transition cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
             >
-              <span>📎</span>
+              <FaPaperclip className="w-3.5 h-3.5 text-[#802924] shrink-0" />
               <span className="hidden sm:inline">Upload File</span>
             </button>
 
@@ -896,9 +920,10 @@ export default function AtelierChatSupportClient({
             <button
               type="submit"
               disabled={!canSubmit}
-              className="rounded-2xl bg-[#802924] hover:bg-[#661F1B] px-5 py-2.5 text-xs sm:text-sm font-bold text-[#FFFDF9] cursor-pointer disabled:opacity-50"
+              className="rounded-2xl bg-[#802924] hover:bg-[#661F1B] px-5 py-2.5 text-xs sm:text-sm font-bold text-[#FFFDF9] cursor-pointer disabled:opacity-50 inline-flex items-center gap-2"
             >
-              {sending ? 'Mengirim...' : 'Kirim'}
+              <FaPaperPlane className="w-3.5 h-3.5 shrink-0" />
+              <span>{sending ? 'Mengirim...' : 'Kirim'}</span>
             </button>
           </form>
         </div>

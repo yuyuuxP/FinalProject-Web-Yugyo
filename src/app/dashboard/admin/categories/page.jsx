@@ -1,6 +1,12 @@
 import Link from 'next/link';
 import pool from '@/lib/db';
 import DeleteCategoryButton from '@/components/DeleteCategoryButton';
+import {
+  FaPlus,
+  FaBookOpen,
+  FaCheck,
+  FaFolderOpen,
+} from 'react-icons/fa6';
 
 export const dynamic = 'force-dynamic';
 
@@ -129,7 +135,7 @@ export default async function AdminCategoriesPage({ searchParams }) {
           href="/dashboard/admin/categories/create"
           className="bg-[#802924] hover:bg-[#661F1B] text-[#F9DDBB] font-bold text-xs sm:text-sm py-3 px-5 rounded-2xl shadow-md transition flex items-center justify-center gap-2 shrink-0"
         >
-          <span>+</span>
+          <FaPlus className="w-3.5 h-3.5 shrink-0" />
           <span>Kategori</span>
         </Link>
       </div>
@@ -138,7 +144,7 @@ export default async function AdminCategoriesPage({ searchParams }) {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-[#FFFDF9] border border-[#341D17]/15 rounded-3xl p-5 shadow-2xs">
         <div className="flex items-center gap-4 p-2">
           <div className="w-10 h-10 rounded-xl bg-[#F9DDBB]/50 text-[#802924] flex items-center justify-center font-bold text-sm">
-            📖
+            <FaBookOpen className="w-4 h-4" />
           </div>
           <div>
             <p className="text-[10px] font-extrabold tracking-wider uppercase text-[#341D17]/50">TOTAL</p>
@@ -151,7 +157,7 @@ export default async function AdminCategoriesPage({ searchParams }) {
 
         <div className="flex items-center gap-4 p-2 sm:border-x border-[#341D17]/10">
           <div className="w-10 h-10 rounded-xl bg-[#82882B]/15 text-[#82882B] flex items-center justify-center font-bold text-sm">
-            ✓
+            <FaCheck className="w-4 h-4" />
           </div>
           <div>
             <p className="text-[10px] font-extrabold tracking-wider uppercase text-[#341D17]/50">STATUS</p>
@@ -164,7 +170,7 @@ export default async function AdminCategoriesPage({ searchParams }) {
 
         <div className="flex items-center gap-4 p-2">
           <div className="w-10 h-10 rounded-xl bg-[#802924]/10 text-[#802924] flex items-center justify-center font-bold text-sm">
-            🗂️
+            <FaFolderOpen className="w-4 h-4" />
           </div>
           <div>
             <p className="text-[10px] font-extrabold tracking-wider uppercase text-[#341D17]/50">ATELIER</p>

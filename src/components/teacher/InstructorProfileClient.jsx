@@ -2,6 +2,24 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  FaShieldHalved,
+  FaCheck,
+  FaHourglassHalf,
+  FaCamera,
+  FaEnvelope,
+  FaCloudArrowUp,
+  FaTrash,
+  FaIdCard,
+  FaLock,
+  FaGear,
+  FaGraduationCap,
+  FaPlus,
+  FaXmark,
+  FaBreadSlice,
+  FaFloppyDisk,
+  FaRightFromBracket,
+} from 'react-icons/fa6';
 
 export default function InstructorProfileClient({
   user,
@@ -150,7 +168,7 @@ export default function InstructorProfileClient({
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#802924]">
-              <span>🛡️</span>
+              <FaShieldHalved className="w-3.5 h-3.5 shrink-0" />
               <span>ATELIER STAFF CREDENTIALS</span>
             </div>
             <h1 className="font-editorial text-2xl sm:text-3xl font-bold italic text-[#341D17]">
@@ -174,7 +192,7 @@ export default function InstructorProfileClient({
             >
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
-                  isActiveStatus ? 'bg-emerald-400' : 'bg-amber-500'
+                  isActiveStatus ? 'bg-[#82882B]' : 'bg-amber-500'
                 }`}
               />
               <span>{accountStatus}</span>
@@ -191,7 +209,11 @@ export default function InstructorProfileClient({
           }`}
         >
           <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#802924] text-xs font-bold text-[#F9DDBB]">
-            {isActiveStatus ? '✓' : '⏳'}
+            {isActiveStatus ? (
+              <FaCheck className="w-3.5 h-3.5" />
+            ) : (
+              <FaHourglassHalf className="w-3.5 h-3.5" />
+            )}
           </span>
           <div className="space-y-0.5">
             <div className="flex flex-wrap items-center gap-2">
@@ -211,8 +233,9 @@ export default function InstructorProfileClient({
         </div>
 
         {feedback && (
-          <div className="rounded-2xl border border-[#802924]/30 bg-[#F9DDBB] px-4 py-3 text-xs font-bold text-[#341D17]">
-            {feedback}
+          <div className="rounded-2xl border border-[#802924]/30 bg-[#F9DDBB] px-4 py-3 text-xs font-bold text-[#341D17] flex items-center gap-2">
+            <FaCheck className="w-3.5 h-3.5 text-[#82882B] shrink-0" />
+            <span>{feedback}</span>
           </div>
         )}
         {errorMsg && (
@@ -242,7 +265,7 @@ export default function InstructorProfileClient({
                 className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#802924] text-xs text-[#F9DDBB] shadow-sm hover:bg-[#661F1B] transition cursor-pointer"
                 aria-label="Ganti foto profil"
               >
-                📷
+                <FaCamera className="w-3.5 h-3.5" />
               </button>
             </div>
 
@@ -253,8 +276,9 @@ export default function InstructorProfileClient({
               <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#341D17] truncate">
                 {baseName}
               </h2>
-              <p className="text-xs sm:text-sm text-[#341D17]/75 truncate">
-                ✉️ {baseEmail}
+              <p className="text-xs sm:text-sm text-[#341D17]/75 truncate inline-flex items-center gap-1.5">
+                <FaEnvelope className="w-3.5 h-3.5 text-[#341D17]/60 shrink-0" />
+                <span>{baseEmail}</span>
               </p>
             </div>
           </div>
@@ -273,16 +297,16 @@ export default function InstructorProfileClient({
               onClick={() => fileInputRef.current?.click()}
               className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#802924] hover:underline cursor-pointer"
             >
-              <span>☁️</span>
+              <FaCloudArrowUp className="w-3.5 h-3.5 shrink-0" />
               <span>Ubah Foto Profil</span>
             </button>
 
             <button
               type="button"
               onClick={handleRemovePhoto}
-              className="inline-flex items-center gap-1 text-xs font-bold text-red-700 hover:underline cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-red-700 hover:underline cursor-pointer"
             >
-              <span>🗑️</span>
+              <FaTrash className="w-3 h-3 shrink-0" />
               <span>Hapus</span>
             </button>
           </div>
@@ -292,7 +316,7 @@ export default function InstructorProfileClient({
         <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-4 sm:p-6 shadow-2xs space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-[#802924]">🪪</span>
+              <FaIdCard className="w-4 h-4 text-[#802924] shrink-0" />
               <h2 className="text-sm font-extrabold text-[#341D17]">
                 Data Utama Pengajar
               </h2>
@@ -328,7 +352,7 @@ export default function InstructorProfileClient({
             </div>
             <div className="flex items-center justify-between rounded-xl border border-[#341D17]/10 bg-[#F9E8D6]/55 px-3.5 py-2.5 text-xs sm:text-sm text-[#341D17]/75">
               <span className="truncate">{baseEmail}</span>
-              <span className="text-xs opacity-65">🔒</span>
+              <FaLock className="w-3.5 h-3.5 text-[#341D17]/55 shrink-0" />
             </div>
           </div>
 
@@ -352,12 +376,12 @@ export default function InstructorProfileClient({
         <div className="rounded-3xl border border-[#341D17]/15 bg-[#FFFDF9] p-4 sm:p-6 shadow-2xs space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-[#802924]">⚙️</span>
+              <FaGear className="w-4 h-4 text-[#802924] shrink-0" />
               <h2 className="text-sm font-extrabold text-[#341D17]">
                 Spesialisasi &amp; Sertifikasi
               </h2>
             </div>
-            <span className="text-xs text-[#341D17]/50">🎓</span>
+            <FaGraduationCap className="w-4 h-4 text-[#341D17]/55 shrink-0" />
           </div>
 
           <div className="space-y-2">
@@ -374,10 +398,10 @@ export default function InstructorProfileClient({
                   <button
                     type="button"
                     onClick={() => handleRemoveCategory(spec)}
-                    className="text-[10px] font-extrabold text-[#802924] hover:text-red-700 cursor-pointer"
+                    className="text-[#802924] hover:text-red-700 cursor-pointer"
                     aria-label={`Hapus ${spec}`}
                   >
-                    ✕
+                    <FaXmark className="w-2.5 h-2.5" />
                   </button>
                 </span>
               ))}
@@ -386,9 +410,10 @@ export default function InstructorProfileClient({
                 <button
                   type="button"
                   onClick={() => setAddingCategory(true)}
-                  className="rounded-full border border-dashed border-[#341D17]/30 bg-[#FFFDF9] hover:bg-[#F9DDBB]/40 px-3.5 py-1.5 text-xs font-bold text-[#341D17] transition cursor-pointer"
+                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-[#341D17]/30 bg-[#FFFDF9] hover:bg-[#F9DDBB]/40 px-3.5 py-1.5 text-xs font-bold text-[#341D17] transition cursor-pointer"
                 >
-                  + Tambah Kategori
+                  <FaPlus className="w-2.5 h-2.5 shrink-0" />
+                  <span>Tambah Kategori</span>
                 </button>
               ) : (
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -426,8 +451,9 @@ export default function InstructorProfileClient({
               <label className="block text-xs font-bold text-[#341D17]">
                 Kredensial &amp; Sertifikasi Lisensi
               </label>
-              <span className="text-[11px] font-bold text-[#802924]">
-                ✓ Terverifikasi Atelier
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#802924]">
+                <FaCheck className="w-2.5 h-2.5 shrink-0" />
+                <span>Terverifikasi Atelier</span>
               </span>
             </div>
             <input
@@ -458,7 +484,7 @@ export default function InstructorProfileClient({
 
         <div className="flex items-center gap-3 py-1">
           <div className="h-px flex-1 bg-[#341D17]/15" />
-          <span className="text-xs text-[#802924]/70">🥐</span>
+          <FaBreadSlice className="w-3.5 h-3.5 text-[#802924]/70 shrink-0" />
           <div className="h-px flex-1 bg-[#341D17]/15" />
         </div>
 
@@ -466,17 +492,19 @@ export default function InstructorProfileClient({
           <button
             type="submit"
             disabled={saving}
-            className="w-full rounded-2xl bg-[#802924] hover:bg-[#661F1B] py-3.5 px-5 text-xs sm:text-sm font-extrabold text-[#F9DDBB] shadow-sm transition cursor-pointer disabled:opacity-50"
+            className="w-full rounded-2xl bg-[#802924] hover:bg-[#661F1B] py-3.5 px-5 text-xs sm:text-sm font-extrabold text-[#F9DDBB] shadow-sm transition cursor-pointer disabled:opacity-50 inline-flex items-center justify-center gap-2"
           >
-            {saving ? 'Menyimpan Perubahan...' : '💾 Simpan Perubahan Profil'}
+            <FaFloppyDisk className="w-4 h-4 shrink-0" />
+            <span>{saving ? 'Menyimpan Perubahan...' : 'Simpan Perubahan Profil'}</span>
           </button>
 
           <button
             type="button"
             onClick={handleLogout}
-            className="w-full rounded-2xl border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#F9DDBB]/50 py-3 px-5 text-xs sm:text-sm font-bold text-red-700 transition cursor-pointer"
+            className="w-full rounded-2xl border border-[#341D17]/15 bg-[#FFFDF9] hover:bg-[#F9DDBB]/50 py-3 px-5 text-xs sm:text-sm font-bold text-red-700 transition cursor-pointer inline-flex items-center justify-center gap-2"
           >
-            ↪ Keluar dari Akun (Logout)
+            <FaRightFromBracket className="w-4 h-4 shrink-0" />
+            <span>Keluar dari Akun (Logout)</span>
           </button>
         </div>
       </form>
